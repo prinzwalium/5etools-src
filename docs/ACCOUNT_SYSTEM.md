@@ -58,9 +58,10 @@ window.CharacterSyncAdapter = {
 	// → {id, name} | null   (null means "not signed in")
 	async pWhoAmI () {},
 
-	// → [{id, name, version, updatedAt, isSidekick, isMine, control}]
+	// → [{id, name, version, updatedAt, isSidekick, isMine, control, campaignId}]
 	// `isMine` and `control` only matter for a sidekick shared with a table; an entry that says
-	// nothing is the caller's own, which is what an older service's reply means
+	// nothing is the caller's own, which is what an older service's reply means. `campaignId` is
+	// what a browser that has only just pulled a character knows its table from
 	async pList () {},
 
 	// → {envelope, version}

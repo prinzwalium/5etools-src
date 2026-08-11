@@ -471,6 +471,7 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 						isSidekick: !!e[1].envelope.state.isSidekick,
 						isMine: true,
 						control: e[1].control || "owner",
+						campaignId: e[1].campaignId || null,
 					};
 				}));
 			},

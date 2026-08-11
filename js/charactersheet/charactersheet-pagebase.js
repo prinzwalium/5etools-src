@@ -464,7 +464,7 @@ export class CharacterPageBase {
 		}[row.where];
 
 		// A sidekick the table was handed: theirs to play, and not theirs to give away
-		const shared = row.isMine === false ? `<span class="ve-muted ve-small ve-ml-1">shared with you</span>` : "";
+		const shared = row.isMine === false ? `<span class="ve-muted ve-small ve-ml-1">· shared with you</span>` : "";
 
 		ele.insertAdjacentHTML("beforeend",
 			`<span style="flex: 1; min-width: 0;"><span class="bold">${row.name.qq()}</span>`
@@ -683,7 +683,7 @@ export class CharacterPageBase {
 		}
 
 		wrp.innerHTML = `<div class="bold ve-mb-1">Tables</div>`;
-		wrp.appendChild(this._getCurrentTablePicker(campaigns, wrp));
+		wrp.appendChild(this._getCurrentTablePicker(campaigns, wrp, entry));
 
 		const eleControl = this._getSidekickControlRow(entry, wrp);
 		if (eleControl) wrp.appendChild(eleControl);
@@ -720,8 +720,13 @@ export class CharacterPageBase {
 		return btn;
 	}
 
-	/** Which table the character being edited belongs to — the owner's decision, and only theirs. */
-	_getCurrentTablePicker (campaigns, wrp) {
+	/**
+	 * Which table the character being edited belongs to — the owner's decision, and only theirs.
+	 *
+	 * The server's own answer wins over what this browser remembers doing: a character pulled onto a
+	 * second device was put at its table somewhere else, and the local note knows nothing about it.
+	 */
+	_getCurrentTablePicker (campaigns, wrp, entry) {
 		const id = this._store.currentId;
 		const ele = document.createElement("label");
 		ele.className = "ve-flex-v-center ve-mb-2";
@@ -731,7 +736,7 @@ export class CharacterPageBase {
 		sel.className = "ve-form-control ve-input-xs";
 		sel.style.width = "auto";
 		sel.innerHTML = [`<option value="">(no table)</option>`, ...campaigns.map(c => `<option value="${c.id.qq()}">${c.name.qq()}</option>`)].join("");
-		sel.value = getSyncMeta(this._store, id)?.campaignId || "";
+		sel.value = entry?.campaignId || getSyncMeta(this._store, id)?.campaignId || "";
 
 		if (!getSyncMeta(this._store, id)) {
 			sel.disabled = true;
@@ -776,7 +781,7 @@ export class CharacterPageBase {
 			return ele;
 		}
 
-		if (!getSyncMeta(this._store, this._store.currentId)?.campaignId) {
+		if (!this._getCurrentCampaignId(entry)) {
 			ele.className = "ve-muted ve-small ve-mb-2";
 			ele.textContent = "Put this sidekick at a table to let the players run it.";
 			return ele;
@@ -804,6 +809,11 @@ export class CharacterPageBase {
 		ele.appendChild(label);
 		ele.insertAdjacentHTML("beforeend", `<div class="ve-muted ve-small">Everybody at the table can then run it, on this one copy. You keep it either way.</div>`);
 		return ele;
+	}
+
+	/** What the server says, falling back to what this browser did — see `_getCurrentTablePicker`. */
+	_getCurrentCampaignId (entry) {
+		return entry?.campaignId || getSyncMeta(this._store, this._store.currentId)?.campaignId || null;
 	}
 
 	_getTableRow (campaign, wrp) {
