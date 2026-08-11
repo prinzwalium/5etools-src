@@ -9,6 +9,7 @@
 import {BASE_URL, getState, openPage, setField} from "./util-e2e.mjs";
 
 const SHEET_URL = `${BASE_URL}/charactersheet.html`;
+const SIDEKICK_URL = `${BASE_URL}/sidekick.html`;
 
 export async function run ({browser, check}) {
 	const page = await openPage(browser, {url: SHEET_URL});
@@ -246,6 +247,7 @@ async function runAutoPush ({browser, check}) {
 	await page.close();
 
 	await runTables({browser, check});
+	await runSidekickControl({browser, check});
 	await runHistory({browser, check});
 }
 
@@ -379,12 +381,73 @@ async function runTables ({browser, check}) {
 }
 
 /**
+ * Handing a sidekick to its table.
+ *
+ * The one thing at a table that is not read-only: a GM builds a sidekick, hands it over, and the
+ * players run it. What is driven here is the GM's side of that decision — the offer only appearing
+ * once the sidekick is actually at a table, and the click reaching the service.
+ */
+async function runSidekickControl ({browser, check}) {
+	const page = await openWithStubAdapter(browser, {user: {id: "u1", name: "Gale"}, isStorage: true, url: SIDEKICK_URL});
+
+	await setField(page, "cs-name", "Sir Braun");
+	await page.waitForTimeout(800);
+
+	const openPanel = async () => {
+		await page.click("#cs-sync-badge");
+		await page.waitForTimeout(700);
+		return page.locator(".ve-ui-modal__inner").last();
+	};
+
+	let panel = await openPanel();
+	await panel.locator("button:has-text('Upload')").first().click();
+	await page.waitForTimeout(900);
+
+	panel = page.locator(".ve-ui-modal__inner").last();
+	await panel.locator("button:has-text('New table')").click();
+	await page.waitForTimeout(600);
+	const prompt = page.locator(".ve-ui-modal__inner").last();
+	await prompt.locator("input").first().fill("Curse of Strahd");
+	await prompt.locator("button:has-text('OK')").first().click();
+	await page.waitForTimeout(900);
+
+	panel = page.locator(".ve-ui-modal__inner").last();
+	check("a sidekick with no table is told to find one first",
+		(await panel.innerText()).includes("Put this sidekick at a table"), (await panel.innerText()).slice(0, 300));
+
+	await panel.locator("select").first().selectOption({label: "Curse of Strahd"});
+	await page.waitForTimeout(900);
+
+	panel = page.locator(".ve-ui-modal__inner").last();
+	const offer = panel.locator("label:has-text('Let the table play this sidekick')");
+	check("once it is at a table, it can be handed to it", await offer.count() === 1, (await panel.innerText()).slice(0, 400));
+	check("and it starts as the GM's alone", !(await offer.locator("input[type=checkbox]").isChecked()));
+
+	await offer.locator("input[type=checkbox]").check();
+	await page.waitForTimeout(900);
+	check("checking it tells the service", (await page.evaluate(() => Object.values(window.__stubStore.characters)[0].control)) === "campaign");
+
+	panel = page.locator(".ve-ui-modal__inner").last();
+	check("and the panel comes back showing it shared",
+		await panel.locator("label:has-text('Let the table play this sidekick') input:checked").count() === 1);
+
+	// Being handed to one table is not consent to be handed to the next
+	await panel.locator("select").first().selectOption({label: "(no table)"});
+	await page.waitForTimeout(900);
+	check("taking it off a table stops it being shared",
+		(await page.evaluate(() => Object.values(window.__stubStore.characters)[0].control)) === "owner");
+
+	check("no page errors (sidekick control)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
+	await page.close();
+}
+
+/**
  * A page with a stand-in account system on `/online/client.js`.
  *
  * Serving the script rather than injecting the adapter directly is the point: it exercises the same
  * path a real deployment takes, including the fork refusing to look anywhere else.
  */
-async function openWithStubAdapter (browser, {user = null, failWith = null, isStorage = false} = {}) {
+async function openWithStubAdapter (browser, {user = null, failWith = null, isStorage = false, url = SHEET_URL} = {}) {
 	const page = await browser.newPage();
 	const errors = [];
 	page.on("pageerror", e => errors.push(e.message));
@@ -401,7 +464,14 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 			pWhoAmI: function () { return ${whoAmI}; },
 			pList: function () {
 				return Promise.resolve(Object.entries(window.__stubStore.characters).map(function (e) {
-					return {id: e[0], name: e[1].envelope.state.name || "Unnamed Character", version: e[1].version};
+					return {
+						id: e[0],
+						name: e[1].envelope.state.name || "Unnamed Character",
+						version: e[1].version,
+						isSidekick: !!e[1].envelope.state.isSidekick,
+						isMine: true,
+						control: e[1].control || "owner",
+					};
 				}));
 			},
 			pLoad: function (id) {
@@ -437,7 +507,7 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 				var next = cur ? cur.version + 1 : 1;
 				var history = (cur && cur.history) || [];
 				history.push({version: next, createdAt: Date.now(), envelope: envelope});
-				window.__stubStore.characters[id] = {envelope: envelope, version: next, history: history, campaignId: cur && cur.campaignId};
+				window.__stubStore.characters[id] = {envelope: envelope, version: next, history: history, campaignId: cur && cur.campaignId, control: (cur && cur.control) || "owner"};
 				return Promise.resolve({version: next});
 			},
 			pDelete: function (id) { delete window.__stubStore.characters[id]; return Promise.resolve(); },
@@ -462,7 +532,12 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 			},
 			pSetCharacterCampaign: function (id, campaignId) {
 				window.__stubStore.characters[id].campaignId = campaignId;
+				window.__stubStore.characters[id].control = "owner";
 				return Promise.resolve();
+			},
+			pSetCharacterControl: function (id, control) {
+				window.__stubStore.characters[id].control = control;
+				return Promise.resolve(control);
 			},
 			getLoginUrl: function () { return "/online/login"; },
 			getLogoutUrl: function () { return "/online/logout"; },
@@ -484,7 +559,7 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 		body: isStorage ? storage : readOnly,
 	}));
 
-	await page.goto(SHEET_URL, {waitUntil: "load"});
+	await page.goto(url, {waitUntil: "load"});
 	await page.waitForTimeout(2500);
 	return page;
 }

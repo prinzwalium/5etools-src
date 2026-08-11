@@ -58,7 +58,9 @@ window.CharacterSyncAdapter = {
 	// → {id, name} | null   (null means "not signed in")
 	async pWhoAmI () {},
 
-	// → [{id, name, version, updatedAt}]
+	// → [{id, name, version, updatedAt, isSidekick, isMine, control}]
+	// `isMine` and `control` only matter for a sidekick shared with a table; an entry that says
+	// nothing is the caller's own, which is what an older service's reply means
 	async pList () {},
 
 	// → {envelope, version}
@@ -165,8 +167,9 @@ uses. A restore is then a decision made after looking rather than a guess at a d
 history and itself undoable. The browser pulls straight afterwards, because the point of restoring
 is to be looking at the restored character.
 
-Only the owner and an admin can see a history — not a GM, not the rest of the table, whatever party
-visibility says.
+Only whoever may *write* the character can see its history — its owner, or the table a sidekick was
+handed to — and an admin. Not a GM of a player's character, not the rest of the table, whatever
+party visibility says.
 
 ## Tables
 
@@ -177,6 +180,22 @@ which table a character sits at is an account-system fact, not part of the chara
 disabled until the character has been uploaded, since there is nothing to place otherwise.
 
 *Characters* on a table lists the party; opening one shows a **read-only card**.
+
+### A sidekick the table can play
+
+A sidekick is the one thing at a table that is not read-only. A GM builds one and the players
+usually command it, the GM taking it over for narrative moments — so when the current character is a
+**sidekick that sits at a table**, the Tables section offers *Let the table play this sidekick*.
+Checked, every member of that table gets it in their own character list and writes the same copy;
+there is one of it, not a copy each. It stays the GM's: they can take it back, and only they can
+delete it or move it. Moving it to another table resets it, because being handed to one table is not
+consent to be handed to the next.
+
+A sidekick somebody else shared shows as *shared with you* in the character list, with no share link
+offered — it is theirs to play, not theirs to publish.
+
+The whole offer appears only when the adapter implements `pSetCharacterControl`; a service with
+tables but not this is an ordinary older deployment.
 
 That card is read-only *by construction*, not by a flag. `charactersheet-summary.js` takes a plain
 state, computes with the same pure modules the sheet uses, and returns values — no model, no store,

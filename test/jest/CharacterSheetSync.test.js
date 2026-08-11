@@ -12,6 +12,7 @@ import {
 	getKeptBothName,
 	getSyncMeta,
 	getUnsyncedRows,
+	hasSidekickControlSupport,
 	planSync,
 	setSyncMeta,
 	isAdapterValid,
@@ -196,6 +197,17 @@ describe("Character Sheet — the account-system seam", () => {
 		it("Should let an adapter with the methods still switch tables off", () => {
 			expect(getSyncCapabilities(withCampaigns({getCapabilities: () => ({campaigns: false})})).campaigns).toBe(false);
 		});
+
+		// One method, and its own capability: a service with tables but not this is an ordinary
+		// older deployment, and the page should offer what is there
+		it("Should report handing a sidekick over on its own", () => {
+			expect(hasSidekickControlSupport(withCampaigns())).toBe(false);
+			expect(getSyncCapabilities(withCampaigns()).sidekickControl).toBe(false);
+
+			const withControl = withCampaigns({pSetCharacterControl: () => {}});
+			expect(hasSidekickControlSupport(withControl)).toBe(true);
+			expect(getSyncCapabilities(withControl).sidekickControl).toBe(true);
+		});
 	});
 
 	describe("getSyncStatus", () => {
@@ -290,6 +302,35 @@ describe("Character Sheet — the account-system seam", () => {
 				fnLabel: label,
 			});
 			expect(getUnsyncedRows(rows).map(it => it.id)).toEqual(["a"]);
+		});
+
+		// A sidekick handed to a table is listed for everybody at it, and the page must be able to say
+		// so: it is theirs to play, not theirs to give away
+		it("Should mark what belongs to somebody else, and assume anything unsaid is mine", () => {
+			const rows = planSync({
+				localCharacters: {a: {state: {name: "Ada"}}},
+				remote: [
+					{id: "a", name: "Ada", version: 1},
+					{id: "s", name: "Sir Braun", version: 2, isSidekick: true, isMine: false},
+					{id: "o", name: "Old Server", version: 1},
+				],
+				fnLabel: label,
+			});
+
+			expect(rows.find(it => it.id === "s").isMine).toBe(false);
+			expect(rows.find(it => it.id === "a").isMine).toBe(true);
+			expect(rows.find(it => it.id === "o").isMine).toBe(true);
+		});
+
+		// A local copy of a sidekick that has since been shared must pick that up on the next listing
+		it("Should take the server's word for it on a character that is on both sides", () => {
+			const rows = planSync({
+				localCharacters: {s: {state: {name: "Sir Braun", isSidekick: true}}},
+				remote: [{id: "s", name: "Sir Braun", version: 2, isSidekick: true, isMine: false}],
+				fnLabel: label,
+			});
+			expect(rows[0].where).toBe("both");
+			expect(rows[0].isMine).toBe(false);
 		});
 
 		it("Should carry the sidekick flag, so each page can list its own kind", () => {

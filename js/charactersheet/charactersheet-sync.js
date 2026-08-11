@@ -24,7 +24,7 @@
  * ```js
  * window.CharacterSyncAdapter = {
  *   pWhoAmI (),                          // → {id, name} | null   (null = not signed in)
- *   pList   (),                          // → [{id, name, version, updatedAt}]
+ *   pList   (),                          // → [{id, name, version, updatedAt, isSidekick, isMine}]
  *   pLoad   (id),                        // → {envelope, version}
  *   pSave   (id, envelope, {version}),   // → {version}            (throws SyncConflictError on 409)
  *   pDelete (id),                        // → void
@@ -40,6 +40,10 @@
  *   pCreateInvite (campaignId, opts),    // → {code, role, maxUses, expiresAt}
  *   pListCampaignCharacters (campaignId),// → [{id, name, ownerName, isMine, ...}]
  *   pSetCharacterCampaign (id, campaignId), // → void   (null to take it off a table)
+ *
+ *   // Handing a sidekick to its table, so everybody at it can run the same one. Optional on its
+ *   // own: a service with tables but not this is an ordinary older deployment.
+ *   pSetCharacterControl (id, control),  // → "owner" | "campaign"
  *
  *   // History — optional as a set, same reasoning
  *   pListVersions (id),                  // → {versions: [{version, createdAt}], current}
@@ -143,6 +147,15 @@ const _ADAPTER_CAMPAIGN_METHODS = [
 export const hasCampaignSupport = adapter =>
 	!!adapter && _ADAPTER_CAMPAIGN_METHODS.every(fn => typeof adapter[fn] === "function");
 
+/**
+ * Handing a sidekick to its table.
+ *
+ * Its own capability rather than part of the campaign set, because it arrived later: an adapter
+ * that does tables but not this is a perfectly ordinary older deployment, and the page should offer
+ * what is there rather than break.
+ */
+export const hasSidekickControlSupport = adapter => typeof adapter?.pSetCharacterControl === "function";
+
 /** Sharing: a link somebody can be sent, and the means to take it back. Both, or neither. */
 const _ADAPTER_SHARE_METHODS = ["pGetShare", "pCreateShare", "pRevokeShare"];
 
@@ -194,6 +207,7 @@ export function getSyncCapabilities (adapter) {
 		campaigns: hasCampaignSupport(adapter) && declared?.campaigns !== false,
 		history: hasHistorySupport(adapter) && declared?.history !== false,
 		sharing: hasShareSupport(adapter) && declared?.sharing !== false,
+		sidekickControl: hasSidekickControlSupport(adapter) && declared?.sidekickControl !== false,
 	};
 }
 
@@ -343,14 +357,21 @@ export function planSync ({localCharacters = {}, remote = [], syncMeta = {}, fnL
 			localVersion: syncMeta?.[id]?.version ?? null,
 			remoteVersion: null,
 			isSidekick: !!(envelope?.state?.isSidekick),
+			// Anything this browser made is its own until the server says otherwise
+			isMine: true,
 		});
 	});
 
 	(remote || []).forEach(entry => {
+		// A sidekick somebody handed to a table is listed for everybody at it: theirs to play, and
+		// not theirs to give away or to publish. An older server says nothing, and nothing means mine
+		const isMine = entry.isMine !== false;
+
 		const row = byId.get(entry.id);
 		if (row) {
 			row.where = "both";
 			row.remoteVersion = entry.version;
+			row.isMine = isMine;
 			// The server's label wins for a character that is only online; locally the store's is fresher
 			return;
 		}
@@ -361,6 +382,7 @@ export function planSync ({localCharacters = {}, remote = [], syncMeta = {}, fnL
 			localVersion: null,
 			remoteVersion: entry.version,
 			isSidekick: !!entry.isSidekick,
+			isMine,
 		});
 	});
 

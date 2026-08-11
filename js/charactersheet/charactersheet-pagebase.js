@@ -15,7 +15,7 @@ import {getBreakdownCitation, getPartCitations, isSameCitation, resolveCitation}
 import {EV_DAMAGE, EV_DEATH_SAVE, EV_DOWN, EV_HEAL, EV_LEVEL} from "./charactersheet-journal.js";
 import {PORTRAIT_MIME, PORTRAIT_QUALITY, getPortraitTargetSize, isPortraitTooLarge} from "./charactersheet-portrait.js";
 import {getCharacterSummary, getSummaryLines} from "./charactersheet-summary.js";
-import {deleteSyncMeta, getKeptBothName, getMissingAdapterMethods, getSyncBasePath, getSyncCapabilities, getSyncClientUrl, getSyncMeta, getSyncStatus, getUnsyncedRows, isAdapterValid, isSameOrigin, isSyncConflict, planSync, setSyncMeta} from "./charactersheet-sync.js";
+import {deleteSyncMeta, getKeptBothName, getMissingAdapterMethods, getSyncBasePath, getSyncCapabilities, getSyncClientUrl, getSyncMeta, getSyncStatus, getUnsyncedRows, hasSidekickControlSupport, isAdapterValid, isSameOrigin, isSyncConflict, planSync, setSyncMeta} from "./charactersheet-sync.js";
 
 /**
  * Shared foundation for the two character pages (the play-focused sheet and the build-focused
@@ -463,9 +463,12 @@ export class CharacterPageBase {
 			online: {text: "online only", tone: "ve-muted"},
 		}[row.where];
 
+		// A sidekick the table was handed: theirs to play, and not theirs to give away
+		const shared = row.isMine === false ? `<span class="ve-muted ve-small ve-ml-1">shared with you</span>` : "";
+
 		ele.insertAdjacentHTML("beforeend",
 			`<span style="flex: 1; min-width: 0;"><span class="bold">${row.name.qq()}</span>`
-			+ `<span class="${WHERE.tone} ve-small ve-ml-1">${WHERE.text}</span></span>`);
+			+ `<span class="${WHERE.tone} ve-small ve-ml-1">${WHERE.text}</span>${shared}</span>`);
 
 		const addBtn = (text, title, fn) => {
 			const btn = document.createElement("button");
@@ -485,7 +488,7 @@ export class CharacterPageBase {
 		if (row.where === "both" && getSyncCapabilities(this._syncAdapter).history) {
 			addBtn("History", "Earlier saved versions of this character", () => this._pShowHistory(row.id, row.name));
 		}
-		if (row.where === "both" && getSyncCapabilities(this._syncAdapter).sharing) {
+		if (row.where === "both" && row.isMine !== false && getSyncCapabilities(this._syncAdapter).sharing) {
 			addBtn("Share", "A read-only link you can send to a DM", () => this._pShowShare(row.id, row.name));
 		}
 
@@ -670,8 +673,20 @@ export class CharacterPageBase {
 			return;
 		}
 
+		// The server's own view of this character — who owns it, and whether its table may play it.
+		// Asked for fresh rather than remembered locally, because somebody else may have changed it
+		let entry = null;
+		try {
+			entry = (await this._syncAdapter.pList()).find(it => it.id === this._store.currentId) || null;
+		} catch (e) {
+			entry = null;
+		}
+
 		wrp.innerHTML = `<div class="bold ve-mb-1">Tables</div>`;
 		wrp.appendChild(this._getCurrentTablePicker(campaigns, wrp));
+
+		const eleControl = this._getSidekickControlRow(entry, wrp);
+		if (eleControl) wrp.appendChild(eleControl);
 
 		campaigns.forEach(campaign => wrp.appendChild(this._getTableRow(campaign, wrp)));
 		if (!campaigns.length) wrp.insertAdjacentHTML("beforeend", `<div class="ve-muted ve-small ve-mb-1">You are not at any table yet.</div>`);
@@ -735,6 +750,59 @@ export class CharacterPageBase {
 		});
 
 		ele.appendChild(sel);
+		return ele;
+	}
+
+	/**
+	 * Handing a sidekick to its table, which is the one thing at a table that is not read-only.
+	 *
+	 * A GM builds a sidekick and the players usually command it, the GM taking it over only for
+	 * narrative moments — so a shared sidekick is one record everybody at the table writes, rather
+	 * than a copy each. Only for a sidekick, only once it is at a table, and only for whoever owns
+	 * it: for everybody else this is a line saying where it came from.
+	 *
+	 * @return {HTMLElement|null} null when there is nothing to say, which is the usual case.
+	 */
+	_getSidekickControlRow (entry, wrp) {
+		if (!entry?.isSidekick || !hasSidekickControlSupport(this._syncAdapter)) return null;
+
+		const ele = document.createElement("div");
+		ele.className = "ve-mb-2";
+
+		// Somebody else's, handed to a table we are at: it is ours to play and not ours to give away
+		if (entry.isMine === false) {
+			ele.className = "ve-muted ve-small ve-mb-2";
+			ele.textContent = "Shared with you by this table — anything you record here is what everybody sees.";
+			return ele;
+		}
+
+		if (!getSyncMeta(this._store, this._store.currentId)?.campaignId) {
+			ele.className = "ve-muted ve-small ve-mb-2";
+			ele.textContent = "Put this sidekick at a table to let the players run it.";
+			return ele;
+		}
+
+		const label = document.createElement("label");
+		label.className = "ve-flex-v-center";
+
+		const cb = document.createElement("input");
+		cb.type = "checkbox";
+		cb.className = "ve-mr-1";
+		cb.checked = entry.control === "campaign";
+
+		cb.addEventListener("change", async () => {
+			try {
+				await this._syncAdapter.pSetCharacterControl(this._store.currentId, cb.checked ? "campaign" : "owner");
+			} catch (e) {
+				JqueryUtil.doToast({type: "danger", content: `Could not change who may play this: ${e?.message || e}`});
+			}
+			this._pRenderTables(wrp);
+		});
+
+		label.appendChild(cb);
+		label.insertAdjacentHTML("beforeend", `<span>Let the table play this sidekick</span>`);
+		ele.appendChild(label);
+		ele.insertAdjacentHTML("beforeend", `<div class="ve-muted ve-small">Everybody at the table can then run it, on this one copy. You keep it either way.</div>`);
 		return ele;
 	}
 
