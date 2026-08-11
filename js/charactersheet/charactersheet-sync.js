@@ -45,6 +45,11 @@
  *   pListVersions (id),                  // → {versions: [{version, createdAt}], current}
  *   pLoadVersion (id, version),          // → {envelope, version, createdAt}
  *   pRestoreVersion (id, version),       // → {version}   (writes forward; never rewinds)
+ *
+ *   // Sharing — optional as a set
+ *   pGetShare (id),                      // → {share: {token, url, expiresAt}|null}
+ *   pCreateShare (id, {expiresInHours}), // → {share}      (replaces any existing link)
+ *   pRevokeShare (id),                   // → void
  * }
  * ```
  *
@@ -138,6 +143,12 @@ const _ADAPTER_CAMPAIGN_METHODS = [
 export const hasCampaignSupport = adapter =>
 	!!adapter && _ADAPTER_CAMPAIGN_METHODS.every(fn => typeof adapter[fn] === "function");
 
+/** Sharing: a link somebody can be sent, and the means to take it back. Both, or neither. */
+const _ADAPTER_SHARE_METHODS = ["pGetShare", "pCreateShare", "pRevokeShare"];
+
+export const hasShareSupport = adapter =>
+	!!adapter && _ADAPTER_SHARE_METHODS.every(fn => typeof adapter[fn] === "function");
+
 /** History, likewise all-or-nothing: listing versions with no way to restore one is a tease. */
 const _ADAPTER_HISTORY_METHODS = ["pListVersions", "pLoadVersion", "pRestoreVersion"];
 
@@ -182,6 +193,7 @@ export function getSyncCapabilities (adapter) {
 		// `campaigns: true` without the methods would give the pages a table nobody could join
 		campaigns: hasCampaignSupport(adapter) && declared?.campaigns !== false,
 		history: hasHistorySupport(adapter) && declared?.history !== false,
+		sharing: hasShareSupport(adapter) && declared?.sharing !== false,
 	};
 }
 

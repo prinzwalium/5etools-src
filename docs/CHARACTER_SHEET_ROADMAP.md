@@ -83,7 +83,11 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
       to 400px on its longest edge and re-encoded as JPEG before it is stored, and one over half a
       megabyte is refused — every character in the store shares one `localStorage` quota, so an
       untouched phone photo would break saving for all of them, not just the one it was added to.
-- [ ] **Sharing a character** with a DM — a link or an export they can open read-only.
+- [x] **Sharing a character** with a DM — a read-only link, from the *Share* button on any character
+      that is online. Whoever follows it needs no account and is never asked for one, and the link
+      can be taken back: one live link per character, revocable, optionally expiring. The session
+      journal is not part of what is shared. Served by the account system; with none deployed there
+      is no Share button, like everything else on that seam.
 - [x] **Homebrew.** Not what this said it was. `charactersheet-classdata.js` had *always* asked the
       `DataLoader` for brew alongside site content, and `SearchWidget` already indexes brew for the
       species/background/item pickers — but none of it can return anything until `BrewUtil2.pInit()`

@@ -485,8 +485,75 @@ export class CharacterPageBase {
 		if (row.where === "both" && getSyncCapabilities(this._syncAdapter).history) {
 			addBtn("History", "Earlier saved versions of this character", () => this._pShowHistory(row.id, row.name));
 		}
+		if (row.where === "both" && getSyncCapabilities(this._syncAdapter).sharing) {
+			addBtn("Share", "A read-only link you can send to a DM", () => this._pShowShare(row.id, row.name));
+		}
 
 		return ele;
+	}
+
+	/* -------------------------------------------- Sharing -------------------------------------------- */
+
+	/**
+	 * A read-only link to this character, for somebody who is not at the table.
+	 *
+	 * The campaign rules already cover a GM you play with; this is the other case — a person with no
+	 * account, or one you simply want to send a sheet to. It is the owner's to hand out and the
+	 * owner's to take back, which is the difference between a share and a copy, so revoking is given
+	 * the same weight as creating.
+	 */
+	async _pShowShare (id, name) {
+		const {eleModalInner} = UiUtil.getShowModal({title: `Share — ${name}`, isMinHeight0: true});
+		const render = async () => {
+			eleModalInner.innerHTML = `<div class="ve-muted ve-small">Loading…</div>`;
+
+			let share;
+			try {
+				({share} = await this._syncAdapter.pGetShare(id));
+			} catch (e) {
+				eleModalInner.innerHTML = `<div class="ve-muted ve-small">Could not check for a link: ${(e?.message || String(e)).qq()}</div>`;
+				return;
+			}
+
+			eleModalInner.innerHTML = share
+				? `<div class="ve-mb-2">Anybody with this link can read <b>${name.qq()}</b>. They cannot change it, and they do not need an account.</div>
+					<input type="text" class="ve-form-control ve-mb-2" readonly value="${share.url.qq()}" aria-label="Share link">
+					${share.expiresAt ? `<div class="ve-muted ve-small ve-mb-2">Expires ${new Date(share.expiresAt).toLocaleString().qq()}.</div>` : ""}`
+				: `<div class="ve-mb-2">This character is not shared. Creating a link lets anybody who has it read the sheet — without an account, and without seeing your session journal.</div>`;
+
+			const wrpBtns = document.createElement("div");
+			wrpBtns.className = "ve-flex";
+			eleModalInner.appendChild(wrpBtns);
+
+			const addBtn = (text, cls, pFn) => {
+				const btn = document.createElement("button");
+				btn.className = `ve-btn ${cls} ve-btn-xs ve-mr-1`;
+				btn.type = "button";
+				btn.textContent = text;
+				btn.addEventListener("click", async () => {
+					try {
+						await pFn();
+					} catch (e) {
+						JqueryUtil.doToast({type: "danger", content: `${e?.message || e}`});
+					}
+					render();
+				});
+				wrpBtns.appendChild(btn);
+			};
+
+			if (share) {
+				addBtn("Copy", "ve-btn-primary", async () => {
+					await navigator.clipboard?.writeText(share.url);
+					JqueryUtil.doToast({type: "success", content: "Link copied."});
+				});
+				// Taking it back is as prominent as handing it out, on purpose
+				addBtn("Stop sharing", "ve-btn-danger", () => this._syncAdapter.pRevokeShare(id));
+			} else {
+				addBtn("Create a link", "ve-btn-primary", () => this._syncAdapter.pCreateShare(id, {}));
+			}
+		};
+
+		render();
 	}
 
 	/* -------------------------------------------- History -------------------------------------------- */
