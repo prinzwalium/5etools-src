@@ -248,6 +248,7 @@ async function runAutoPush ({browser, check}) {
 
 	await runTables({browser, check});
 	await runSidekickControl({browser, check});
+	await runGmWrite({browser, check});
 	await runHistory({browser, check});
 }
 
@@ -442,6 +443,68 @@ async function runSidekickControl ({browser, check}) {
 }
 
 /**
+ * Lending a character to the table's DM.
+ *
+ * The switch is the player's, which is the half that matters here: the GM's side lives in the
+ * account system's own screen, but a loan nobody can end is not a loan.
+ */
+async function runGmWrite ({browser, check}) {
+	const page = await openWithStubAdapter(browser, {user: {id: "u1", name: "Pip"}, isStorage: true});
+
+	await setField(page, "cs-name", "Pip's Rogue");
+	await page.waitForTimeout(800);
+
+	const openPanel = async () => {
+		await page.click("#cs-sync-badge");
+		await page.waitForTimeout(700);
+		return page.locator(".ve-ui-modal__inner").last();
+	};
+
+	let panel = await openPanel();
+	await panel.locator("button:has-text('Upload')").first().click();
+	await page.waitForTimeout(900);
+
+	panel = page.locator(".ve-ui-modal__inner").last();
+	check("a character at no table is not offered to a DM",
+		await panel.locator("label:has-text('DM edit this character')").count() === 0);
+
+	await panel.locator("button:has-text('New table')").click();
+	await page.waitForTimeout(600);
+	const prompt = page.locator(".ve-ui-modal__inner").last();
+	await prompt.locator("input").first().fill("Curse of Strahd");
+	await prompt.locator("button:has-text('OK')").first().click();
+	await page.waitForTimeout(900);
+
+	panel = page.locator(".ve-ui-modal__inner").last();
+	await panel.locator("select").first().selectOption({label: "Curse of Strahd"});
+	await page.waitForTimeout(900);
+
+	panel = page.locator(".ve-ui-modal__inner").last();
+	const offer = panel.locator("label:has-text('DM edit this character')");
+	check("once it is at a table, the DM can be let in", await offer.count() === 1, (await panel.innerText()).slice(0, 400));
+	check("and starts shut", !(await offer.locator("input[type=checkbox]").isChecked()));
+
+	await offer.locator("input[type=checkbox]").check();
+	await page.waitForTimeout(900);
+	check("switching it on tells the service",
+		(await page.evaluate(() => Object.values(window.__stubStore.characters)[0].isGmWrite)) === true);
+
+	panel = page.locator(".ve-ui-modal__inner").last();
+	check("and the panel comes back showing the loan",
+		await panel.locator("label:has-text('DM edit this character') input:checked").count() === 1);
+
+	// The trail is what makes the loan bearable, and it belongs where the player already looks
+	await panel.locator("button:has-text('History')").first().click();
+	await page.waitForTimeout(900);
+	const history = page.locator(".ve-ui-modal__inner").last();
+	check("somebody else's save is named in the history", (await history.innerText()).includes("saved by Gale"),
+		(await history.innerText()).slice(0, 300));
+
+	check("no page errors (gm write)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
+	await page.close();
+}
+
+/**
  * A page with a stand-in account system on `/online/client.js`.
  *
  * Serving the script rather than injecting the adapter directly is the point: it exercises the same
@@ -471,6 +534,7 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 						isSidekick: !!e[1].envelope.state.isSidekick,
 						isMine: true,
 						control: e[1].control || "owner",
+						isGmWrite: !!e[1].isGmWrite,
 						campaignId: e[1].campaignId || null,
 					};
 				}));
@@ -481,7 +545,13 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 			},
 			pListVersions: function (id) {
 				var e = window.__stubStore.characters[id];
-				return Promise.resolve({versions: e.history.slice().reverse(), current: e.version});
+				return Promise.resolve({
+					versions: e.history.slice().reverse().map(function (v, ix) {
+						// The newest is attributed, so the panel's "saved by" path is exercised
+						return Object.assign({}, v, {by: ix === 0 ? "Gale" : null});
+					}),
+					current: e.version,
+				});
 			},
 			pLoadVersion: function (id, version) {
 				var found = window.__stubStore.characters[id].history.filter(function (v) { return v.version === version; })[0];
@@ -539,6 +609,10 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 			pSetCharacterControl: function (id, control) {
 				window.__stubStore.characters[id].control = control;
 				return Promise.resolve(control);
+			},
+			pSetCharacterGmWrite: function (id, isAllowed) {
+				window.__stubStore.characters[id].isGmWrite = !!isAllowed;
+				return Promise.resolve(!!isAllowed);
 			},
 			getLoginUrl: function () { return "/online/login"; },
 			getLogoutUrl: function () { return "/online/logout"; },

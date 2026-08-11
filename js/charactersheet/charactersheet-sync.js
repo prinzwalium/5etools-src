@@ -45,6 +45,10 @@
  *   // own: a service with tables but not this is an ordinary older deployment.
  *   pSetCharacterControl (id, control),  // → "owner" | "campaign"
  *
+ *   // Lending a character to the GMs of its table, so they can hand out loot and fix mistakes.
+ *   // Optional on its own; off by default; either end may set it and either end may end it.
+ *   pSetCharacterGmWrite (id, isAllowed), // → boolean
+ *
  *   // History — optional as a set, same reasoning
  *   pListVersions (id),                  // → {versions: [{version, createdAt}], current}
  *   pLoadVersion (id, version),          // → {envelope, version, createdAt}
@@ -156,6 +160,14 @@ export const hasCampaignSupport = adapter =>
  */
 export const hasSidekickControlSupport = adapter => typeof adapter?.pSetCharacterControl === "function";
 
+/**
+ * Lending a character to the GMs of its table.
+ *
+ * Its own capability for the same reason as the one above: an older service does tables without it,
+ * and the page should offer what is there rather than a switch that answers 404.
+ */
+export const hasGmWriteSupport = adapter => typeof adapter?.pSetCharacterGmWrite === "function";
+
 /** Sharing: a link somebody can be sent, and the means to take it back. Both, or neither. */
 const _ADAPTER_SHARE_METHODS = ["pGetShare", "pCreateShare", "pRevokeShare"];
 
@@ -208,6 +220,7 @@ export function getSyncCapabilities (adapter) {
 		history: hasHistorySupport(adapter) && declared?.history !== false,
 		sharing: hasShareSupport(adapter) && declared?.sharing !== false,
 		sidekickControl: hasSidekickControlSupport(adapter) && declared?.sidekickControl !== false,
+		gmWrite: hasGmWriteSupport(adapter) && declared?.gmWrite !== false,
 	};
 }
 

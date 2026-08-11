@@ -15,7 +15,7 @@ import {getBreakdownCitation, getPartCitations, isSameCitation, resolveCitation}
 import {EV_DAMAGE, EV_DEATH_SAVE, EV_DOWN, EV_HEAL, EV_LEVEL} from "./charactersheet-journal.js";
 import {PORTRAIT_MIME, PORTRAIT_QUALITY, getPortraitTargetSize, isPortraitTooLarge} from "./charactersheet-portrait.js";
 import {getCharacterSummary, getSummaryLines} from "./charactersheet-summary.js";
-import {deleteSyncMeta, getKeptBothName, getMissingAdapterMethods, getSyncBasePath, getSyncCapabilities, getSyncClientUrl, getSyncMeta, getSyncStatus, getUnsyncedRows, hasSidekickControlSupport, isAdapterValid, isSameOrigin, isSyncConflict, planSync, setSyncMeta} from "./charactersheet-sync.js";
+import {deleteSyncMeta, getKeptBothName, getMissingAdapterMethods, getSyncBasePath, getSyncCapabilities, getSyncClientUrl, getSyncMeta, getSyncStatus, getUnsyncedRows, hasGmWriteSupport, hasSidekickControlSupport, isAdapterValid, isSameOrigin, isSyncConflict, planSync, setSyncMeta} from "./charactersheet-sync.js";
 
 /**
  * Shared foundation for the two character pages (the play-focused sheet and the build-focused
@@ -595,7 +595,10 @@ export class CharacterPageBase {
 			line.className = "ve-flex-v-center ve-mb-1";
 			const when = new Date(entry.createdAt).toLocaleString();
 			const tagCurrent = entry.version === listing.current ? ` <span class="ve-muted ve-small">current</span>` : "";
-			line.insertAdjacentHTML("beforeend", `<span style="flex: 1; min-width: 0;">${when.qq()}${tagCurrent}</span>`);
+			// Named only when somebody else saved it — a lent character's history is where the
+			// player sees what their GM did, and their own saves need no attribution
+			const tagBy = entry.by ? ` <span class="ve-muted ve-small">saved by ${entry.by.qq()}</span>` : "";
+			line.insertAdjacentHTML("beforeend", `<span style="flex: 1; min-width: 0;">${when.qq()}${tagBy}${tagCurrent}</span>`);
 
 			const btnLook = document.createElement("button");
 			btnLook.className = "ve-btn ve-btn-default ve-btn-xs ve-ml-1";
@@ -685,7 +688,7 @@ export class CharacterPageBase {
 		wrp.innerHTML = `<div class="bold ve-mb-1">Tables</div>`;
 		wrp.appendChild(this._getCurrentTablePicker(campaigns, wrp, entry));
 
-		const eleControl = this._getSidekickControlRow(entry, wrp);
+		const eleControl = this._getSidekickControlRow(entry, wrp) || this._getGmWriteRow(entry, wrp);
 		if (eleControl) wrp.appendChild(eleControl);
 
 		campaigns.forEach(campaign => wrp.appendChild(this._getTableRow(campaign, wrp)));
@@ -808,6 +811,47 @@ export class CharacterPageBase {
 		label.insertAdjacentHTML("beforeend", `<span>Let the table play this sidekick</span>`);
 		ele.appendChild(label);
 		ele.insertAdjacentHTML("beforeend", `<div class="ve-muted ve-small">Everybody at the table can then run it, on this one copy. You keep it either way.</div>`);
+		return ele;
+	}
+
+	/**
+	 * The loan a player gives their GM: permission to edit this character.
+	 *
+	 * It exists because handing out loot, taking something away and fixing a mistake mid-session are
+	 * real, and doing them by dictation is tedious. It is off by default, either end can set it, and
+	 * either end can end it — so the player's own copy of the switch lives here. What makes it
+	 * bearable is the trail: every edit the GM makes is named in this character's history.
+	 *
+	 * @return {HTMLElement|null} null when there is nothing to offer, which is the usual case.
+	 */
+	_getGmWriteRow (entry, wrp) {
+		if (!entry || entry.isSidekick || entry.isMine === false) return null;
+		if (!hasGmWriteSupport(this._syncAdapter) || !this._getCurrentCampaignId(entry)) return null;
+
+		const ele = document.createElement("div");
+		ele.className = "ve-mb-2";
+
+		const label = document.createElement("label");
+		label.className = "ve-flex-v-center";
+
+		const cb = document.createElement("input");
+		cb.type = "checkbox";
+		cb.className = "ve-mr-1";
+		cb.checked = !!entry.isGmWrite;
+
+		cb.addEventListener("change", async () => {
+			try {
+				await this._syncAdapter.pSetCharacterGmWrite(this._store.currentId, cb.checked);
+			} catch (e) {
+				JqueryUtil.doToast({type: "danger", content: `Could not change who may edit this: ${e?.message || e}`});
+			}
+			this._pRenderTables(wrp);
+		});
+
+		label.appendChild(cb);
+		label.insertAdjacentHTML("beforeend", `<span>Let this table's DM edit this character</span>`);
+		ele.appendChild(label);
+		ele.insertAdjacentHTML("beforeend", `<div class="ve-muted ve-small">For handing out loot and fixing mistakes. Their edits are named in this character's history, and you can switch this off again.</div>`);
 		return ele;
 	}
 

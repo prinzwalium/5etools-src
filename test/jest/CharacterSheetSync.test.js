@@ -12,6 +12,7 @@ import {
 	getKeptBothName,
 	getSyncMeta,
 	getUnsyncedRows,
+	hasGmWriteSupport,
 	hasSidekickControlSupport,
 	planSync,
 	setSyncMeta,
@@ -196,6 +197,18 @@ describe("Character Sheet — the account-system seam", () => {
 
 		it("Should let an adapter with the methods still switch tables off", () => {
 			expect(getSyncCapabilities(withCampaigns({getCapabilities: () => ({campaigns: false})})).campaigns).toBe(false);
+		});
+
+		// A loan a player gives their DM, and a switch that must not appear where it would 404
+		it("Should report lending a character to the GM on its own", () => {
+			expect(hasGmWriteSupport(withCampaigns())).toBe(false);
+			expect(getSyncCapabilities(withCampaigns()).gmWrite).toBe(false);
+
+			const withLoan = withCampaigns({pSetCharacterGmWrite: () => {}});
+			expect(hasGmWriteSupport(withLoan)).toBe(true);
+			expect(getSyncCapabilities(withLoan).gmWrite).toBe(true);
+			// The two are separate questions, and separate methods
+			expect(getSyncCapabilities(withLoan).sidekickControl).toBe(false);
 		});
 
 		// One method, and its own capability: a service with tables but not this is an ordinary

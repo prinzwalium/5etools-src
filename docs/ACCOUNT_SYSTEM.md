@@ -58,7 +58,7 @@ window.CharacterSyncAdapter = {
 	// → {id, name} | null   (null means "not signed in")
 	async pWhoAmI () {},
 
-	// → [{id, name, version, updatedAt, isSidekick, isMine, control, campaignId}]
+	// → [{id, name, version, updatedAt, isSidekick, isMine, control, isGmWrite, campaignId}]
 	// `isMine` and `control` only matter for a sidekick shared with a table; an entry that says
 	// nothing is the caller's own, which is what an older service's reply means. `campaignId` is
 	// what a browser that has only just pulled a character knows its table from
@@ -181,6 +181,19 @@ which table a character sits at is an account-system fact, not part of the chara
 disabled until the character has been uploaded, since there is nothing to place otherwise.
 
 *Characters* on a table lists the party; opening one shows a **read-only card**.
+
+### Lending your character to the DM
+
+A DM reads the characters at their table and cannot write them — unless you let them. When the
+current character is at a table, the Tables section offers *Let this table's DM edit this
+character*: off by default, for handing out loot and fixing mistakes mid-session. Either of you can
+switch it on and either of you can switch it off, because the need comes from their side and the
+character is yours.
+
+The loan is only editing. It is not deleting your character, not moving it between tables, not
+publishing a share link of it, and not its history. And every version now records who saved it, so
+the History panel names anybody who was not you — *saved by Gale*. That trail is the condition the
+feature exists on, not a nicety.
 
 ### A sidekick the table can play
 
