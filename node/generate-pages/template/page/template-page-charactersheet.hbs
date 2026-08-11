@@ -258,7 +258,8 @@
 					<div id="cs-actions"><!-- populated by JS --></div>
 				</div>
 
-				<div class="cs__panel">
+				<!-- Not printed: a log of past sessions is not part of the sheet you play from -->
+				<div class="cs__panel" id="cs-journal-panel">
 					<h5 class="cs__panel-title" title="Written as you play: damage, healing, rests, spent slots, conditions and ammunition, grouped into sessions">Session Journal</h5>
 					<div id="cs-journal"><!-- populated by JS --></div>
 				</div>
@@ -279,7 +280,9 @@
 				</div>
 			</div>
 
-			<div class="ve-col-4 cs__col">
+			<!-- On paper this column starts a fresh page: everything before it is what a turn needs,
+				everything in it is reference (see `cs__col--reference` in the print styles) -->
+			<div class="ve-col-4 cs__col cs__col--reference">
 				<div class="cs__panel">
 					<h5 class="cs__panel-title">Class &amp; Leveling</h5>
 					<div id="cs-class-panel"><!-- populated by JS --></div>

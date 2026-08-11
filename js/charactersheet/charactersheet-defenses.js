@@ -156,7 +156,9 @@ export function getAllDefenses (state) {
 export function mergeDefenses (entries) {
 	const byKey = new Map();
 
-	(entries || []).forEach(it => {
+	// Not just `|| []`: a hand-edited or ancient save file can have a *string* here, and a character
+	// somebody sent you should fail to show a resistance rather than fail to open
+	(Array.isArray(entries) ? entries : []).forEach(it => {
 		if (!it?.name) return;
 		const key = `${it.kind}|${it.name.toLowerCase()}`;
 		if (!byKey.has(key)) byKey.set(key, {kind: it.kind, name: it.name, note: it.note || null, sources: [], ids: [], isFromItem: true});

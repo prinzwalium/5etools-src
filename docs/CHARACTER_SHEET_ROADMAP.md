@@ -65,9 +65,22 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
 
 ## Later — quality of life
 
-- [ ] **Print polish.** The print path now works and is tested by hand, but it has no automated
-      coverage, and a long character still spills onto a third page. Worth a pass once the layout
-      settles: tighter margins, a deliberate page break between play data and reference text.
+- [x] **Print polish.** A level-5 character used five pages and was checked by eye, which is why it
+      kept breaking: what the screen shows and what the printer is handed are two different
+      documents, and nothing about the second is visible while working on the first.
+      Now **one page is the sheet you play from** — the header, the six abilities across as a stat
+      block puts them, saves and skills in two columns each, combat, attacks, actions, conditions —
+      and the reference column starts a fresh page after it, deliberately (`cs__col--reference`).
+      Three pages in total for a level-5 Rogue, down from five: 12mm margins, panel spacing tuned
+      for paper rather than a monitor, the session journal left off (a log of past evenings is not
+      part of the sheet you play from), and the feature timeline printed as *text* — the pencils,
+      tick boxes, running counts and "choose a feat" prompts are choosing apparatus, and an option
+      nobody picked is not a fact about the character.
+      Held in place by `test/e2e/print.e2e.mjs`, which drives the real path — `emulateMedia`, the
+      page's own print preparation, and Chromium's PDF writer, the same one behind "Save as PDF" —
+      and measures the play half against the height a page actually has. Writing it turned up that
+      a *string* where the structured proficiency or defence list belongs took the whole page down;
+      a save file is an input from outside, so both merges now survive one.
 - [x] **Accessibility.** Audited all three pages rather than guessed at, and the findings fixed:
       every field labelled (the class/background/species inputs had a label-shaped `<span>` that was
       not one; four textareas had only a placeholder), the six death-save dots named and reporting
@@ -143,7 +156,14 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
 
 ## Maybe
 
-- [ ] **A party sheet.** One page for the whole party: senses, resistances and immunities,
+- [x] **A party sheet. Built — as a screen in the account system's own app.** The catch below was
+      real and the answer was the thing that removed it: a server. The tables app reads every
+      character at a table in one request and summarises them with **this fork's own rules
+      modules**, imported by URL, so the page that answers "does anyone have darkvision" computes
+      from the same code the sheet does and there is no second implementation to drift.
+      The original plan, for the record, and why it was not built:
+
+- [ ] ~~**A party sheet.**~~ One page for the whole party: senses, resistances and immunities,
       languages, tool proficiencies, passive Perception, spells known — the columns that answer
       "does anyone have darkvision / speak Draconic / resist fire", which is the question that
       actually stops play. No other sheet answers it, and everything it needs is structured here.
@@ -155,9 +175,14 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
       is nearly as good as live — but it costs every player a send at each level-up, and only the
       DM sees the benefit. Worth doing if that trade stops feeling annoying.
 
-- [ ] **Accounts and server-side characters** — *the client side is prepared; the server is a
-      separate project.* An account system that lets a player pick their character up on another
-      device, and makes the party sheet above live.
+- [x] **Accounts and server-side characters. Built, in a separate repository.** Sign-in against
+      Authentik, characters that follow a player between devices with conflict resolution rather
+      than last-write-wins, history and restore, campaigns with invites and roles, share links, a
+      support console, a sidekick the whole table can play, and a character a player can lend to
+      their DM. This fork holds only the seam: `charactersheet-sync.js` and the wiring in the page
+      base. With nothing deployed the pages behave exactly as they always have, which is still the
+      supported state — the Pages build is static. See `docs/ACCOUNT_SYSTEM.md` and
+      <https://github.com/PrinzWalium/5etools-online>.
 
   **It lives in its own repository**, deployed behind the same subdomain on its own path by a
   reverse proxy — *not* in this repo. That decision does the most work of any here:
