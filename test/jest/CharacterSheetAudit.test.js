@@ -182,6 +182,36 @@ describe("Audit: what is left unclaimed", () => {
 		expect(keys).not.toContain("originfeat:tavern brawler");
 	});
 
+	// The panel said the Human's feat was taken while the Build Check said it was owed: one counted
+	// all origin feats against all grants, so the background's feat answered the species' question
+	it("Counts an origin feat of your choice against the entity that granted it", () => {
+		const state = getCleanState({
+			backgroundText: "Sailor",
+			originFeats: [{name: "Tavern Brawler", source: "XPHB", from: "Sailor"}],
+		});
+		const found = auditCharacter(state, {
+			grantedOriginFeats: [{name: "Tavern Brawler", source: "XPHB", from: "Sailor"}],
+			grantedFeatChoices: [{from: "Human", count: 1}],
+		}).find(it => it.key === "originfeat:choice:Human");
+
+		expect(found).toMatchObject({severity: AUDIT_UNCLAIMED});
+		expect(found.message).toBe("Human grants 1 origin feat of your choice, not taken.");
+	});
+
+	it("Says nothing once that entity's own feat is taken", () => {
+		const state = getCleanState({
+			originFeats: [
+				{name: "Tavern Brawler", source: "XPHB", from: "Sailor"},
+				{name: "Alert", source: "XPHB", from: "Human"},
+			],
+		});
+		const keys = keysOf(auditCharacter(state, {
+			grantedOriginFeats: [{name: "Tavern Brawler", source: "XPHB", from: "Sailor"}],
+			grantedFeatChoices: [{from: "Human", count: 1}],
+		}));
+		expect(keys).not.toContain("originfeat:choice:Human");
+	});
+
 	it("Accepts a hand-typed species or background as picked", () => {
 		const keys = keysOf(auditCharacter(getCleanState({refSpecies: null, speciesText: "Automaton", refBackground: null, backgroundText: "Clockwork"})));
 		expect(keys).not.toContain("species");

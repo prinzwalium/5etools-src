@@ -62,7 +62,10 @@ export class CharacterAuditPanel {
 		]);
 
 		const grantedOriginFeats = ents.flatMap(ent => getGrantedFeats(ent?.feats).map(it => ({...it, from: ent.name})));
-		const grantedFeatChoices = ents.reduce((acc, ent) => acc + getGrantedFeatCategories(ent?.feats).reduce((a, it) => a + it.count, 0), 0);
+		const grantedFeatChoices = ents
+			.filter(Boolean)
+			.map(ent => ({from: ent.name, count: getGrantedFeatCategories(ent.feats).reduce((a, it) => a + it.count, 0)}))
+			.filter(it => it.count);
 		return {grantedOriginFeats, grantedFeatChoices};
 	}
 

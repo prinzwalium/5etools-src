@@ -50,6 +50,19 @@ export function getProfListDisplay (arr, {isFixedOnly = false, isChoiceOnly = fa
 	return out.join(", ");
 }
 
+/**
+ * A stable name for one choice, so that "has this been answered?" has an answer.
+ *
+ * The `id`s handed out above are per-render and cannot be stored; what identifies a choice across
+ * sessions is where it came from and what it asks. Everything that resolves a choice — the guided
+ * setup, the species and background pickers — records it under this key, and everything that asks
+ * what is left reads the same one. Without it the guide and the panels each kept their own idea of
+ * what had been done, and disagreed.
+ */
+export function getChoiceSignature (choice) {
+	return `${choice?.sourceName || ""}|${choice?.type || ""}|${choice?.label || ""}`;
+}
+
 const _ALL_SKILL_NAMES = () => CHAR_SHEET_SKILLS.map(({name}) => name);
 
 /** Skill choices from a `skillProficiencies`-style group array. Option values are display names. */

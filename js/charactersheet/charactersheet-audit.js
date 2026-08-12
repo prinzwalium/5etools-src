@@ -68,10 +68,11 @@ export function checkMulticlassRequirements (requirements, state) {
  * @param opts.grantedOriginFeats `[{name, source, displayName, from}]` — the Origin feats the
  *   species and background grant *by name*. Given rather than read, because only the caller has the
  *   entities.
- * @param opts.grantedFeatChoices how many they grant as "one of your choice" (the 2024 Human).
+ * @param opts.grantedFeatChoices `[{from, count}]` — the "one of your choice" grants, named by the
+ *   entity that makes them (the 2024 Human's Versatile).
  * @return {Array<{severity: string, key: string, message: string, hint: string|null}>}
  */
-export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}, grantedOriginFeats = [], grantedFeatChoices = 0} = {}) {
+export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}, grantedOriginFeats = [], grantedFeatChoices = []} = {}) {
 	const out = [];
 	if (!state) return out;
 
@@ -159,14 +160,19 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 			`${it.from || state.backgroundText || "Your background"} grants the origin feat ${it.displayName || it.name}, not taken.`,
 			"Take it from the panel that grants it, with its own choices.")));
 
-	// "An Origin feat of your choice" — the 2024 Human's Versatile. Counted, since which feat it is
-	// was never fixed
-	const nOwedChoiceFeats = grantedFeatChoices - (state.originFeats || []).length + grantedOriginFeats.length;
-	if (nOwedChoiceFeats > 0) {
-		out.push(_mkFinding(AUDIT_UNCLAIMED, "originfeat:choice",
-			`${nOwedChoiceFeats} origin feat${nOwedChoiceFeats === 1 ? "" : "s"} of your choice, not taken.`,
-			"Take it from the species or background panel."));
-	}
+	// "An Origin feat of your choice" — the 2024 Human's Versatile. Counted against the feats taken
+	// *for the entity that granted it*, which is how the panel counts too: counting all origin feats
+	// against all grants let one entity's feat answer another's, so the two disagreed.
+	grantedFeatChoices.forEach(({from, count}) => {
+		const taken = (state.originFeats || []).filter(it => it.from === from).length;
+		const named = grantedOriginFeats.filter(it => it.from === from).length;
+		const owed = count - Math.max(0, taken - named);
+		if (owed > 0) {
+			out.push(_mkFinding(AUDIT_UNCLAIMED, `originfeat:choice:${from}`,
+				`${from} grants ${owed} origin feat${owed === 1 ? "" : "s"} of your choice, not taken.`,
+				"Take it from the species or background panel."));
+		}
+	});
 
 	return out;
 }

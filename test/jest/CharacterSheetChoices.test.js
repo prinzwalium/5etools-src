@@ -16,6 +16,7 @@ import {
 	getProfListDisplay,
 	getToolChoices,
 	ARTISANS_TOOLS,
+	getChoiceSignature,
 } from "../../js/charactersheet/charactersheet-choices.js";
 import {
 	POINT_BUY_BUDGET,
@@ -227,5 +228,31 @@ describe("Choices: tool picks", () => {
 		const [choice] = getToolChoices({groups: [{choose: {from: ["smith's tools", "mason's tools"]}}], sourceName: "Dwarf"});
 		expect(choice.from).toEqual(["Smith's Tools", "Mason's Tools"]);
 		expect(getToolChoices({groups: [{"thieves' tools": true}], sourceName: "Rogue"})).toEqual([]);
+	});
+});
+
+describe("Choice signatures", () => {
+	// The key everything writes and reads: the guide, the pickers, the panels and the Build Check.
+	// Without one, each kept its own idea of what had been answered — and they disagreed
+	it("Names a choice by where it came from and what it asks", () => {
+		const choice = {sourceName: "Background: Sailor", type: "skill", label: "Choose 2 skills", id: "csc-17"};
+		expect(getChoiceSignature(choice)).toBe("Background: Sailor|skill|Choose 2 skills");
+	});
+
+	it("Ignores the per-render id, which cannot be stored", () => {
+		const a = {sourceName: "Species: Human", type: "skill", label: "Choose 1 skill (any)", id: "csc-1"};
+		const b = {...a, id: "csc-99"};
+		expect(getChoiceSignature(a)).toBe(getChoiceSignature(b));
+	});
+
+	// Two sources can ask the same question, and answering one must not answer the other
+	it("Tells apart the same question from different sources", () => {
+		const human = {sourceName: "Species: Human", type: "skill", label: "Choose 1 skill (any)"};
+		const rogue = {sourceName: "Class: Rogue", type: "skill", label: "Choose 1 skill (any)"};
+		expect(getChoiceSignature(human)).not.toBe(getChoiceSignature(rogue));
+	});
+
+	it("Copes with nothing at all", () => {
+		expect(getChoiceSignature(null)).toBe("||");
 	});
 });

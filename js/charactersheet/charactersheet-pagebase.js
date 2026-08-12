@@ -5,7 +5,7 @@ import {getLevelUpHp} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, formatBreakdown, getConcentrationSaveDc} from "./charactersheet-derive.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CharacterWizard} from "./charactersheet-wizard.js";
-import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getFixedAbilityBonuses, getGrantedFeatCategories, getGrantedFeats, getPendingChoices, getResistChoices} from "./charactersheet-choices.js";
+import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getFixedAbilityBonuses, getGrantedFeatCategories, getGrantedFeats, getPendingChoices, getResistChoices} from "./charactersheet-choices.js";
 import {pPickAbilities, pPickList, pResolveEntitySpellGrants, pResolveFeat} from "./charactersheet-featgrant.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL, PROF_KINDS, groupProficienciesByKind} from "./charactersheet-proficiencies.js";
 import {DEFENSE_KINDS, DEFENSE_KIND_RESIST, DEFENSE_KIND_SENSE, getAllDefenses, groupDefensesByKind} from "./charactersheet-defenses.js";
@@ -2012,6 +2012,12 @@ export class CharacterPageBase {
 				else if (choice.type === CHOICE_TYPE_LANGUAGE) this._comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: ent.name});
 				else if (choice.type === CHOICE_TYPE_TOOL) this._comp.addProficiency({kind: PROF_KIND_TOOL, name, source: ent.name});
 			});
+
+			// Recorded the same way the guided setup records it, so a character built either way looks
+			// the same afterwards and neither path asks a question the other has answered
+			if (picked?.length) {
+				this._comp.recordChoice({sig: getChoiceSignature(choice), sourceName: choice.sourceName, type: choice.type, picks: picked});
+			}
 		}
 	}
 
@@ -2037,7 +2043,7 @@ export class CharacterPageBase {
 				textNo: "Skip",
 			});
 			if (!isApply) continue;
-			await this._pTakeOriginFeat(feat, displayName || feat.name);
+			await this._pTakeOriginFeat(feat, displayName || feat.name, ent.name);
 		}
 
 		for (const grant of getGrantedFeatCategories(ent?.feats)) {
@@ -2065,13 +2071,13 @@ export class CharacterPageBase {
 			placeholder: "Select...",
 		});
 		if (feat == null) return;
-		await this._pTakeOriginFeat(feat, feat.name);
+		await this._pTakeOriginFeat(feat, feat.name, ent.name);
 	}
 
-	async _pTakeOriginFeat (feat, displayName) {
+	async _pTakeOriginFeat (feat, displayName, from) {
 		const bonuses = await pResolveFeat(this._comp, feat);
 		if (bonuses == null) return;
-		this._comp.addOriginFeat({name: feat.name, source: feat.source, displayName, bonuses});
+		this._comp.addOriginFeat({name: feat.name, source: feat.source, displayName, bonuses, from});
 	}
 
 	/**
@@ -2093,7 +2099,8 @@ export class CharacterPageBase {
 		}
 
 		for (const choice of getAbilityChoices({ability: ent.ability, sourceName: name})) {
-			await this._pResolveAbilityChoice(choice, name);
+			const isApplied = await this._pResolveAbilityChoice(choice, name);
+			if (isApplied) this._comp.recordChoice({sig: getChoiceSignature(choice), sourceName: choice.sourceName, type: choice.type, picks: []});
 		}
 	}
 
@@ -2149,10 +2156,12 @@ export class CharacterPageBase {
 			picked.forEach(abv => bonuses[abv] = (bonuses[abv] || 0) + pkg.choose.amount);
 		}
 
-		if (Object.keys(bonuses).length) {
-			this._comp.applyAbilityBonuses(bonuses, {source: name});
-			this._comp.clearPendingAbilityOffers(name);
-		}
+		if (!Object.keys(bonuses).length) return false;
+
+		this._comp.applyAbilityBonuses(bonuses, {source: name});
+		this._comp.clearPendingAbilityOffers(name);
+		// The caller records it against the choice, so nothing asks again
+		return true;
 	}
 
 	_noteUnassignedAbilities (name, ptOffer, packages = null) {

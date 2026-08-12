@@ -134,6 +134,11 @@ export class CharacterModel extends BaseComponent {
 			defenses: [], // [{id, kind, name, note, source}] — resistances/immunities/vulnerabilities/senses (gear is derived, not stored)
 			traitChoices: [], // [{id, source, trait, level, option, resist}] — "choose one" species traits
 			pendingAbilityOffers: [], // [{id, source, offer, packages}] — ability increases offered but not yet assigned
+			// [{sig, sourceName, type, picks}] — the choices a species or background asked for and
+			// somebody answered. Recorded because a *skill* keeps no note of where it came from, so
+			// without this nothing could tell "Perception, granted by Sailor" from "Perception,
+			// chosen for the Rogue" — and the guided setup and the panels each guessed differently.
+			choiceLog: [],
 			journal: [], // [{t, k, v, n}] — what happened at the table, grouped into sessions on read
 
 			portrait: "", // a data URL, downscaled on import — it shares localStorage with everything else
@@ -282,10 +287,14 @@ export class CharacterModel extends BaseComponent {
 
 	/** Set the number of expended slots for a spell level (1-9) or "pact". */
 	/** Record a background-granted origin feat and apply its ability bonuses (no duplicates by name/source). */
-	addOriginFeat ({name, source, displayName = null, bonuses = null}) {
+	/**
+	 * @param from the entity that granted it — "Sailor", "Human". Recorded because more than one can
+	 *        grant one, and a panel that has to guess which of them a feat belongs to guesses wrong.
+	 */
+	addOriginFeat ({name, source, displayName = null, bonuses = null, from = null}) {
 		if (this._state.originFeats.some(it => it.name === name && it.source === source)) return false;
 		const id = CryptUtil.uid();
-		this._state.originFeats = [...this._state.originFeats, {id, name, source, displayName: displayName || name, bonuses}];
+		this._state.originFeats = [...this._state.originFeats, {id, name, source, displayName: displayName || name, bonuses, from}];
 		if (bonuses) this.applyAbilityBonuses(bonuses, {source: `${displayName || name} (feat)`, logId: id});
 		return true;
 	}
@@ -755,6 +764,8 @@ export class CharacterModel extends BaseComponent {
 			this.setProficienciesFromSource(prev, []);
 			this.setDefensesFromSource(prev, []);
 			this.clearPendingAbilityOffers(prev);
+			// The new species asks its own questions rather than inheriting the old one's answers
+			this.clearChoicesFrom(`Species: ${prev}`);
 		}
 
 		this._state.speciesText = doc.n;
@@ -762,9 +773,6 @@ export class CharacterModel extends BaseComponent {
 		this.setPickTag("species", doc.tag);
 		if (ent) this.applyRaceData(ent);
 	}
-
-	// Trait entries that are boilerplate rather than named features worth surfacing
-	static _RACE_TRAIT_NAMES_IGNORED = new Set(["Age", "Size", "Speed", "Languages", "Alignment", "Ability Score Increase", "Creature Type", "Darkvision"]);
 
 	applyRaceData (race) {
 		const speed = race.speed;
@@ -782,10 +790,9 @@ export class CharacterModel extends BaseComponent {
 		// copied into the notes box as well
 		this.setDefensesFromSource(race.name, getEntityDefenses(race));
 
-		const traitNames = (race.entries || [])
-			.filter(it => it && typeof it === "object" && it.name && !CharacterModel._RACE_TRAIT_NAMES_IGNORED.has(it.name))
-			.map(it => it.name);
-		if (traitNames.length) this.appendToTextProp("featuresText", `${race.name} Traits: ${traitNames.join(", ")}`);
+		// The traits are *not* copied into the notes box. The Species panel renders them as cards, from
+		// the data, so a second hand-written copy could only go stale — and a list of names in a
+		// notes box was never what somebody needed anyway.
 	}
 
 	/**
@@ -812,8 +819,41 @@ export class CharacterModel extends BaseComponent {
 		this._state.abilityBonusLog = [...log, {id: logId || CryptUtil.uid(), source, bonuses: {...bonuses}}];
 	}
 
+	/* -------------------------------------------- The choice log -------------------------------------------- */
+
+	/**
+	 * Record that one of a species' or background's choices has been answered.
+	 *
+	 * Keyed by `getChoiceSignature`, so the guided setup and the pickers write the same key and the
+	 * panels and the Build Check read it. Re-answering the same choice replaces the old record
+	 * rather than adding a second.
+	 */
+	recordChoice ({sig, sourceName, type, picks = []}) {
+		if (!sig) return;
+		this._state.choiceLog = [
+			...(this._state.choiceLog || []).filter(it => it.sig !== sig),
+			{sig, sourceName, type, picks: [...picks]},
+		];
+	}
+
+	hasAnsweredChoice (sig) {
+		return (this._state.choiceLog || []).some(it => it.sig === sig && it.picks.length);
+	}
+
+	/**
+	 * Forget every choice a source answered — used when that species or background is replaced, so
+	 * the new one asks its own questions rather than inheriting the old one's answers.
+	 */
+	clearChoicesFrom (sourceName) {
+		if (!sourceName) return;
+		this._state.choiceLog = (this._state.choiceLog || []).filter(it => it.sourceName !== sourceName);
+	}
+
 	/** Apply a picked background: search doc bookkeeping + mechanical fields from the entity. */
 	applyPickedBackground ({doc, ent, isFixedOnly = false}) {
+		const prev = this._state.refBackground?.name;
+		if (prev && prev !== doc.n) this.clearChoicesFrom(`Background: ${prev}`);
+
 		this._state.backgroundText = doc.n;
 		this._state.refBackground = {name: doc.n, source: doc.source, tag: doc.tag};
 		this.setPickTag("background", doc.tag);

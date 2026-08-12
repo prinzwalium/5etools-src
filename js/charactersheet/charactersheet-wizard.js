@@ -6,6 +6,7 @@ import {
 	CHOICE_TYPE_SKILL,
 	CHOICE_TYPE_TOOL,
 	getAbilityPackageDisplay,
+	getChoiceSignature,
 	getFixedAbilityBonuses,
 	getGrantedFeatCategories,
 	getGrantedFeats,
@@ -353,8 +354,6 @@ export class CharacterWizard {
 
 	/* -------------------------------------------- Step: choice queue -------------------------------------------- */
 
-	static _getChoiceSig (choice) { return `${choice.sourceName}|${choice.label}`; }
-
 	_render_choices (wrp) {
 		this._draft.choices = getPendingChoices({
 			race: this._draft.race?.ent,
@@ -363,7 +362,7 @@ export class CharacterWizard {
 		});
 
 		// Drop stale selections (e.g. after going back and changing class)
-		const sigs = new Set(this._draft.choices.map(it => CharacterWizard._getChoiceSig(it)));
+		const sigs = new Set(this._draft.choices.map(it => getChoiceSignature(it)));
 		[...this._draft.choiceSelections.keys()].filter(sig => !sigs.has(sig)).forEach(sig => this._draft.choiceSelections.delete(sig));
 
 		if (!this._draft.choices.length) {
@@ -376,7 +375,7 @@ export class CharacterWizard {
 		this._draft.choices.forEach(choice => {
 			if (choice.type === CHOICE_TYPE_ABILITY) return this._renderAbilityChoice(wrp, choice);
 
-			const sig = CharacterWizard._getChoiceSig(choice);
+			const sig = getChoiceSignature(choice);
 			if (!this._draft.choiceSelections.has(sig)) this._draft.choiceSelections.set(sig, new Set());
 			const selections = this._draft.choiceSelections.get(sig);
 			selections.forEach(v => { if (!choice.from.includes(v)) selections.delete(v); });
@@ -431,7 +430,7 @@ export class CharacterWizard {
 	}
 
 	_renderAbilityChoice (wrp, choice) {
-		const sig = CharacterWizard._getChoiceSig(choice);
+		const sig = getChoiceSignature(choice);
 		if (!this._draft.abilitySelections.has(sig)) this._draft.abilitySelections.set(sig, {ixPackage: 0, slots: []});
 		const sel = this._draft.abilitySelections.get(sig);
 
@@ -513,7 +512,7 @@ export class CharacterWizard {
 
 	/** Resolved bonuses for one ability choice, or null while incomplete/invalid. */
 	_getResolvedAbilityBonuses (choice) {
-		const sel = this._draft.abilitySelections.get(CharacterWizard._getChoiceSig(choice));
+		const sel = this._draft.abilitySelections.get(getChoiceSignature(choice));
 		if (!sel) return null;
 		const pkg = choice.packages[sel.ixPackage];
 		if (!pkg) return null;
@@ -543,6 +542,35 @@ export class CharacterWizard {
 			.forEach(choice => add(this._getResolvedAbilityBonuses(choice)));
 		return bonuses;
 	}
+
+	/**
+	 * The same bonuses as `_getCombinedAbilityBonuses`, but kept apart by what granted each.
+	 *
+	 * The sheet stores final scores, so the only record of *why* a score is what it is is the
+	 * ability-bonus log — and a panel that wants to tick "+2 Strength, from your background" needs
+	 * the background's name in it.
+	 */
+	_getAbilityBonusesBySource () {
+		const bySource = new Map();
+		const add = (source, map) => {
+			if (!source || !Object.keys(map || {}).length) return;
+			const cur = bySource.get(source) || {};
+			Object.entries(map).forEach(([abv, n]) => cur[abv] = (cur[abv] || 0) + n);
+			bySource.set(source, cur);
+		};
+
+		if (this._draft.race?.ent) add(this._draft.race.ent.name, getFixedAbilityBonuses(this._draft.race.ent.ability));
+		if (this._draft.background?.ent) add(this._draft.background.ent.name, getFixedAbilityBonuses(this._draft.background.ent.ability));
+
+		this._draft.choices
+			.filter(it => it.type === CHOICE_TYPE_ABILITY)
+			.forEach(choice => add(CharacterWizard._getEntityName(choice.sourceName), this._getResolvedAbilityBonuses(choice)));
+
+		return [...bySource.entries()].map(([source, bonuses]) => ({source, bonuses}));
+	}
+
+	/** "Background: Sailor" → "Sailor". A choice names its source for a person; a log names the entity. */
+	static _getEntityName (sourceName) { return String(sourceName || "").replace(/^(Species|Background|Class):\s*/, ""); }
 
 	/* -------------------------------------------- Step: equipment -------------------------------------------- */
 
@@ -648,7 +676,7 @@ export class CharacterWizard {
 
 			const bonuses = await pResolveFeat(comp, feat);
 			if (bonuses == null) continue;
-			comp.addOriginFeat({name: feat.name, source: feat.source, displayName: displayName || feat.name, bonuses});
+			comp.addOriginFeat({name: feat.name, source: feat.source, displayName: displayName || feat.name, bonuses, from: ent.name});
 		}
 
 		// "An Origin feat of your choice" (the 2024 Human's Versatile) is a pick, not a confirmation
@@ -670,7 +698,7 @@ export class CharacterWizard {
 
 				const bonuses = await pResolveFeat(comp, feat);
 				if (bonuses == null) break;
-				comp.addOriginFeat({name: feat.name, source: feat.source, displayName: feat.name, bonuses});
+				comp.addOriginFeat({name: feat.name, source: feat.source, displayName: feat.name, bonuses, from: ent.name});
 			}
 		}
 	}
@@ -743,7 +771,7 @@ export class CharacterWizard {
 
 		const selectionSummaries = this._draft.choices
 			.map(choice => {
-				const selections = this._draft.choiceSelections.get(CharacterWizard._getChoiceSig(choice));
+				const selections = this._draft.choiceSelections.get(getChoiceSignature(choice));
 				if (!selections?.size) return null;
 				return `${choice.sourceName.qq()}: ${[...selections].join(", ").qq()}`;
 			})
@@ -795,16 +823,38 @@ export class CharacterWizard {
 			});
 		}
 
-		const abilityBonuses = this._getCombinedAbilityBonuses();
-		if (Object.keys(abilityBonuses).length) comp.applyAbilityBonuses(abilityBonuses, {source: "Species & Background"});
+		// Attributed to whatever granted them, not lumped under "Species & Background": the panels tick
+		// a grant by looking for its source, and a lump matches nothing
+		this._getAbilityBonusesBySource().forEach(({source, bonuses}) => comp.applyAbilityBonuses(bonuses, {source}));
 
-		// Resolve queued choices
+		// An ability choice answered here must not be asked again by the panels
+		this._draft.choices
+			.filter(it => it.type === CHOICE_TYPE_ABILITY)
+			.filter(choice => Object.keys(this._getResolvedAbilityBonuses(choice) || {}).length)
+			.forEach(choice => comp.recordChoice({
+				sig: getChoiceSignature(choice),
+				sourceName: choice.sourceName,
+				type: choice.type,
+				picks: Object.entries(this._getResolvedAbilityBonuses(choice)).map(([abv, n]) => `${n >= 0 ? "+" : ""}${n} ${abv.toUpperCase()}`),
+			}));
+
+		// Resolve queued choices — and *record* them. A skill keeps no note of where it came from, so
+		// without the log nothing afterwards can tell an answered choice from an unasked one, which is
+		// what left the Species panel asking for a skill the guide had already chosen.
 		this._draft.choices.forEach(choice => {
-			const selections = this._draft.choiceSelections.get(CharacterWizard._getChoiceSig(choice));
+			const selections = this._draft.choiceSelections.get(getChoiceSignature(choice));
 			if (!selections?.size) return;
+
 			if (choice.type === CHOICE_TYPE_SKILL) selections.forEach(name => comp.setSkillProfByName(name, 1));
 			else if (choice.type === CHOICE_TYPE_LANGUAGE) selections.forEach(name => comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: choice.sourceName}));
 			else if (choice.type === CHOICE_TYPE_TOOL) selections.forEach(name => comp.addProficiency({kind: PROF_KIND_TOOL, name, source: choice.sourceName}));
+
+			comp.recordChoice({
+				sig: getChoiceSignature(choice),
+				sourceName: choice.sourceName,
+				type: choice.type,
+				picks: [...selections],
+			});
 		});
 
 		// A 2024 background grants an Origin feat, and it is part of the character rather than a note

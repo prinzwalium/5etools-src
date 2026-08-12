@@ -1,6 +1,7 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {
 	CHOICE_TYPE_ABILITY,
+	getChoiceSignature,
 	getFixedAbilityBonuses,
 	getGrantedFeatCategories,
 	getGrantedFeats,
@@ -46,6 +47,9 @@ export class CharacterOriginPanel {
 		// A tick beside a grant is only true while it is true
 		this._comp._addHookBase("proficiencies", () => this._pRender());
 		this._comp._addHookBase("originFeats", () => this._pRender());
+		// Answering a choice is the other half of "still to choose"
+		this._comp._addHookBase("choiceLog", () => this._pRender());
+		this._comp._addHookBase("abilityBonusLog", () => this._pRender());
 		CHAR_SHEET_SKILLS.forEach(({key}) => this._comp._addHookBase(`skill_${key}`, () => this._pRender()));
 		this._pRender();
 	}
@@ -124,11 +128,13 @@ export class CharacterOriginPanel {
 	_renderGrants (ent) {
 		const rows = [];
 
+		// Ticked by *this* entity's name in the log — "something gave you +2 Strength" is not the same
+		// claim as "your background did"
+		const isBonusFrom = abv => (this._comp._state.abilityBonusLog || [])
+			.some(it => it.source === ent.name && (it.bonuses || {})[abv]);
+
 		Object.entries(getFixedAbilityBonuses(ent.ability) || {}).forEach(([abv, n]) => {
-			rows.push({
-				label: `${n >= 0 ? "+" : ""}${n} ${Parser.attAbvToFull(abv)}`,
-				isHave: (this._comp._state.abilityBonusLog || []).some(it => (it.bonuses || {})[abv]),
-			});
+			rows.push({label: `${n >= 0 ? "+" : ""}${n} ${Parser.attAbvToFull(abv)}`, isHave: isBonusFrom(abv)});
 		});
 
 		// Structured skills come back as proficiency entries; the sheet keeps them as skill states
@@ -157,11 +163,12 @@ export class CharacterOriginPanel {
 			});
 		});
 
-		// "An Origin feat of your choice" — the 2024 Human's Versatile. Counted rather than named,
-		// since which one it is was up to whoever chose
-		const nTaken = (this._comp._state.originFeats || []).length;
+		// "An Origin feat of your choice" — the 2024 Human's Versatile. Ticked by *which* entity the
+		// feat was taken for, not by counting feats: counting made this panel and the Build Check
+		// disagree, one saying it was taken while the other still asked for it
+		const nFromHere = (this._comp._state.originFeats || []).filter(it => it.from === ent.name).length;
 		getGrantedFeatCategories(ent.feats).forEach((grant, ix) => {
-			rows.push({label: `Origin feat of your choice`, isHave: nTaken > ix});
+			rows.push({label: "Origin feat of your choice", isHave: nFromHere > ix + getGrantedFeats(ent.feats).length});
 		});
 
 		if (!rows.length) return;
@@ -190,24 +197,35 @@ export class CharacterOriginPanel {
 
 		const rows = [];
 		const takenFeats = new Set((this._comp._state.originFeats || []).map(it => `${it.name}|${it.source}`.toLowerCase()));
-		const nTaken = takenFeats.size;
 
-		const choices = getPendingChoices(this._kind === "species" ? {race: ent} : {background: ent});
-		if (choices.filter(c => c.type !== CHOICE_TYPE_ABILITY).length) {
+		// Only what nobody has answered. A choice the guided setup already made is not a choice, and
+		// showing it as one is what made the guide look incompatible with this panel
+		const unanswered = getPendingChoices(this._kind === "species" ? {race: ent} : {background: ent})
+			.filter(choice => !this._comp.hasAnsweredChoice(getChoiceSignature(choice)));
+
+		const profChoices = unanswered.filter(c => c.type !== CHOICE_TYPE_ABILITY);
+		if (profChoices.length) {
 			rows.push({
-				text: choices.filter(c => c.type !== CHOICE_TYPE_ABILITY).map(c => c.label).join(", "),
+				text: profChoices.map(c => c.label).join(", "),
 				btn: "Choose",
 				// The page's own key for a species is `race`, following the data
 				pFn: () => this._page._pResolveProficiencyChoices({ent, kind: this._kind === "species" ? "race" : "background"}),
 			});
 		}
-		if (choices.some(c => c.type === CHOICE_TYPE_ABILITY) || Object.keys(getFixedAbilityBonuses(ent.ability) || {}).length) {
+
+		const fixedAbilities = getFixedAbilityBonuses(ent.ability) || {};
+		const isAbilityOwed = unanswered.some(c => c.type === CHOICE_TYPE_ABILITY)
+			|| Object.keys(fixedAbilities).some(abv => !(this._comp._state.abilityBonusLog || []).some(it => it.source === ent.name && (it.bonuses || {})[abv]));
+		if (isAbilityOwed) {
 			rows.push({text: "Ability score increases", btn: "Apply", pFn: () => this._page._pOfferAbilityBonuses(ent, ent.name)});
 		}
 
 		const missingFeats = getGrantedFeats(ent.feats).filter(it => !takenFeats.has(`${it.name}|${it.source}`.toLowerCase()));
 		const nChoiceFeats = getGrantedFeatCategories(ent.feats).reduce((acc, it) => acc + it.count, 0);
-		const isOwedChoice = nChoiceFeats > Math.max(0, nTaken - getGrantedFeats(ent.feats).length);
+		// Counted against the feats taken *for this entity*, so the two entities cannot claim each
+		// other's
+		const nFromHere = (this._comp._state.originFeats || []).filter(it => it.from === ent.name).length;
+		const isOwedChoice = nChoiceFeats > Math.max(0, nFromHere - getGrantedFeats(ent.feats).length);
 
 		if (missingFeats.length || isOwedChoice) {
 			const what = missingFeats.length
