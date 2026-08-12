@@ -223,8 +223,10 @@ export async function runPlaytestFindings ({browser, check}) {
 	const lineageRow = species.locator("div.ve-flex-v-center.ve-small").filter({hasText: "Elven Lineage"});
 	check("the species panel asks for the lineage it has not been given",
 		await lineageRow.count() === 1, speciesText.slice(0, 400));
-	check("the species panel lists what it grants outright",
-		/✓ Darkvision/.test(speciesText), speciesText.slice(0, 300));
+	// Listed, not necessarily ticked: this character was loaded whole rather than built, so it never
+	// went through the species-apply path — and the panel says so honestly with a ○
+	check("the species panel lists the senses it grants outright",
+		/Darkvision 60 ft\. \(sense\)/.test(speciesText), speciesText.slice(0, 300));
 	check("and the build check says the same",
 		/Elven Lineage/.test(await page.locator("#cs-audit").innerText()),
 		(await page.locator("#cs-audit").innerText()).slice(0, 250));
@@ -263,7 +265,13 @@ export async function runPlaytestFindings ({browser, check}) {
 	await pickWizardEntity(page2, {btnText: "Choose Background...", query: "soldier", rowText: "Soldier", srcText: "PHB'24"});
 	await clickWizardNext(page2);
 	await page2.selectOption("#cs-wiz-sel-abil-method", "standardArray");
+	await page2.waitForTimeout(400);
+	// The step will not advance with the array unassigned
+	const scores = ["15", "14", "13", "12", "10", "8"];
+	const abvs = ["str", "dex", "con", "int", "wis", "cha"];
+	for (let i = 0; i < 6; ++i) await page2.selectOption(`[data-cs-wiz-abv='${abvs[i]}']`, scores[i]);
 	await clickWizardNext(page2);
+	await page2.waitForTimeout(800);
 
 	// Human's "choose 1 skill (any)" and Fighter's "choose 2 skills" overlap; taking Acrobatics for
 	// one must take it off the table for the other

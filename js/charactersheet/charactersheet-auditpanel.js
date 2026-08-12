@@ -26,8 +26,8 @@ export class CharacterAuditPanel {
 			"classes", "level", "inventory", "weaponMasteries", "pendingAbilityOffers",
 			"refSpecies", "refBackground", "speciesText", "backgroundText", "hpMax",
 			// Taking the background's origin feat is one of the things this panel asks for, so it
-			// has to notice when it happens
-			"originFeats", "spellsKnown",
+			// has to notice when it happens — and the same goes for picking a lineage or an ancestry
+			"originFeats", "spellsKnown", "traitChoices",
 			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
 			"abil_str", "abil_dex", "abil_con", "abil_int", "abil_wis", "abil_cha",
 		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
