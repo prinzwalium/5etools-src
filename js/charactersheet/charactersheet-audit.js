@@ -139,6 +139,11 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 		"Expertise skill", "Expertise skills", "On the class panel's Expertise card.");
 	addShortfall("mastery", counts.masteryTaken, counts.masteryTotal,
 		"weapon mastery", "weapon masteries", "On the class panel's Weapon Mastery card.");
+	// A caster with no cantrips is not ready to play, and this is where "not ready" is listed
+	addShortfall("cantrips", counts.cantripsTaken, counts.cantripsTotal,
+		"cantrip", "cantrips", "In the spell panel, under Manage Spells.");
+	addShortfall("spellsKnown", counts.spellsKnownTaken, counts.spellsKnownTotal,
+		"spell", "spells", "In the spell panel, under Manage Spells.");
 
 	if (!classes.length) {
 		out.push(_mkFinding(AUDIT_UNCLAIMED, "class", "No class picked yet."));

@@ -26,6 +26,7 @@ import {
 import {EQUIPMENT_ALWAYS_KEY, getEquipmentChoiceGroups, getEquipmentOptionDisplay, getInventoryItemMeta} from "./charactersheet-equipment.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL} from "./charactersheet-proficiencies.js";
 import {pResolveFeat} from "./charactersheet-featgrant.js";
+import {CharacterBuildWalk} from "./charactersheet-buildwalk.js";
 
 /**
  * Guided character creation: a step-sequence wizard
@@ -41,10 +42,18 @@ export class CharacterWizard {
 		{id: "choices", name: "Choices"},
 		{id: "equipment", name: "Equipment"},
 		{id: "review", name: "Review"},
+		// Runs *after* the draft is applied: everything above can only be decided up front, and
+		// everything here needs the character to exist first — a subclass needs a class, Expertise
+		// needs skills, spells need a spell list
+		{id: "finish", name: "Finish"},
 	];
 
-	constructor ({comp}) {
+	constructor ({comp, page = null}) {
 		this._comp = comp;
+		// The page owns the pickers the last step walks; without one that step simply says what is
+		// left rather than offering to do it
+		this._page = page;
+		this._walk = page ? new CharacterBuildWalk({comp, page}) : null;
 		this._ixStep = 0;
 
 		this._draft = {
@@ -68,8 +77,8 @@ export class CharacterWizard {
 		this._doClose = null;
 	}
 
-	static async pShow ({comp}) {
-		const wizard = new CharacterWizard({comp});
+	static async pShow ({comp, page = null}) {
+		const wizard = new CharacterWizard({comp, page});
 		return wizard._pShow();
 	}
 
@@ -121,7 +130,6 @@ export class CharacterWizard {
 		btnBack.type = "button";
 		btnBack.className = "ve-btn ve-btn-default";
 		btnBack.textContent = "Back";
-		btnBack.disabled = this._ixStep === 0;
 		btnBack.addEventListener("click", () => {
 			this._ixStep -= 1;
 			this._renderStep();
@@ -130,34 +138,47 @@ export class CharacterWizard {
 		const btnCancel = document.createElement("button");
 		btnCancel.type = "button";
 		btnCancel.className = "ve-btn ve-btn-default ve-ml-2";
-		btnCancel.textContent = "Cancel";
 		btnCancel.addEventListener("click", () => this._doClose(false));
 
 		const dispValidation = document.createElement("div");
 		dispValidation.className = "ve-muted ve-small ve-ml-auto ve-mr-2";
 		dispValidation.id = "cs-wiz-validation";
 
-		const isLast = this._ixStep === CharacterWizard._STEPS.length - 1;
+		const step = CharacterWizard._STEPS[this._ixStep];
+		const isApplyStep = step.id === "review";
+		const isDone = step.id === "finish";
+
+		// Back is meaningless once the draft has been applied: the character exists, and the earlier
+		// steps would apply it a second time
+		btnBack.disabled = this._ixStep === 0 || isDone;
+		btnCancel.textContent = isDone ? "Close" : "Cancel";
+
 		const btnNext = document.createElement("button");
 		btnNext.type = "button";
-		btnNext.className = `ve-btn ${isLast ? "ve-btn-primary" : "ve-btn-default"}`;
-		btnNext.textContent = isLast ? "Finish" : "Next";
+		btnNext.className = `ve-btn ${isApplyStep || isDone ? "ve-btn-primary" : "ve-btn-default"}`;
+		btnNext.textContent = isDone ? "Done" : (isApplyStep ? "Apply" : "Next");
 		btnNext.addEventListener("click", async () => {
+			if (isDone) return this._doClose(true);
+
 			const msgInvalid = this._getStepValidationError();
 			if (msgInvalid) {
 				dispValidation.textContent = msgInvalid;
 				return;
 			}
-			if (isLast) {
+
+			if (isApplyStep) {
 				btnNext.disabled = true;
 				try {
 					await this._pApplyDraft();
 				} finally {
 					btnNext.disabled = false;
 				}
-				this._doClose(true);
+				// Straight on to what is left, rather than closing and leaving somebody to find it
+				this._ixStep += 1;
+				this._renderStep();
 				return;
 			}
+
 			this._ixStep += 1;
 			this._renderStep();
 		});
@@ -799,6 +820,81 @@ export class CharacterWizard {
 		const cbHp = wrp.querySelector("#cs-wiz-cb-hp");
 		if (cbHp) cbHp.addEventListener("change", () => this._draft.isSetSuggestedHp = cbHp.checked);
 	}
+
+	/* -------------------------------------------- Step: finish -------------------------------------------- */
+
+	/**
+	 * Everything still to decide, after the draft has been applied.
+	 *
+	 * The steps before this one can all be answered up front; these cannot. A subclass needs a class
+	 * to belong to, Expertise needs skills to double, spells need a spell list — so they are asked
+	 * here, against the real character, using the same pickers the panels use.
+	 *
+	 * It re-reads the list after every answer, because answering one can reveal another: a subclass
+	 * arrives with its own optional features, and a feat can bring a skill choice with it.
+	 */
+	_render_finish (wrp) {
+		wrp.insertAdjacentHTML("beforeend",
+			`<p>Your character is on the sheet. These are the decisions still open &mdash; the ones that only make sense once it exists.</p>`);
+
+		const wrpList = document.createElement("div");
+		wrpList.className = "ve-flex-col ve-min-h-0 ve-overflow-y-auto";
+		wrp.appendChild(wrpList);
+		this._pRenderFinishList(wrpList);
+	}
+
+	async _pRenderFinishList (wrpList) {
+		wrpList.innerHTML = `<div class="ve-muted ve-small">Checking…</div>`;
+
+		if (!this._walk) {
+			wrpList.innerHTML = `<div class="ve-muted ve-small">Everything else can be set on the sheet itself.</div>`;
+			return;
+		}
+
+		const decisions = await this._pGetFinishDecisions();
+		wrpList.innerHTML = "";
+
+		if (!decisions.length) {
+			wrpList.insertAdjacentHTML("beforeend",
+				`<div class="ve-success-text"><b>Nothing left.</b> This character is ready to play.</div>`);
+			return;
+		}
+
+		decisions.forEach(decision => {
+			const row = document.createElement("div");
+			row.className = "ve-flex-v-center ve-mb-1";
+
+			const lbl = document.createElement("span");
+			lbl.style.flex = "1";
+			const ptCount = decision.count > 1 ? ` <span class="ve-muted">×${decision.count}</span>` : "";
+			const ptDetail = decision.detail ? ` <span class="ve-muted ve-small">${decision.detail.qq()}</span>` : "";
+			lbl.innerHTML = `<span class="bold">${decision.label.qq()}</span>${ptCount}${ptDetail}`;
+			row.appendChild(lbl);
+
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "ve-btn ve-btn-primary ve-btn-xs";
+			btn.textContent = "Choose";
+			btn.addEventListener("click", async () => {
+				btn.disabled = true;
+				try {
+					await this._walk.pResolve(decision);
+				} catch (e) {
+					JqueryUtil.doToast({type: "danger", content: `${e?.message || e}`});
+				}
+				// Re-read rather than strike through: one answer can reveal the next
+				this._pRenderFinishList(wrpList);
+			});
+			row.appendChild(btn);
+
+			wrpList.appendChild(row);
+		});
+
+		wrpList.insertAdjacentHTML("beforeend",
+			`<div class="ve-muted ve-small ve-mt-2">Anything left here can also be settled later &mdash; the Build Check panel lists the same things.</div>`);
+	}
+
+	_pGetFinishDecisions () { return this._walk.pGetDecisions(); }
 
 	/* -------------------------------------------- Apply -------------------------------------------- */
 

@@ -95,7 +95,8 @@ export async function run ({browser, check}) {
 	const reviewText = await overlay.textContent();
 	check("the review names the origin feat it is about to grant", /Tavern Brawler/.test(reviewText), reviewText.slice(0, 400));
 
-	await page.click(".ve-ui-modal__footer button:has-text('Finish')");
+	// "Apply" writes the character; the guide then walks what is left rather than closing
+	await page.click(".ve-ui-modal__footer button:has-text('Apply')");
 	await page.waitForTimeout(1500);
 
 	// Finishing asks what the grants ask: "add this feat?", "which Origin feat?", the feat's own
@@ -103,7 +104,8 @@ export async function run ({browser, check}) {
 	let isOfferedFeatPicker = false;
 	for (let i = 0; i < 10; ++i) {
 		const ov = page.locator(".ve-ui-modal__overlay");
-		if (!(await ov.count())) break;
+		// One modal left is the guide itself, now showing its last step
+		if (await ov.count() <= 1) break;
 		const top = ov.last();
 
 		const sel = top.locator("select").first();
@@ -124,6 +126,12 @@ export async function run ({browser, check}) {
 
 	// The Human's Versatile is "an Origin feat of your choice" — a picker, not a yes/no
 	check("the guide asks which Origin feat the species grants", isOfferedFeatPicker);
+
+	// Close the guide's final step before reading the sheet behind it
+	const wiz = page.locator(".ve-ui-modal__overlay").first();
+	check("the guide ends on what is still open", /Step 8 of 8/.test(await wiz.innerText()), (await wiz.innerText()).slice(0, 200));
+	await page.locator(".ve-ui-modal__footer button", {hasText: "Done"}).click();
+	await page.waitForTimeout(1200);
 
 	// ---------- what the panels make of it ----------
 	const bgText = await page.locator("#cs-background-panel").innerText();
@@ -148,5 +156,98 @@ export async function run ({browser, check}) {
 	check("the species' traits are not copied into the notes", !/Human Traits/.test(features), features.slice(0, 200));
 
 	check("no page errors (guided setup)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
+	await page.close();
+
+	await runFinishStep({browser, check});
+}
+
+/**
+ * The step that makes the guide comprehensive.
+ *
+ * Everything before it can be decided up front. A subclass cannot: it needs a class to belong to.
+ * Neither can Expertise, weapon masteries, an Ability Score Improvement, or spells — so the guide
+ * used to hand back a level-5 character with none of them chosen and no indication that they were
+ * owed. This walks a Cleric 5, which asks for one of nearly every kind at once.
+ */
+async function runFinishStep ({browser, check}) {
+	const page = await openPage(browser, {url: BUILDER_URL});
+
+	await page.click("#cs-btn-wizard");
+	await page.waitForSelector(".ve-ui-modal__overlay", {timeout: 10000});
+
+	await pickViaWizardSearch(page, {btnText: "Choose Species...", query: "human", rowText: "Human", srcText: "PHB'24"});
+	await clickNext(page);
+
+	await page.waitForFunction(() => document.querySelector("#cs-wiz-sel-class")?.options.length > 1, {timeout: 15000});
+	await page.selectOption("#cs-wiz-sel-class", {label: "Cleric (PHB'24)"});
+	await page.fill("#cs-wiz-ipt-level", "5");
+	await page.dispatchEvent("#cs-wiz-ipt-level", "change");
+	await clickNext(page);
+
+	await pickViaWizardSearch(page, {btnText: "Choose Background...", query: "acolyte", rowText: "Acolyte", srcText: "PHB'24"});
+	await clickNext(page);
+
+	await page.selectOption("#cs-wiz-sel-abil-method", "standardArray");
+	await page.waitForTimeout(300);
+	const abvs = ["str", "dex", "con", "int", "wis", "cha"];
+	const vals = ["10", "12", "14", "8", "15", "13"];
+	for (let i = 0; i < 6; ++i) await page.selectOption(`[data-cs-wiz-abv='${abvs[i]}']`, vals[i]);
+	await clickNext(page);
+
+	const ov = page.locator(".ve-ui-modal__overlay");
+	const boxes = ov.locator("input[type=checkbox]");
+	for (let i = 0; i < await boxes.count(); ++i) await boxes.nth(i).check().catch(() => {});
+	await clickNext(page);
+	await clickNext(page); // equipment
+
+	check("the last step before applying is the review", /Step 7 of 8/.test(await ov.innerText()), (await ov.innerText()).slice(0, 120));
+
+	await page.click(".ve-ui-modal__footer button:has-text('Apply')");
+	await page.waitForTimeout(2500);
+
+	// The grants raise their own questions on the way through
+	for (let i = 0; i < 8; ++i) {
+		const modals = page.locator(".ve-ui-modal__overlay");
+		if (await modals.count() <= 1) break;
+		const top = modals.last();
+		const sel = top.locator("select").first();
+		if (await sel.count() && await sel.locator("option").count() > 1) await sel.selectOption({index: 1}).catch(() => {});
+		const btn = top.locator("button", {hasText: /^(OK|Add|Apply)$/}).first();
+		if (!(await btn.count())) break;
+		await btn.click().catch(() => {});
+		await page.waitForTimeout(1000);
+	}
+	await page.waitForTimeout(1500);
+
+	const wiz = page.locator(".ve-ui-modal__overlay").first();
+	const finishText = await wiz.innerText();
+	check("applying moves on to what is left rather than closing", /Step 8 of 8/.test(finishText), finishText.slice(0, 120));
+	check("it asks for the subclass", /Subclass/i.test(finishText), finishText.slice(0, 400));
+	check("for the ability score improvement", /Ability Score Improvement/i.test(finishText), finishText.slice(0, 400));
+	check("and for the spells a Cleric has not chosen", /cantrip/i.test(finishText), finishText.slice(0, 400));
+
+	// Answering one has to remove it from the list, which is what makes this a walk rather than a note
+	const rowSubclass = wiz.locator("div.ve-flex-v-center", {hasText: "Subclass"}).first();
+	await rowSubclass.locator("button", {hasText: "Choose"}).click();
+	await page.waitForTimeout(1500);
+	const picker = page.locator(".ve-ui-modal__overlay").last();
+	const sel = picker.locator("select").first();
+	if (await sel.count()) await sel.selectOption({index: 1});
+	await picker.locator("button", {hasText: "OK"}).first().click();
+	await page.waitForTimeout(2000);
+
+	const afterText = await wiz.innerText();
+	check("choosing the subclass takes it off the list", !/Subclass/i.test(afterText), afterText.slice(0, 400));
+	check("and the subclass is really on the character",
+		!!(await page.evaluate(() => window.__csPage._comp._state.classes[0].subclass)));
+
+	// What the guide lists and what the Build Check lists are the same question
+	await page.locator(".ve-ui-modal__footer button", {hasText: "Done"}).click();
+	await page.waitForTimeout(1200);
+	const audit = await page.locator("#cs-audit").innerText();
+	check("the Build Check lists the same spells the guide did", /cantrip/i.test(audit), audit.slice(0, 250));
+	check("and the same ability score improvement", /ability score improvement/i.test(audit), audit.slice(0, 250));
+
+	check("no page errors (finish step)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
 	await page.close();
 }

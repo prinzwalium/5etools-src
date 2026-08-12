@@ -23,9 +23,10 @@ Each page's controller keeps only its own DOM assembly + rendering.
 - `js/charactersheet.js`, `js/charbuilder.js`, `js/sidekick.js` — the three page entry points
 - `js/charactersheet/*.js` — the shared modules: pure rules (`derive`,
   `levelengine`, `choices`, `abilityscores`, `equipment`, `actions`, `charstore`,
-  `defenses`, `sidekick`, `citations`, `journal`, `portrait`, `sync`, `consts`), data access (`classdata`), the model (`model`), the page
-  base (`pagebase`), and the panel renderers (`classpanel`, `inventorypanel`,
-  `spellspanel`, `actionspanel`, `wizard`)
+  `defenses`, `sidekick`, `citations`, `journal`, `portrait`, `sync`, `buildsteps`, `consts`),
+  data access (`classdata`), the model (`model`), the page
+  base (`pagebase`), and the panel renderers (`classpanel`, `originpanel`, `inventorypanel`,
+  `spellspanel`, `actionspanel`, `auditpanel`, `wizard`, `buildwalk`)
 - `css/charactersheet.css`, `scss/charactersheet.scss` (shared by all three pages)
 - `node/generate-pages/template/page/template-page-charactersheet.hbs`,
   `.../template-page-charbuilder.hbs`, `.../template-page-sidekick.hbs`
@@ -87,6 +88,24 @@ template, run `node node/generate-pages.js` and commit both.
 
 ## What the feature covers (so you don't rebuild it)
 
+- **Guided Setup** (`charactersheet-wizard.js`): eight steps. The first seven build a *draft* —
+  species, class and level, background, ability scores, the choices those ask for, equipment, and a
+  review; **Apply** writes it to the sheet. The eighth is different: it runs against the applied
+  character and walks everything that could not be decided before it existed — subclass, ability
+  score improvements, Expertise, weapon masteries, optional features (Fighting Style, Invocations,
+  …), origin feats, spells, hit points. That list is computed by `charactersheet-buildsteps.js`
+  (pure, tested) and answered by `charactersheet-buildwalk.js`, which calls the *panels' own*
+  pickers rather than growing a second set. The Build Check lists the same things, because both read
+  the same rules.
+- **What a choice answered is written down.** `choiceLog` (in the model) records which choice, from
+  which source, was answered with what, keyed by `getChoiceSignature`. Every path writes it — the
+  guide, the species picker, the background picker — and every path reads it. Without it a skill
+  carries no provenance, so nothing could tell an answered choice from an unasked one, and the guide
+  and the panels each guessed differently.
+- **Species / Background panels** (`charactersheet-originpanel.js`, on the sheet and the builder):
+  what the entity grants, each **ticked against what the character actually has**, what is still to
+  choose with the button that chooses it, and its traits as cards. Origin feats are *applied*, never
+  written into a notes box: a feat as prose is invisible to everything that counts.
 - **Builder** (`charbuilder.html`): a **Build Check** panel (`charactersheet-audit.js`)
   reporting what breaks a rule and what is unclaimed; guided wizard; species/background/class pickers;
   ability scores; the class/leveling panel (subclass, ASI/feat with prerequisite

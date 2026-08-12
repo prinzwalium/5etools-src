@@ -113,6 +113,15 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
 
 ## Ideas worth building, easiest first
 
+- [x] **A guide that finishes the character.** The guided setup stopped at equipment, which is where
+      a character stops being *decidable in advance* and starts needing to exist: a level-5 Cleric
+      came out of it with no subclass, no Ability Score Improvement and no spells, none of it
+      mentioned anywhere. It now has an eighth step that runs on the applied character and walks
+      what is left — subclass, ASIs, Expertise, weapon masteries, optional features, origin feats,
+      spells, hit points — using the panels' own pickers, and re-reading the list after each answer
+      because one answer can reveal the next. `charactersheet-buildsteps.js` computes the list and
+      is unit-tested; the Build Check reads the same rules, so the two cannot drift.
+
 - [x] **Printable spell and action cards.** The *Cards* button on the sheet prints the character's
       known spells and attacks as index-card-sized cards, two across a page: name, level and school,
       casting time, range, components, duration, the spell's own text and its at-higher-levels

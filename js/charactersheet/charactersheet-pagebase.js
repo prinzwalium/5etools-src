@@ -2235,7 +2235,7 @@ export class CharacterPageBase {
 	async _pOnWizard () {
 		this._suppressLevelPrompt += 1;
 		try {
-			await CharacterWizard.pShow({comp: this._comp});
+			await CharacterWizard.pShow({comp: this._comp, page: this});
 		} finally {
 			this._suppressLevelPrompt -= 1;
 			this._lastLevel = this._comp.getLevelNumber();

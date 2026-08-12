@@ -1,7 +1,7 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
 import {getEncumbrance} from "./charactersheet-derive.js";
-import {getAsiCount, getExpertiseSkillCount, getWeaponMasteryCount} from "./charactersheet-levelengine.js";
+import {getAsiCount, getCantripsKnown, getExpertiseSkillCount, getSpellsKnown, getWeaponMasteryCount} from "./charactersheet-levelengine.js";
 import {AUDIT_BROKEN, auditCharacter, groupFindings} from "./charactersheet-audit.js";
 import {getGrantedFeatCategories, getGrantedFeats} from "./charactersheet-choices.js";
 
@@ -26,7 +26,7 @@ export class CharacterAuditPanel {
 			"refSpecies", "refBackground", "speciesText", "backgroundText", "hpMax",
 			// Taking the background's origin feat is one of the things this panel asks for, so it
 			// has to notice when it happens
-			"originFeats",
+			"originFeats", "spellsKnown",
 			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
 			"abil_str", "abil_dex", "abil_con", "abil_int", "abil_wis", "abil_cha",
 		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
@@ -47,7 +47,34 @@ export class CharacterAuditPanel {
 		const masteryTotal = loaded.reduce((acc, {entry, cls}) => acc + (cls ? getWeaponMasteryCount(cls, entry.level) : 0), 0);
 		const masteryTaken = (state.weaponMasteries || []).length;
 
-		return {asiTotal, asiTaken, expertiseTotal, expertiseTaken, masteryTotal, masteryTaken};
+		// Spells a caster is owed. Per class, since a multiclass caster's counts are separate, and
+		// summed here because what somebody wants to know is "how many am I short"
+		let cantripsTotal = 0; let cantripsTaken = 0; let spellsKnownTotal = 0; let spellsKnownTaken = 0;
+		loaded.forEach(({entry, cls, sc}) => {
+			if (!cls) return;
+			const nCantrips = getCantripsKnown(sc, entry.level) ?? getCantripsKnown(cls, entry.level);
+			const nKnown = getSpellsKnown(sc, entry.level) ?? getSpellsKnown(cls, entry.level);
+			if (!nCantrips && !nKnown) return;
+
+			const mine = (state.spellsKnown || []).filter(it => !it.className || it.className === entry.name);
+			cantripsTotal += nCantrips || 0;
+			cantripsTaken += mine.filter(it => !it.level).length;
+			spellsKnownTotal += nKnown || 0;
+			spellsKnownTaken += mine.filter(it => it.level).length;
+		});
+
+		return {
+			asiTotal,
+			asiTaken,
+			expertiseTotal,
+			expertiseTaken,
+			masteryTotal,
+			masteryTaken,
+			cantripsTotal,
+			cantripsTaken,
+			spellsKnownTotal,
+			spellsKnownTaken,
+		};
 	}
 
 	/**
