@@ -199,6 +199,31 @@ npx eslint js/charactersheet.js js/charbuilder.js js/sidekick.js js/charactershe
 Prefer a unit test when the logic is pure. `test/e2e/README.md` explains the browser suites and
 how to add one.
 
+### Playtesting whole characters
+
+Neither layer catches the bugs that only appear when a *particular* combination is built end to
+end — a grant that is applied but never ticked, a decision the guide never lists, a panel that
+disagrees with the Build Check. Those come out of building real characters, so build them:
+
+1. `npm run serve:dev`, open `/charbuilder.html`, run the Guided Setup.
+2. On the last step, answer every decision it lists until it says *Nothing left*.
+3. Read the **Species**, **Background** and **Build Check** panels against each other. They read
+   the same rules, so any disagreement between them is a bug in one of them.
+
+A matrix that has earned its keep: **Human Fighter** (two sources offering the same skill),
+**Elf Wizard** (a lineage to choose, a narrowing feat uid), **Dwarf Cleric** (a prepared caster),
+**Dragonborn Paladin** and **Goliath Barbarian** (ancestry choices), **Tiefling Warlock**
+(invocations), **Halfling Rogue** (Expertise, masteries, an Arcane Trickster's spells).
+
+What that matrix found, and what to look for again:
+
+- a feat uid may *narrow* the feat as well as name it (`"magic initiate; wizard|xphb"`); only the
+  part before the semicolon is the name a taken feat is stored under;
+- the same proficiency cannot be gained twice — a skill records a state, not a count, so a second
+  grant lands on a ticked box and is silently lost;
+- a "choose one of the following" trait reads as an ordinary trait card, which is no help when it
+  is a question.
+
 ---
 
 ## Important: the page HTML files are *generated*

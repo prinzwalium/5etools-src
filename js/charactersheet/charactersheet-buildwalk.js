@@ -1,4 +1,4 @@
-import {getOutstandingDecisions, STEP_ASI, STEP_EXPERTISE, STEP_HP, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SPELLS, STEP_SUBCLASS} from "./charactersheet-buildsteps.js";
+import {getOutstandingDecisions, STEP_ASI, STEP_EXPERTISE, STEP_HP, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {pPickList} from "./charactersheet-featgrant.js";
@@ -50,6 +50,9 @@ export class CharacterBuildWalk {
 
 			case STEP_ORIGIN_FEAT:
 				return this._page._pGrantOriginFeats(ctx.ent);
+
+			case STEP_TRAIT_CHOICE:
+				return this._page._pResolveTraitChoices(ctx.ent);
 
 			case STEP_SUBCLASS:
 				return this._page._classPanel._pOnChooseSubclass({entry: ctx.entry, cls: ctx.cls});

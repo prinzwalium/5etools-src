@@ -12,6 +12,10 @@ import {
 	getAbilityPackages,
 	getFixedAbilityBonuses,
 	getGrantedFeats,
+	getChoiceWithoutHeld,
+	getFixedProficiencyNames,
+	getHeldProficiencyNames,
+	mergeHeldProficiencyNames,
 	getPendingChoices,
 	getProfListDisplay,
 	getToolChoices,
@@ -152,13 +156,71 @@ describe("Ability score increase extraction", () => {
 
 describe("Granted feats (2024-style)", () => {
 	it("Should parse uid-keyed feat grants", () => {
-		expect(getGrantedFeats([{"magic initiate; wizard|xphb": true}])).toEqual([
-			{name: "magic initiate; wizard", source: "xphb", displayName: "Magic Initiate — Wizard"},
-		]);
 		expect(getGrantedFeats([{alert: true}])).toEqual([
-			{name: "alert", source: "PHB", displayName: "Alert"},
+			{name: "alert", source: "PHB", subChoice: null, displayName: "Alert"},
 		]);
 		expect(getGrantedFeats(null)).toEqual([]);
+	});
+
+	// The uid narrows the feat as well as naming it, and only the part before the semicolon is the
+	// feat's own name — which is what a taken feat is stored under. Keeping the whole string left an
+	// Acolyte's granted feat looking untaken however many times it was taken.
+	it("Should split a narrowing uid into the feat's name and its sub-choice", () => {
+		expect(getGrantedFeats([{"magic initiate; wizard|xphb": true}])).toEqual([
+			{name: "magic initiate", source: "xphb", subChoice: "wizard", displayName: "Magic Initiate — Wizard"},
+		]);
+	});
+});
+
+describe("Proficiencies already held", () => {
+	const state = {
+		skill_athletics: 1,
+		skill_stealth: 2,
+		skill_arcana: 0,
+		proficiencies: [
+			{kind: "tool", name: "Thieves' Tools", source: "Rogue", entries: ["Thieves' Tools"]},
+			{kind: "language", name: "Elvish", source: "Elf", entries: ["Elvish"]},
+			{kind: "armor", name: "Light", source: "Rogue", entries: ["Light"]},
+		],
+	};
+
+	it("Should collect what the character already has, by choice type", () => {
+		const held = getHeldProficiencyNames(state);
+		expect([...held.skill].sort()).toEqual(["Athletics", "Stealth"]);
+		expect([...held.tool]).toEqual(["Thieves' Tools"]);
+		expect([...held.language]).toEqual(["Elvish"]);
+	});
+
+	it("Should subtract the held options from a choice, clipping its count", () => {
+		const choice = {type: "skill", count: 2, from: ["Athletics", "Stealth", "Arcana"], label: "Choose 2 skills"};
+		expect(getChoiceWithoutHeld(choice, getHeldProficiencyNames(state))).toMatchObject({from: ["Arcana"], count: 1});
+	});
+
+	it("Should report a choice with nothing left to offer as spent", () => {
+		const choice = {type: "skill", count: 1, from: ["Athletics"], label: "Choose 1 skill"};
+		expect(getChoiceWithoutHeld(choice, getHeldProficiencyNames(state))).toBeNull();
+	});
+
+	it("Should leave a choice untouched when the character holds none of it", () => {
+		const choice = {type: "skill", count: 1, from: ["Arcana"], label: "Choose 1 skill"};
+		expect(getChoiceWithoutHeld(choice, getHeldProficiencyNames({}))).toBe(choice);
+	});
+
+	// The guided setup answers every choice before anything reaches the sheet, so the character
+	// cannot yet tell the class chooser that the background hands it Stealth outright
+	it("Should read the fixed grants of entities that are picked but not yet applied", () => {
+		const fixed = getFixedProficiencyNames({
+			background: {name: "Criminal", skillProficiencies: [{sleight_of_hand: true, stealth: true}]},
+		});
+		expect([...fixed.skill].sort()).toEqual(["Sleight of Hand", "Stealth"]);
+	});
+
+	it("Should merge what is held with what is about to be granted", () => {
+		const merged = mergeHeldProficiencyNames(
+			getHeldProficiencyNames(state),
+			getFixedProficiencyNames({background: {name: "Criminal", skillProficiencies: [{stealth: true}]}}),
+		);
+		expect([...merged.skill].sort()).toEqual(["Athletics", "Stealth"]);
 	});
 });
 

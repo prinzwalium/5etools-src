@@ -5,7 +5,7 @@ import {getLevelUpHp} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, formatBreakdown, getConcentrationSaveDc} from "./charactersheet-derive.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CharacterWizard} from "./charactersheet-wizard.js";
-import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getFixedAbilityBonuses, getGrantedFeatCategories, getGrantedFeats, getPendingChoices, getResistChoices} from "./charactersheet-choices.js";
+import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getChoiceWithoutHeld, getFixedAbilityBonuses, getFixedProficiencyNames, getGrantedFeatCategories, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getResistChoices, mergeHeldProficiencyNames} from "./charactersheet-choices.js";
 import {pPickAbilities, pPickList, pResolveEntitySpellGrants, pResolveFeat} from "./charactersheet-featgrant.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL, PROF_KINDS, groupProficienciesByKind} from "./charactersheet-proficiencies.js";
 import {DEFENSE_KINDS, DEFENSE_KIND_RESIST, DEFENSE_KIND_SENSE, getAllDefenses, groupDefensesByKind} from "./charactersheet-defenses.js";
@@ -2005,9 +2005,20 @@ export class CharacterPageBase {
 		const choices = getPendingChoices({[kind]: ent}).filter(c => c.type !== CHOICE_TYPE_ABILITY);
 		if (!choices.length) return;
 
+		// What is already held comes out of every list, and each pick joins it — otherwise the second
+		// chooser happily offers what the first one just took, and the duplicate silently vanishes
+		const held = mergeHeldProficiencyNames(
+			getHeldProficiencyNames(this._comp._getState()),
+			getFixedProficiencyNames({[kind === "race" ? "race" : "background"]: ent}),
+		);
+
 		for (const choice of choices) {
-			const picked = await pPickList({count: choice.count, from: choice.from, title: `${ent.name}: ${choice.label}`});
+			const offered = getChoiceWithoutHeld(choice, held);
+			if (!offered) continue;
+
+			const picked = await pPickList({count: offered.count, from: offered.from, title: `${ent.name}: ${choice.label}`});
 			(picked || []).forEach(name => {
+				held[choice.type]?.add(name);
 				if (choice.type === CHOICE_TYPE_SKILL) this._comp.setSkillProfByName(name, PROF_STATE_PROFICIENT);
 				else if (choice.type === CHOICE_TYPE_LANGUAGE) this._comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: ent.name});
 				else if (choice.type === CHOICE_TYPE_TOOL) this._comp.addProficiency({kind: PROF_KIND_TOOL, name, source: ent.name});

@@ -1,4 +1,5 @@
 import {CHAR_SHEET_SKILLS, getSkillKeyByName, getSkillNameByKey} from "./charactersheet-consts.js";
+import {getEntityProficiencies, PROF_KIND_LANGUAGE, PROF_KIND_TOOL} from "./charactersheet-proficiencies.js";
 
 /**
  * The "choice queue": pure extraction of unresolved choices (skill/language/tool picks) from
@@ -64,6 +65,91 @@ export function getChoiceSignature (choice) {
 }
 
 const _ALL_SKILL_NAMES = () => CHAR_SHEET_SKILLS.map(({name}) => name);
+
+/**
+ * What the character already holds, keyed by the choice type that could offer it again.
+ *
+ * Nothing is gained by taking the same proficiency twice, and the sheet cannot say so afterwards: a
+ * skill records a state, not a count, so a second grant lands on a box that is already ticked and
+ * the pick is simply lost. A Human Fighter offered Acrobatics by both its species and its class can
+ * spend two of its three skills on one. So every chooser subtracts this set first.
+ */
+export function getHeldProficiencyNames (state) {
+	const out = {
+		[CHOICE_TYPE_SKILL]: new Set(),
+		[CHOICE_TYPE_TOOL]: new Set(),
+		[CHOICE_TYPE_LANGUAGE]: new Set(),
+	};
+
+	CHAR_SHEET_SKILLS.forEach(({key, name}) => {
+		if (Number(state?.[`skill_${key}`]) > 0) out[CHOICE_TYPE_SKILL].add(name);
+	});
+
+	(state?.proficiencies || []).forEach(prof => {
+		const bucket = prof?.kind === PROF_KIND_TOOL
+			? out[CHOICE_TYPE_TOOL]
+			: prof?.kind === PROF_KIND_LANGUAGE ? out[CHOICE_TYPE_LANGUAGE] : null;
+		if (!bucket) return;
+		(Array.isArray(prof.entries) ? prof.entries : []).forEach(name => bucket.add(name));
+	});
+
+	return out;
+}
+
+/**
+ * The same, for entities that are *picked but not yet applied* — the guided setup's draft. Its
+ * choices are all answered before anything reaches the sheet, so the character cannot yet tell the
+ * class chooser that the background hands it Stealth outright.
+ */
+export function getFixedProficiencyNames ({race = null, background = null, cls = null} = {}) {
+	const out = {
+		[CHOICE_TYPE_SKILL]: new Set(),
+		[CHOICE_TYPE_TOOL]: new Set(),
+		[CHOICE_TYPE_LANGUAGE]: new Set(),
+	};
+
+	[race, background, cls].filter(Boolean).forEach(ent => {
+		(ent.skillProficiencies || []).forEach(grp => {
+			Object.entries(grp).forEach(([k, v]) => {
+				if (v !== true) return;
+				const name = getSkillNameByKey(getSkillKeyByName(k));
+				if (name) out[CHOICE_TYPE_SKILL].add(name);
+			});
+		});
+
+		getEntityProficiencies(ent).forEach(prof => {
+			if (prof.kind === PROF_KIND_TOOL) out[CHOICE_TYPE_TOOL].add(prof.name);
+			else if (prof.kind === PROF_KIND_LANGUAGE) out[CHOICE_TYPE_LANGUAGE].add(prof.name);
+		});
+	});
+
+	return out;
+}
+
+/** The union of two such maps. */
+export function mergeHeldProficiencyNames (...maps) {
+	const out = {
+		[CHOICE_TYPE_SKILL]: new Set(),
+		[CHOICE_TYPE_TOOL]: new Set(),
+		[CHOICE_TYPE_LANGUAGE]: new Set(),
+	};
+	maps.filter(Boolean).forEach(map => {
+		Object.entries(out).forEach(([type, set]) => (map[type] || []).forEach(name => set.add(name)));
+	});
+	return out;
+}
+
+/**
+ * A choice with everything the character already has taken out of it, and its count clipped to what
+ * is left. Returns `null` when nothing remains to offer — the grant is spent, not owed.
+ */
+export function getChoiceWithoutHeld (choice, held) {
+	const taken = held?.[choice?.type];
+	if (!taken?.size || !Array.isArray(choice?.from)) return choice;
+	const from = choice.from.filter(name => !taken.has(name));
+	if (!from.length) return null;
+	return {...choice, from, count: Math.min(choice.count || 1, from.length)};
+}
 
 /** Skill choices from a `skillProficiencies`-style group array. Option values are display names. */
 export function getSkillChoices ({groups, sourceName}) {
@@ -299,12 +385,19 @@ export function getGrantedFeats (feats) {
 	(feats || []).forEach(grp => {
 		Object.entries(grp).forEach(([uid, v]) => {
 			if (v !== true) return;
-			const [name, source] = uid.split("|");
+			const [uidName, source] = uid.split("|");
+			if (!uidName) return;
+			// A uid may narrow the feat as well as name it — `"magic initiate; cleric|xphb"` is the
+			// Magic Initiate feat, taken with the Cleric list. Only the part before the semicolon is
+			// the feat's real name, and that is what a taken feat is stored under; keeping the whole
+			// string here is what left an Acolyte's granted feat looking untaken forever.
+			const [name, ...subs] = uidName.split(";").map(pt => pt.trim()).filter(Boolean);
 			if (!name) return;
 			out.push({
 				name,
 				source: source || "PHB",
-				displayName: name.split(";").map(pt => _titleCase(pt.trim())).join(" — "),
+				subChoice: subs.join(", ") || null,
+				displayName: [name, ...subs].map(pt => _titleCase(pt)).join(" — "),
 			});
 		});
 	});

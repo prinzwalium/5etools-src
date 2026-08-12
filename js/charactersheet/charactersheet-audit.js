@@ -70,9 +70,11 @@ export function checkMulticlassRequirements (requirements, state) {
  *   entities.
  * @param opts.grantedFeatChoices `[{from, count}]` — the "one of your choice" grants, named by the
  *   entity that makes them (the 2024 Human's Versatile).
+ * @param opts.openTraitChoices `[{from, trait}]` — "choose one of the following" species traits the
+ *   character has reached the level for and not answered.
  * @return {Array<{severity: string, key: string, message: string, hint: string|null}>}
  */
-export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}, grantedOriginFeats = [], grantedFeatChoices = []} = {}) {
+export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}, grantedOriginFeats = [], grantedFeatChoices = [], openTraitChoices = []} = {}) {
 	const out = [];
 	if (!state) return out;
 
@@ -177,6 +179,15 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 				`${from} grants ${owed} origin feat${owed === 1 ? "" : "s"} of your choice, not taken.`,
 				"Take it from the species or background panel."));
 		}
+	});
+
+	// A "choose one of the following" trait — an Elf's Lineage, a Dragonborn's Ancestry — decides a
+	// cantrip, a damage type, a breath weapon. Unpicked, it reads on the sheet as a trait the
+	// character has, when in fact nothing about it has been settled.
+	openTraitChoices.forEach(({from, trait}) => {
+		out.push(_mkFinding(AUDIT_UNCLAIMED, `traitchoice:${from}:${trait}`,
+			`${from}: ${trait} is not chosen.`,
+			"Choose it from the species panel."));
 	});
 
 	return out;

@@ -7,7 +7,8 @@ import {
 	getWeaponMasteryCount,
 } from "./charactersheet-levelengine.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
-import {getChoiceSignature, getGrantedFeatCategories, getGrantedFeats, getPendingChoices} from "./charactersheet-choices.js";
+import {getChoiceSignature, getChoiceWithoutHeld, getGrantedFeatCategories, getGrantedFeats, getHeldProficiencyNames, getPendingChoices} from "./charactersheet-choices.js";
+import {getTraitChoices} from "./charactersheet-traitchoices.js";
 
 /**
  * Everything still to decide before a character can be played, as one list.
@@ -32,6 +33,7 @@ export const STEP_MASTERY = "mastery";
 export const STEP_OPTIONAL_FEATURE = "optionalFeature";
 export const STEP_ORIGIN_CHOICE = "originChoice";
 export const STEP_ORIGIN_FEAT = "originFeat";
+export const STEP_TRAIT_CHOICE = "traitChoice";
 export const STEP_SPELLS = "spells";
 export const STEP_HP = "hp";
 
@@ -50,8 +52,13 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 	[[speciesEnt, "species"], [backgroundEnt, "background"]].forEach(([ent, kind]) => {
 		if (!ent) return;
 
+		const held = getHeldProficiencyNames(st);
+
 		getPendingChoices(kind === "species" ? {race: ent} : {background: ent})
 			.filter(choice => !(st.choiceLog || []).some(it => it.sig === getChoiceSignature(choice) && it.picks.length))
+			// A choice whose every option the character already has is spent, not owed — asking again
+			// would only offer an empty list
+			.filter(choice => !!getChoiceWithoutHeld(choice, held))
 			.forEach(choice => out.push({
 				key: `${STEP_ORIGIN_CHOICE}:${getChoiceSignature(choice)}`,
 				kind: STEP_ORIGIN_CHOICE,
@@ -90,6 +97,22 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 				ctx: {ent},
 			});
 		}
+
+		// "Choose one of the following" traits — an Elf's Lineage, a Dragonborn's Ancestry, a Goliath's
+		// Giant Ancestry. These decide a cantrip, a damage type, a breath weapon; a character without
+		// one is not playable, and nothing was listing them
+		const level = (st.classes || []).reduce((acc, it) => acc + (Number(it.level) || 0), 0) || 1;
+		getTraitChoices(ent)
+			.filter(choice => (choice.level || 1) <= level)
+			.filter(choice => !(st.traitChoices || []).some(it => it.source === ent.name && it.trait === choice.trait))
+			.forEach(choice => out.push({
+				key: `${STEP_TRAIT_CHOICE}:${ent.name}:${choice.trait}`,
+				kind: STEP_TRAIT_CHOICE,
+				label: choice.trait,
+				detail: ent.name,
+				count: 1,
+				ctx: {ent, choice},
+			}));
 	});
 
 	/* ---------- what each class still asks ---------- */

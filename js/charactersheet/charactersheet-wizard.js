@@ -9,8 +9,11 @@ import {
 	getChoiceSignature,
 	getFixedAbilityBonuses,
 	getGrantedFeatCategories,
+	getFixedProficiencyNames,
 	getGrantedFeats,
+	getHeldProficiencyNames,
 	getPendingChoices,
+	mergeHeldProficiencyNames,
 } from "./charactersheet-choices.js";
 import {
 	ABILITY_METHOD_MANUAL,
@@ -393,6 +396,29 @@ export class CharacterWizard {
 
 		wrp.innerHTML = `<p>Resolve the choices granted by your selections.</p>`;
 
+		// Nothing here is applied yet, so the choices cannot see each other through the character —
+		// which is how a Human Fighter offered Acrobatics twice could spend two picks on one skill.
+		// Every option control registers here, and one pass over them greys what is spoken for.
+		const held = mergeHeldProficiencyNames(
+			getHeldProficiencyNames(this._comp._getState()),
+			// …plus what the draft is about to grant outright, which the character cannot know yet
+			getFixedProficiencyNames({race: this._draft.race?.ent, background: this._draft.background?.ent, cls: this._draft.cls}),
+		);
+		const ctrls = [];
+		const refreshBlocked = () => {
+			const owners = new Map();
+			ctrls.forEach(({choice, opt, cb}) => { if (cb.checked) owners.set(`${choice.type}|${opt}`, choice); });
+			ctrls.forEach(({choice, opt, cb, lbl}) => {
+				const owner = owners.get(`${choice.type}|${opt}`);
+				const isElsewhere = owner && owner !== choice;
+				const isAlready = !cb.checked && held[choice.type]?.has(opt);
+				const isBlocked = !!(isElsewhere || isAlready);
+				cb.disabled = isBlocked;
+				lbl.classList.toggle("ve-muted", isBlocked);
+				lbl.title = isElsewhere ? `Already chosen for ${owner.sourceName}` : isAlready ? "Already proficient" : "";
+			});
+		};
+
 		this._draft.choices.forEach(choice => {
 			if (choice.type === CHOICE_TYPE_ABILITY) return this._renderAbilityChoice(wrp, choice);
 
@@ -430,16 +456,20 @@ export class CharacterWizard {
 						selections.add(opt);
 					} else selections.delete(opt);
 					renderStatus();
+					refreshBlocked();
 				});
 				const spn = document.createElement("span");
 				spn.textContent = opt;
 				lbl.append(cb, spn);
 				wrpOpts.appendChild(lbl);
+				ctrls.push({choice, opt, cb, lbl});
 			});
 
 			renderStatus();
 			wrp.appendChild(wrpChoice);
 		});
+
+		refreshBlocked();
 	}
 
 	/* -------------------------------------------- Ability score choices -------------------------------------------- */

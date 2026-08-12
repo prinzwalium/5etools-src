@@ -4,10 +4,14 @@ import {
 	getChoiceSignature,
 	getFixedAbilityBonuses,
 	getGrantedFeatCategories,
+	getChoiceWithoutHeld,
 	getGrantedFeats,
+	getHeldProficiencyNames,
 	getPendingChoices,
 } from "./charactersheet-choices.js";
 import {getEntityProficiencies} from "./charactersheet-proficiencies.js";
+import {getEntityDefenses} from "./charactersheet-defenses.js";
+import {getTraitChoices} from "./charactersheet-traitchoices.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 
 /**
@@ -50,6 +54,9 @@ export class CharacterOriginPanel {
 		// Answering a choice is the other half of "still to choose"
 		this._comp._addHookBase("choiceLog", () => this._pRender());
 		this._comp._addHookBase("abilityBonusLog", () => this._pRender());
+		// …as is picking a lineage or an ancestry, which nothing else here would notice
+		this._comp._addHookBase("traitChoices", () => this._pRender());
+		this._comp._addHookBase("defenses", () => this._pRender());
 		CHAR_SHEET_SKILLS.forEach(({key}) => this._comp._addHookBase(`skill_${key}`, () => this._pRender()));
 		this._pRender();
 	}
@@ -155,6 +162,13 @@ export class CharacterOriginPanel {
 			rows.push({label: `${prof.name} (${prof.kind})`, isHave: have.has(`${prof.kind}|${prof.name}`.toLowerCase())});
 		});
 
+		// Darkvision and the resistances are the whole of what several species grant outright, so a
+		// panel that skipped them showed an Elf as granting nothing at all
+		const haveDefenses = new Set((this._comp._state.defenses || []).map(it => `${it.kind}|${it.name}`.toLowerCase()));
+		getEntityDefenses(ent).forEach(def => {
+			rows.push({label: `${def.name} (${def.kind})`, isHave: haveDefenses.has(`${def.kind}|${def.name}`.toLowerCase())});
+		});
+
 		const takenFeats = new Set((this._comp._state.originFeats || []).map(it => `${it.name}|${it.source}`.toLowerCase()));
 		getGrantedFeats(ent.feats).forEach(feat => {
 			rows.push({
@@ -200,8 +214,11 @@ export class CharacterOriginPanel {
 
 		// Only what nobody has answered. A choice the guided setup already made is not a choice, and
 		// showing it as one is what made the guide look incompatible with this panel
+		const held = getHeldProficiencyNames(this._comp._getState());
 		const unanswered = getPendingChoices(this._kind === "species" ? {race: ent} : {background: ent})
-			.filter(choice => !this._comp.hasAnsweredChoice(getChoiceSignature(choice)));
+			.filter(choice => !this._comp.hasAnsweredChoice(getChoiceSignature(choice)))
+			// …nor one whose every option the character already holds from somewhere else
+			.filter(choice => !!getChoiceWithoutHeld(choice, held));
 
 		const profChoices = unanswered.filter(c => c.type !== CHOICE_TYPE_ABILITY);
 		if (profChoices.length) {
@@ -232,6 +249,20 @@ export class CharacterOriginPanel {
 				? `Origin feat: ${missingFeats.map(it => it.displayName || it.name).join(", ")}`
 				: "Origin feat of your choice";
 			rows.push({text: what, btn: "Take it", pFn: () => this._page._pGrantOriginFeats(ent)});
+		}
+
+		// "Choose one of the following" traits — an Elf's Lineage, a Dragonborn's Ancestry. These read
+		// as ordinary trait cards below, which is no help at all when one of them is a question
+		const level = this._comp.getLevelNumber();
+		const unpickedTraits = getTraitChoices(ent)
+			.filter(choice => (choice.level || 1) <= level)
+			.filter(choice => !this._comp.getTraitChoice(ent.name, choice.trait));
+		if (unpickedTraits.length) {
+			rows.push({
+				text: unpickedTraits.map(it => it.trait).join(", "),
+				btn: "Choose",
+				pFn: () => this._page._pResolveTraitChoices(ent),
+			});
 		}
 
 		if (!rows.length) return;

@@ -5,9 +5,11 @@ import {
 	STEP_HP,
 	STEP_MASTERY,
 	STEP_OPTIONAL_FEATURE,
+	STEP_ORIGIN_CHOICE,
 	STEP_ORIGIN_FEAT,
 	STEP_SPELLS,
 	STEP_SUBCLASS,
+	STEP_TRAIT_CHOICE,
 	getOutstandingDecisions,
 } from "../../js/charactersheet/charactersheet-buildsteps.js";
 
@@ -150,5 +152,53 @@ describe("Outstanding decisions: the pools and the rest", () => {
 	it("Copes with no arguments at all", () => {
 		expect(kindsOf(getOutstandingDecisions())).toContain(STEP_HP);
 		expect(kindsOf(getOutstandingDecisions({}))).not.toContain(STEP_MASTERY);
+	});
+});
+
+/**
+ * The other half of what a species asks. An Elf's Lineage decides a cantrip and a speed, a
+ * Dragonborn's Ancestry a damage type and a breath weapon — and nothing listed them, so a guided
+ * Elf reached the table with a trait that had never been answered.
+ */
+describe("Outstanding decisions: 'choose one of the following' traits", () => {
+	const ELF = {
+		name: "Elf",
+		entries: [
+			{
+				name: "Elven Lineage",
+				entries: [
+					"You are part of a lineage that grants you supernatural boons. Choose one of the following options:",
+					{type: "list", items: [{name: "Drow", entries: ["…"]}, {name: "High Elf", entries: ["…"]}, {name: "Wood Elf", entries: ["…"]}]},
+				],
+			},
+		],
+	};
+
+	it("Asks for a lineage nobody has picked", () => {
+		const decisions = getOutstandingDecisions({state: baseState({hpMax: 10}), speciesEnt: ELF});
+		expect(decisions.filter(it => it.kind === STEP_TRAIT_CHOICE).map(it => it.label)).toEqual(["Elven Lineage"]);
+	});
+
+	it("And stops once it is picked", () => {
+		const state = baseState({hpMax: 10, traitChoices: [{source: "Elf", trait: "Elven Lineage", option: "Wood Elf"}]});
+		expect(kindsOf(getOutstandingDecisions({state, speciesEnt: ELF}))).not.toContain(STEP_TRAIT_CHOICE);
+	});
+});
+
+/**
+ * The same proficiency cannot be gained twice — a skill records a state, not a count, so the second
+ * grant lands on a ticked box and is simply lost. A choice with nothing left to offer is spent.
+ */
+describe("Outstanding decisions: a choice the character has outgrown", () => {
+	const HALF_ELF = {name: "Half-Elf", skillProficiencies: [{choose: {from: ["perception", "stealth"], count: 1}}]};
+
+	it("Still asks while an option remains", () => {
+		const state = baseState({hpMax: 10, skill_perception: 1});
+		expect(kindsOf(getOutstandingDecisions({state, speciesEnt: HALF_ELF}))).toContain(STEP_ORIGIN_CHOICE);
+	});
+
+	it("Goes quiet once every option is already held", () => {
+		const state = baseState({hpMax: 10, skill_perception: 1, skill_stealth: 1});
+		expect(kindsOf(getOutstandingDecisions({state, speciesEnt: HALF_ELF}))).not.toContain(STEP_ORIGIN_CHOICE);
 	});
 });

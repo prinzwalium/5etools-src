@@ -4,6 +4,7 @@ import {getEncumbrance} from "./charactersheet-derive.js";
 import {getAsiCount, getCantripsKnown, getExpertiseSkillCount, getSpellsKnown, getWeaponMasteryCount} from "./charactersheet-levelengine.js";
 import {AUDIT_BROKEN, auditCharacter, groupFindings} from "./charactersheet-audit.js";
 import {getGrantedFeatCategories, getGrantedFeats} from "./charactersheet-choices.js";
+import {getTraitChoices} from "./charactersheet-traitchoices.js";
 
 /**
  * The build audit, on the builder: what breaks a rule, and what the character is owed but has not
@@ -93,7 +94,16 @@ export class CharacterAuditPanel {
 			.filter(Boolean)
 			.map(ent => ({from: ent.name, count: getGrantedFeatCategories(ent.feats).reduce((a, it) => a + it.count, 0)}))
 			.filter(it => it.count);
-		return {grantedOriginFeats, grantedFeatChoices};
+
+		const level = this._comp.getLevelNumber();
+		const openTraitChoices = ents
+			.filter(Boolean)
+			.flatMap(ent => getTraitChoices(ent)
+				.filter(choice => (choice.level || 1) <= level)
+				.filter(choice => !this._comp.getTraitChoice(ent.name, choice.trait))
+				.map(choice => ({from: ent.name, trait: choice.trait})));
+
+		return {grantedOriginFeats, grantedFeatChoices, openTraitChoices};
 	}
 
 	async _pRender () {

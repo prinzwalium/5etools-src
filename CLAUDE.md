@@ -102,10 +102,23 @@ template, run `node node/generate-pages.js` and commit both.
   guide, the species picker, the background picker — and every path reads it. Without it a skill
   carries no provenance, so nothing could tell an answered choice from an unasked one, and the guide
   and the panels each guessed differently.
+- **The same proficiency is never granted twice.** A skill records a state, not a count, so a second
+  grant lands on a ticked box and the pick is simply lost — a Human Fighter offered Acrobatics by
+  both its species and its class could spend two of its three skills on one. `getHeldProficiencyNames`
+  (what the character has) and `getFixedProficiencyNames` (what a *picked but unapplied* entity is
+  about to hand it, which is the guide's whole draft) subtract from every chooser, and a choice with
+  nothing left to offer is spent rather than owed.
+- **A feat uid may narrow the feat as well as name it.** `"magic initiate; wizard|xphb"` is Magic
+  Initiate taken with the Wizard list; only the part before the semicolon is the name a taken feat is
+  stored under. `getGrantedFeats` splits the two (`name`, `subChoice`, `displayName`), which is what
+  lets a background's granted feat ever register as taken.
 - **Species / Background panels** (`charactersheet-originpanel.js`, on the sheet and the builder):
-  what the entity grants, each **ticked against what the character actually has**, what is still to
-  choose with the button that chooses it, and its traits as cards. Origin feats are *applied*, never
-  written into a notes box: a feat as prose is invisible to everything that counts.
+  what the entity grants — proficiencies, ability increases, senses and resistances, origin feats —
+  each **ticked against what the character actually has**, what is still to choose with the button
+  that chooses it, and its traits as cards. A **"choose one of the following" trait** (Elven Lineage,
+  Draconic Ancestry, Giant Ancestry, Fiendish Legacy) is one of those questions, not a trait card:
+  the guide asks it, the panel asks it, and the Build Check reports it. Origin feats are *applied*,
+  never written into a notes box: a feat as prose is invisible to everything that counts.
 - **Builder** (`charbuilder.html`): a **Build Check** panel (`charactersheet-audit.js`)
   reporting what breaks a rule and what is unclaimed; guided wizard; species/background/class pickers;
   ability scores; the class/leveling panel (subclass, ASI/feat with prerequisite
