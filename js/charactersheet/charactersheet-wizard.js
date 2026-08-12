@@ -7,6 +7,8 @@ import {
 	CHOICE_TYPE_TOOL,
 	getAbilityPackageDisplay,
 	getFixedAbilityBonuses,
+	getGrantedFeatCategories,
+	getGrantedFeats,
 	getPendingChoices,
 } from "./charactersheet-choices.js";
 import {
@@ -22,6 +24,7 @@ import {
 } from "./charactersheet-abilityscores.js";
 import {EQUIPMENT_ALWAYS_KEY, getEquipmentChoiceGroups, getEquipmentOptionDisplay, getInventoryItemMeta} from "./charactersheet-equipment.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL} from "./charactersheet-proficiencies.js";
+import {pResolveFeat} from "./charactersheet-featgrant.js";
 
 /**
  * Guided character creation: a step-sequence wizard
@@ -628,6 +631,50 @@ export class CharacterWizard {
 		});
 	}
 
+	/**
+	 * The feats the chosen background grants, applied for real: the ability increase, the fixed
+	 * grants, and any skill or Expertise the feat itself asks you to choose.
+	 *
+	 * Silent when there are none, which is every pre-2024 background.
+	 */
+	async _pApplyBackgroundFeats (comp) {
+		for (const ent of [this._draft.background?.ent, this._draft.race?.ent]) await this._pApplyEntityFeats(comp, ent);
+	}
+
+	async _pApplyEntityFeats (comp, ent) {
+		for (const {name, source, displayName} of getGrantedFeats(ent?.feats)) {
+			const feat = await CharacterSheetClassData.pGetFeat({name, source}).catch(() => null);
+			if (!feat) continue;
+
+			const bonuses = await pResolveFeat(comp, feat);
+			if (bonuses == null) continue;
+			comp.addOriginFeat({name: feat.name, source: feat.source, displayName: displayName || feat.name, bonuses});
+		}
+
+		// "An Origin feat of your choice" (the 2024 Human's Versatile) is a pick, not a confirmation
+		for (const grant of getGrantedFeatCategories(ent?.feats)) {
+			for (let i = 0; i < grant.count; ++i) {
+				const pool = (await CharacterSheetClassData.pGetAllFeats())
+					.filter(f => String(f.category || "").toUpperCase().split(":")[0] === grant.category)
+					.filter(f => !(comp._state.originFeats || []).some(it => it.name === f.name && it.source === f.source));
+				if (!pool.length) break;
+
+				const feat = await InputUiUtil.pGetUserEnum({
+					values: pool,
+					isResolveItem: true,
+					fnDisplay: f => `${f.name} (${Parser.sourceJsonToAbv(f.source)})`,
+					title: `${ent.name}: choose an Origin feat`,
+					placeholder: "Select...",
+				});
+				if (feat == null) break;
+
+				const bonuses = await pResolveFeat(comp, feat);
+				if (bonuses == null) break;
+				comp.addOriginFeat({name: feat.name, source: feat.source, displayName: feat.name, bonuses});
+			}
+		}
+	}
+
 	async _pApplyEquipment () {
 		const notes = [];
 		let cpGained = 0;
@@ -703,6 +750,14 @@ export class CharacterWizard {
 			.filter(Boolean);
 		if (selectionSummaries.length) addRow("Choices", selectionSummaries.join("<br>"));
 
+		// Named here because finishing will ask about it — a feat that arrives unannounced, with its
+		// own questions, is a surprise in the middle of the last click
+		const featEnts = [this._draft.background?.ent, this._draft.race?.ent];
+		const featNames = featEnts.flatMap(ent => getGrantedFeats(ent?.feats).map(it => (it.displayName || it.name).qq()));
+		const nChoiceFeats = featEnts.reduce((acc, ent) => acc + getGrantedFeatCategories(ent?.feats).reduce((a, it) => a + it.count, 0), 0);
+		const featParts = [...featNames, ...Array.from({length: nChoiceFeats}, () => "one of your choice")];
+		if (featParts.length) addRow("Origin Feat", featParts.join(", "));
+
 		const suggestedHp = this._getSuggestedHpMax();
 
 		wrp.innerHTML = `
@@ -751,6 +806,11 @@ export class CharacterWizard {
 			else if (choice.type === CHOICE_TYPE_LANGUAGE) selections.forEach(name => comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: choice.sourceName}));
 			else if (choice.type === CHOICE_TYPE_TOOL) selections.forEach(name => comp.addProficiency({kind: PROF_KIND_TOOL, name, source: choice.sourceName}));
 		});
+
+		// A 2024 background grants an Origin feat, and it is part of the character rather than a note
+		// about it: without this the wizard wrote "Feat: Tavern Brawler" into a text box and stopped,
+		// so nothing counted it, nothing showed it, and its own choices were never asked
+		await this._pApplyBackgroundFeats(comp);
 
 		if (this._draft.isAddEquipment) await this._pApplyEquipment();
 

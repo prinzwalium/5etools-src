@@ -289,6 +289,15 @@
 		font-weight: normal;
 	}
 
+	// What a *taken* option grants, asked for under the option rather than under the list it came
+	// from: an invocation that hands you an Origin feat, and nothing else so far
+	.cs__feat-choice--nested {
+		flex-flow: row wrap;
+		align-items: center;
+		margin-left: 12px;
+		border-style: dashed;
+	}
+
 	.ve-night-mode .cs__feat-choice {
 		border-color: rgb(120 170 240 / 35%);
 		background: rgb(120 170 240 / 8%);
@@ -1416,6 +1425,12 @@
 		.cs__panel-title,
 		.cs__panel-title-row {
 			break-after: avoid;
+		}
+
+		// A panel taller than a page cannot be kept whole, and asking for it wastes the rest of the
+		// page it would have started on. The feature timeline is always that panel.
+		.cs__panel:has(#cs-class-panel) {
+			break-inside: auto;
 		}
 
 		// Rows are a line or two each, and half a row across a page break is worse than a gap

@@ -90,6 +90,18 @@ export class CharacterClassPanel {
 		}
 		if (token !== this._renderToken) return;
 
+		// An optional feature can itself grant something — Lessons of the First Ones gives an Origin
+		// feat. `entry.optionalFeatures` holds only a name and a source, so the entities are looked
+		// up once here and kept for the choosers to read.
+		this._optionalFeatureData = new Map();
+		try {
+			(await CharacterSheetClassData.pGetAllOptionalFeatures())
+				.forEach(it => this._optionalFeatureData.set(`${it.name}|${it.source}`, it));
+		} catch (e) {
+			this._optionalFeatureData = new Map();
+		}
+		if (token !== this._renderToken) return;
+
 		this._loaded = loaded;
 		this._wrp.innerHTML = "";
 		this._expertiseBoxes = []; // rebuilt as the Expertise cards render
@@ -581,6 +593,24 @@ export class CharacterClassPanel {
 			btn.addEventListener("click", () => this._pOnChooseOptionalFeature({entry, prog}));
 			box.appendChild(btn);
 		}
+
+		// What a taken option grants is the option's business — an invocation that hands you an
+		// Origin feat asks for it here, under the invocation, rather than from the list it came from
+		chosenForProg.forEach(feat => this._renderOptionalFeatureGrants(box.parentElement || box, {entry, feat}));
+	}
+
+	/** Feats granted by an optional feature the character has actually taken. */
+	_renderOptionalFeatureGrants (host, {entry, feat}) {
+		const ent = this._optionalFeatureData?.get(`${feat.name}|${feat.source}`);
+		if (!ent) return;
+
+		CharacterSheetClassData.getFeatureFeatGrants(ent).forEach(grant => {
+			const box = document.createElement("div");
+			box.className = "cs__feat-choice cs__feat-choice--nested";
+			box.insertAdjacentHTML("beforeend", `<span class="ve-muted ve-small ve-mr-1">${feat.name.qq()} grants:</span>`);
+			this._renderFeatureFeatChooser(box, {entry, featureKey: `optfeature:${feat.name}|${feat.source}`, grant});
+			host.appendChild(box);
+		});
 	}
 
 	async _pOnChooseOptionalFeature ({entry, prog}) {
@@ -603,8 +633,11 @@ export class CharacterClassPanel {
 	static _FEAT_CATEGORY_LABELS = {FS: "Fighting Style", EB: "Epic Boon", G: "General Feat", O: "Origin Feat"};
 
 	static _featMatchesCategory (feat, category) {
-		const c = String(feat.category || "");
-		return c === category || c.split(":")[0] === category;
+		// Case-folded on both sides: the data's filters say `category=o` and a feat says `"O"`, and
+		// comparing them literally is what left "Choose Feat…" doing nothing at all
+		const c = String(feat.category || "").toUpperCase();
+		const want = String(category || "").toUpperCase();
+		return c === want || c.split(":")[0] === want;
 	}
 
 	/** Chooser for a feat a feature grants by category (2024 Fighting Style, Epic Boon, ...), hosted in its card. */
@@ -650,7 +683,18 @@ export class CharacterClassPanel {
 		const pool = (await CharacterSheetClassData.pGetAllFeats())
 			.filter(f => CharacterClassPanel._featMatchesCategory(f, grant.category))
 			.filter(f => !chosenUids.has(`${f.name}|${f.source}`));
-		if (!pool.length) return;
+
+		// A button that does nothing reads as a broken page. Say which of the two it is: nothing of
+		// this kind exists in the loaded books, or you have taken them all
+		if (!pool.length) {
+			JqueryUtil.doToast({
+				type: "warning",
+				content: chosenUids.size
+					? `No ${label.toLowerCase()} left to choose — you have taken them all.`
+					: `No ${label.toLowerCase()} found in the books this character allows.`,
+			});
+			return;
+		}
 		const feat = await InputUiUtil.pGetUserEnum({
 			values: pool,
 			isResolveItem: true,

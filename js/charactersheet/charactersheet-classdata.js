@@ -161,6 +161,32 @@ export class CharacterSheetClassData {
 	}
 
 	/**
+	 * A background by name and source.
+	 *
+	 * Unfiltered, like `pGetFeat`: a background the character already has must stay resolvable even
+	 * when the source filter would no longer offer it. Used by the Background panel and the audit,
+	 * both of which describe what the character *has*.
+	 */
+	static pGetBackground ({name, source}) {
+		return this._pGetByHash(UrlUtil.PG_BACKGROUNDS, {name, source});
+	}
+
+	/** A species by name and source. See `pGetBackground`. */
+	static pGetSpecies ({name, source}) {
+		return this._pGetByHash(UrlUtil.PG_RACES, {name, source});
+	}
+
+	static async _pGetByHash (page, {name, source}) {
+		if (!name || !source) return null;
+		try {
+			const hash = UrlUtil.URL_TO_HASH_BUILDER[page]({name, source});
+			return await DataLoader.pCacheAndGet(page, source, hash, {isCopy: true});
+		} catch (e) {
+			return null;
+		}
+	}
+
+	/**
 	 * Load the class (and subclass) entity behind each of a character's class entries — what the
 	 * panels need before they can read slots, resources or features off the data.
 	 * @return {Promise<Array<{entry: Object, cls: Object|null, sc: Object|null}>>}
@@ -289,13 +315,22 @@ export class CharacterSheetClassData {
 		const cats = new Set();
 		const walk = node => {
 			if (Array.isArray(node)) return node.forEach(walk);
-			if (node && typeof node === "object") return walk(node.entries);
+			if (node && typeof node === "object") {
+				// An `options` block is a *menu* — "Eldritch Invocation Options" holds every invocation,
+				// one of which (Lessons of the First Ones) grants an Origin feat. Walking into it would
+				// have the listing itself grant a feat, which is how a chooser turned up on a card that
+				// grants nothing. What an option grants is the option's business, once it is taken.
+				if (node.type === "options") return;
+				return walk(node.entries);
+			}
 			if (typeof node !== "string") return;
 			const re = /\{@filter [^|}]*\|feats\|([^}]*)\}/g;
 			let m;
 			while ((m = re.exec(node))) {
 				const cat = /category=([^|}]+)/.exec(m[1]);
-				if (cat) cats.add(cat[1].trim());
+				// The data writes the category either way round (`category=o`, `category=EB`), and a
+				// feat's own `category` is upper case. Normalised here so one spelling reaches the UI
+				if (cat) cats.add(cat[1].trim().toUpperCase());
 			}
 		};
 		walk(feature?.entries);

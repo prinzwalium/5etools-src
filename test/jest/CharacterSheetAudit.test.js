@@ -159,6 +159,29 @@ describe("Audit: what is left unclaimed", () => {
 		expect(keys).toEqual(expect.arrayContaining(["class", "species", "background"]));
 	});
 
+	// The bug this was written for: a 2024 background's Origin feat was written into a text box as a
+	// line of prose, so nothing counted it and nothing said it was missing
+	it("Says when the background's origin feat was never taken", () => {
+		const state = getCleanState({backgroundText: "Sailor"});
+		const found = auditCharacter(state, {grantedOriginFeats: [{name: "Tavern Brawler", source: "XPHB"}]})
+			.find(it => it.key === "originfeat:Tavern Brawler");
+		expect(found).toMatchObject({severity: AUDIT_UNCLAIMED});
+		expect(found.message).toBe("Sailor grants the origin feat Tavern Brawler, not taken.");
+	});
+
+	it("Says nothing once it has been taken", () => {
+		const state = getCleanState({backgroundText: "Sailor", originFeats: [{name: "Tavern Brawler", source: "XPHB"}]});
+		const keys = keysOf(auditCharacter(state, {grantedOriginFeats: [{name: "Tavern Brawler", source: "XPHB"}]}));
+		expect(keys).not.toContain("originfeat:Tavern Brawler");
+	});
+
+	// A uid's case is the data's business, not the character's
+	it("Matches the feat however either side spells it", () => {
+		const state = getCleanState({backgroundText: "Sailor", originFeats: [{name: "Tavern Brawler", source: "xphb"}]});
+		const keys = keysOf(auditCharacter(state, {grantedOriginFeats: [{name: "tavern brawler", source: "XPHB"}]}));
+		expect(keys).not.toContain("originfeat:tavern brawler");
+	});
+
 	it("Accepts a hand-typed species or background as picked", () => {
 		const keys = keysOf(auditCharacter(getCleanState({refSpecies: null, speciesText: "Automaton", refBackground: null, backgroundText: "Clockwork"})));
 		expect(keys).not.toContain("species");

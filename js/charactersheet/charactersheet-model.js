@@ -1,5 +1,5 @@
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SCHEMA_VERSION, CHAR_SHEET_SKILLS, EXPENDABLE_RESOURCES, getSkillKeyByName} from "./charactersheet-consts.js";
-import {getGrantedFeats, getProfListDisplay} from "./charactersheet-choices.js";
+import {getProfListDisplay} from "./charactersheet-choices.js";
 import {getClassProficiencies, getEntityProficiencies, getMulticlassProficiencies} from "./charactersheet-proficiencies.js";
 import {getEntityDefenses} from "./charactersheet-defenses.js";
 import {getStateWithMigratedAbilityNotes} from "./charactersheet-charstore.js";
@@ -836,9 +836,11 @@ export class CharacterModel extends BaseComponent {
 		if (langs) parts.push(`Languages: ${langs}`);
 		if (parts.length) this.appendToTextProp("proficienciesText", parts.join("\n"));
 
-		// 2024-style backgrounds grant a feat directly
-		getGrantedFeats(bg.feats)
-			.forEach(feat => this.appendToTextProp("featuresText", `Feat: ${feat.displayName} (${Parser.sourceJsonToAbv(feat.source)})`));
+		// A 2024 background's Origin feat is *not* written into the notes here. It used to be, and a
+		// line of text is the one thing it must not be: nothing counted it, nothing showed it, and
+		// the feat's own choices were never asked. It is applied as a real feat by whoever did the
+		// picking (the wizard, or the background picker), and the Build Check reports it if it never
+		// was — see `getBuildAudit`.
 	}
 
 	/** Apply a picked class at a given level: display text, tag, structured entry, and mechanical fields. */

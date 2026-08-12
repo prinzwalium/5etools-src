@@ -299,6 +299,27 @@ export function getGrantedFeats (feats) {
 }
 
 /**
+ * Feats an entity grants as a *category* rather than by name — "you gain an Origin feat of your
+ * choice", which is how the 2024 Human's Versatile is written and how several backgrounds work.
+ *
+ * Separate from `getGrantedFeats` because the two need different treatment: one is a feat to take,
+ * the other is a choice to make. Missing this shape entirely is why a Human's Versatile granted
+ * nothing at all.
+ *
+ * @return {Array<{category: string, count: number}>}
+ */
+export function getGrantedFeatCategories (feats) {
+	const out = [];
+	(feats || []).forEach(grp => {
+		const any = grp?.anyFromCategory;
+		if (!any) return;
+		const categories = [any.category].flat().filter(Boolean);
+		categories.forEach(category => out.push({category: String(category).toUpperCase(), count: any.count || 1}));
+	});
+	return out;
+}
+
+/**
  * All pending choices for a set of picked entities, in creation-flow order.
  * `cls` skill choices come from `startingProficiencies`; class tools/languages are
  * rendered text in the data, not structured choices, so they are not queued.

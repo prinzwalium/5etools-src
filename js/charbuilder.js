@@ -1,6 +1,7 @@
 import {CHAR_SHEET_ABILITIES} from "./charactersheet/charactersheet-consts.js";
 import {deriveCharacterSheet} from "./charactersheet/charactersheet-derive.js";
 import {CharacterClassPanel} from "./charactersheet/charactersheet-classpanel.js";
+import {CharacterOriginPanel} from "./charactersheet/charactersheet-originpanel.js";
 import {CharacterInventoryPanel} from "./charactersheet/charactersheet-inventorypanel.js";
 import {CharacterSpellsPanel} from "./charactersheet/charactersheet-spellspanel.js";
 import {CharacterPageBase} from "./charactersheet/charactersheet-pagebase.js";
@@ -39,6 +40,15 @@ class CharacterBuilderPage extends CharacterPageBase {
 		this._bindSourceFilter();
 		// A filter change can leave existing picks outside it; surface that without hiding anything
 		this._comp._addHookBase("sourceFilter", () => this._renderOutOfFilterNote());
+
+		// What a species and a background actually give you, ticked against what the character has
+		this._originPanels = ["species", "background"].map(kind => new CharacterOriginPanel({
+			comp: this._comp,
+			wrp: document.getElementById(`cs-${kind}-panel`),
+			kind,
+			page: this,
+		}));
+		this._originPanels.forEach(panel => panel.init());
 
 		this._classPanel = new CharacterClassPanel({comp: this._comp, wrp: document.getElementById("cs-class-panel")});
 		this._classPanel.init();

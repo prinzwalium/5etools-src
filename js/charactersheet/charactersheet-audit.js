@@ -65,9 +65,13 @@ export function checkMulticlassRequirements (requirements, state) {
  * @param opts.counts `{asiTotal, asiTaken, expertiseTotal, expertiseTaken, masteryTotal,
  *   masteryTaken, preparedLimit, preparedCount}` — whatever the caller could work out; each is
  *   checked only when both halves are present.
+ * @param opts.grantedOriginFeats `[{name, source, displayName, from}]` — the Origin feats the
+ *   species and background grant *by name*. Given rather than read, because only the caller has the
+ *   entities.
+ * @param opts.grantedFeatChoices how many they grant as "one of your choice" (the 2024 Human).
  * @return {Array<{severity: string, key: string, message: string, hint: string|null}>}
  */
-export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}} = {}) {
+export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}, grantedOriginFeats = [], grantedFeatChoices = 0} = {}) {
 	const out = [];
 	if (!state) return out;
 
@@ -143,6 +147,25 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 	}
 	if (!state.refBackground && !(state.backgroundText || "").trim()) {
 		out.push(_mkFinding(AUDIT_UNCLAIMED, "background", "No background picked yet."));
+	}
+
+	// A 2024 background hands you a feat. It used to be written into the notes as a line of text,
+	// where nothing counted it and its own choices were never asked; if it was skipped, this is
+	// what says so.
+	const takenFeatKeys = new Set((state.originFeats || []).map(it => `${it.name}|${it.source}`.toLowerCase()));
+	grantedOriginFeats
+		.filter(it => !takenFeatKeys.has(`${it.name}|${it.source}`.toLowerCase()))
+		.forEach(it => out.push(_mkFinding(AUDIT_UNCLAIMED, `originfeat:${it.name}`,
+			`${it.from || state.backgroundText || "Your background"} grants the origin feat ${it.displayName || it.name}, not taken.`,
+			"Take it from the panel that grants it, with its own choices.")));
+
+	// "An Origin feat of your choice" — the 2024 Human's Versatile. Counted, since which feat it is
+	// was never fixed
+	const nOwedChoiceFeats = grantedFeatChoices - (state.originFeats || []).length + grantedOriginFeats.length;
+	if (nOwedChoiceFeats > 0) {
+		out.push(_mkFinding(AUDIT_UNCLAIMED, "originfeat:choice",
+			`${nOwedChoiceFeats} origin feat${nOwedChoiceFeats === 1 ? "" : "s"} of your choice, not taken.`,
+			"Take it from the species or background panel."));
 	}
 
 	return out;

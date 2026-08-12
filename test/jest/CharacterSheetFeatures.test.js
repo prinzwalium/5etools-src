@@ -1,4 +1,4 @@
-import {getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus} from "../../js/charactersheet/charactersheet-features.js";
+import {getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getHpBonusPerLevel} from "../../js/charactersheet/charactersheet-features.js";
 
 describe("Feature effects: initiative", () => {
 	const ctx = {abilities: {cha: 3, dex: 2}, pb: 3};
@@ -73,5 +73,28 @@ describe("Feature effects: fighting styles", () => {
 		const eff = getChosenFeatureEffects(state);
 		expect(eff.rangedAttack).toBe(2);
 		expect(eff.acArmored).toBe(1);
+	});
+});
+
+describe("Feature effects: hit points per level", () => {
+	// Rolling for hit points is where somebody notices Tough was never counted
+	it("Adds up what the character's features give per level", () => {
+		expect(getHpBonusPerLevel({originFeats: [{name: "Tough"}]})).toBe(2);
+		expect(getHpBonusPerLevel({classes: [{optionalFeatures: [{name: "Dwarven Toughness"}]}]})).toBe(1);
+		expect(getHpBonusPerLevel({
+			originFeats: [{name: "Tough"}],
+			featureFeats: [{name: "Dwarven Toughness"}],
+		})).toBe(3);
+	});
+
+	it("Counts nothing for a character with no such feature", () => {
+		expect(getHpBonusPerLevel({originFeats: [{name: "Alert"}]})).toBe(0);
+		expect(getHpBonusPerLevel({})).toBe(0);
+		expect(getHpBonusPerLevel(null)).toBe(0);
+	});
+
+	// The same feat twice is still one feat
+	it("Does not count a feature twice", () => {
+		expect(getHpBonusPerLevel({originFeats: [{name: "Tough"}], manualFeats: [{name: "Tough"}]})).toBe(2);
 	});
 });

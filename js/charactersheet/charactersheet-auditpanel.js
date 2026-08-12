@@ -3,6 +3,7 @@ import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.j
 import {getEncumbrance} from "./charactersheet-derive.js";
 import {getAsiCount, getExpertiseSkillCount, getWeaponMasteryCount} from "./charactersheet-levelengine.js";
 import {AUDIT_BROKEN, auditCharacter, groupFindings} from "./charactersheet-audit.js";
+import {getGrantedFeatCategories, getGrantedFeats} from "./charactersheet-choices.js";
 
 /**
  * The build audit, on the builder: what breaks a rule, and what the character is owed but has not
@@ -23,6 +24,9 @@ export class CharacterAuditPanel {
 		[
 			"classes", "level", "inventory", "weaponMasteries", "pendingAbilityOffers",
 			"refSpecies", "refBackground", "speciesText", "backgroundText", "hpMax",
+			// Taking the background's origin feat is one of the things this panel asks for, so it
+			// has to notice when it happens
+			"originFeats",
 			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
 			"abil_str", "abil_dex", "abil_con", "abil_int", "abil_wis", "abil_cha",
 		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
@@ -46,6 +50,22 @@ export class CharacterAuditPanel {
 		return {asiTotal, asiTaken, expertiseTotal, expertiseTaken, masteryTotal, masteryTaken};
 	}
 
+	/**
+	 * The Origin feats the species and background grant — by name, and as "one of your choice".
+	 * Only their entities know, so they are loaded here rather than guessed from the state.
+	 */
+	async _pGetOriginFeatGrants () {
+		const {refSpecies, refBackground} = this._comp._state;
+		const ents = await Promise.all([
+			refBackground?.name ? CharacterSheetClassData.pGetBackground(refBackground).catch(() => null) : null,
+			refSpecies?.name ? CharacterSheetClassData.pGetSpecies(refSpecies).catch(() => null) : null,
+		]);
+
+		const grantedOriginFeats = ents.flatMap(ent => getGrantedFeats(ent?.feats).map(it => ({...it, from: ent.name})));
+		const grantedFeatChoices = ents.reduce((acc, ent) => acc + getGrantedFeatCategories(ent?.feats).reduce((a, it) => a + it.count, 0), 0);
+		return {grantedOriginFeats, grantedFeatChoices};
+	}
+
 	async _pRender () {
 		const token = ++this._renderToken;
 		const loaded = await CharacterSheetClassData.pGetLoadedClasses(this._comp._state.classes).catch(() => []);
@@ -60,6 +80,7 @@ export class CharacterAuditPanel {
 				requirements: cls?.multiclassing?.requirements || null,
 			})),
 			counts: await this._pGetCounts(loaded),
+			...(await this._pGetOriginFeatGrants()),
 		});
 
 		this._wrp.innerHTML = "";

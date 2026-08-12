@@ -5,6 +5,7 @@ import {getChosenFeatureEffects, getFeatureInitiativeBonus} from "./charactershe
 import {pGetUserItemSearchFiltered} from "./charactersheet/charactersheet-sources.js";
 import {CharacterSheetClassData} from "./charactersheet/charactersheet-classdata.js";
 import {CharacterClassPanel} from "./charactersheet/charactersheet-classpanel.js";
+import {CharacterOriginPanel} from "./charactersheet/charactersheet-originpanel.js";
 import {CharacterInventoryPanel} from "./charactersheet/charactersheet-inventorypanel.js";
 import {CharacterSpellsPanel} from "./charactersheet/charactersheet-spellspanel.js";
 import {CharacterActionsPanel} from "./charactersheet/charactersheet-actionspanel.js";
@@ -122,6 +123,15 @@ class CharacterSheetPage extends CharacterPageBase {
 
 		this._attacksCollection = new _AttacksRenderableCollection(this._comp, document.getElementById("cs-attacks-body"));
 		this._comp._addHookBase("attacks", () => this._attacksCollection.render());
+
+		// What a species and a background actually give you, ticked against what the character has
+		this._originPanels = ["species", "background"].map(kind => new CharacterOriginPanel({
+			comp: this._comp,
+			wrp: document.getElementById(`cs-${kind}-panel`),
+			kind,
+			page: this,
+		}));
+		this._originPanels.forEach(panel => panel.init());
 
 		this._classPanel = new CharacterClassPanel({comp: this._comp, wrp: document.getElementById("cs-class-panel")});
 		this._classPanel.init();

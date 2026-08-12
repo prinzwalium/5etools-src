@@ -25,6 +25,14 @@ export const FEATURE_EFFECTS = {
 	"Druidic Warrior": {desc: "learn two Druid cantrips"},
 	"Superior Technique": {desc: "learn one Battle Master maneuver and gain a superiority die"},
 
+	/* ---- Hit points per level ---- */
+	// Read from prose, because that is where it lives: a feat that says "your hit point maximum
+	// increases by 2 whenever you gain a level" is a number the sheet can apply, and rolling for hit
+	// points is where somebody notices it is missing
+	"Tough": {hpPerLevel: 2, desc: "+2 hit points per level"},
+	"Dwarven Toughness": {hpPerLevel: 1, desc: "+1 hit point per level"},
+	"Draconic Resilience": {hpPerLevel: 1, desc: "+1 hit point per Sorcerer level"},
+
 	/* ---- Initiative ---- */
 	"Rakish Audacity": {initiativeAbility: "cha", desc: "add Charisma to Initiative"}, // Rogue (Swashbuckler)
 	"Jack of All Trades": {initiativeHalfProf: true, desc: "add half proficiency to Initiative"}, // Bard
@@ -46,6 +54,18 @@ export function getChosenFeatureNames (state) {
 	(state?.originFeats || []).forEach(it => { if (it?.name) out.push(it.name); });
 	(state?.manualFeats || []).forEach(it => { if (it?.name) out.push(it.name); });
 	return [...new Set(out)];
+}
+
+/**
+ * Hit points a character's features add *per level*.
+ *
+ * Only the unambiguous ones, and only those that scale with level — a flat one-off increase is not
+ * this. Used when hit points are rolled, so what the sheet adds to the dice is everything the
+ * character is owed rather than Constitution alone.
+ */
+export function getHpBonusPerLevel (state) {
+	return getChosenFeatureNames(state)
+		.reduce((acc, name) => acc + (FEATURE_EFFECTS[name]?.hpPerLevel || 0), 0);
 }
 
 /**

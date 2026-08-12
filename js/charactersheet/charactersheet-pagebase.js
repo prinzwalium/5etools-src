@@ -5,7 +5,7 @@ import {getLevelUpHp} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, formatBreakdown, getConcentrationSaveDc} from "./charactersheet-derive.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CharacterWizard} from "./charactersheet-wizard.js";
-import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getFixedAbilityBonuses, getGrantedFeats, getPendingChoices, getResistChoices} from "./charactersheet-choices.js";
+import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getFixedAbilityBonuses, getGrantedFeatCategories, getGrantedFeats, getPendingChoices, getResistChoices} from "./charactersheet-choices.js";
 import {pPickAbilities, pPickList, pResolveEntitySpellGrants, pResolveFeat} from "./charactersheet-featgrant.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL, PROF_KINDS, groupProficienciesByKind} from "./charactersheet-proficiencies.js";
 import {DEFENSE_KINDS, DEFENSE_KIND_RESIST, DEFENSE_KIND_SENSE, getAllDefenses, groupDefensesByKind} from "./charactersheet-defenses.js";
@@ -15,6 +15,7 @@ import {getBreakdownCitation, getPartCitations, isSameCitation, resolveCitation}
 import {EV_DAMAGE, EV_DEATH_SAVE, EV_DOWN, EV_HEAL, EV_LEVEL} from "./charactersheet-journal.js";
 import {PORTRAIT_MIME, PORTRAIT_QUALITY, getPortraitTargetSize, isPortraitTooLarge} from "./charactersheet-portrait.js";
 import {getCharacterSummary, getSummaryLines} from "./charactersheet-summary.js";
+import {getHpBonusPerLevel} from "./charactersheet-features.js";
 import {deleteSyncMeta, getKeptBothName, getMissingAdapterMethods, getSyncBasePath, getSyncCapabilities, getSyncClientUrl, getSyncMeta, getSyncStatus, getUnsyncedRows, hasGmWriteSupport, hasSidekickControlSupport, isAdapterValid, isSameOrigin, isSyncConflict, planSync, setSyncMeta} from "./charactersheet-sync.js";
 
 /**
@@ -1836,6 +1837,8 @@ export class CharacterPageBase {
 		if (ent) {
 			await this._pOfferAbilityBonuses(ent, doc.n);
 			await this._pResolveProficiencyChoices({ent, kind: "race"});
+			// The 2024 Human's Versatile grants an Origin feat, in the same way a background does
+			await this._pGrantOriginFeats(ent);
 			const isResistChosen = await this._pResolveTraitChoices(ent);
 			// A Draconic Ancestry pick already fixes the damage resistance; don't ask twice
 			if (!isResistChosen) await this._pResolveResistChoices(ent);
@@ -1988,7 +1991,7 @@ export class CharacterPageBase {
 		if (ent) {
 			await this._pOfferAbilityBonuses(ent, doc.n);
 			await this._pResolveProficiencyChoices({ent, kind: "background"});
-			await this._pGrantBackgroundFeats(ent);
+			await this._pGrantOriginFeats(ent);
 		}
 	}
 
@@ -2013,24 +2016,62 @@ export class CharacterPageBase {
 	}
 
 	/**
-	 * 2024 backgrounds grant a fixed Origin feat (`feats: [{"magic initiate; cleric|xphb": true}]`).
-	 * Resolve each interactively (ability increase, fixed grants, skill/Expertise choices) and record it.
+	 * The Origin feats an entity grants, in either shape the data uses:
+	 *
+	 *  - **named**, as most 2024 backgrounds do — `feats: [{"tavern brawler|xphb": true}]`;
+	 *  - **by category**, as the 2024 Human's Versatile does — `{anyFromCategory: {category: ["O"]}}`,
+	 *    which is "an Origin feat of your choice" and needs a picker rather than a confirmation.
+	 *
+	 * Each is resolved properly — ability increase, fixed grants, skill and Expertise choices — and
+	 * recorded as a real feat. Writing the name into a notes box was the old behaviour, and it is
+	 * what made a background's feat invisible to everything that counts.
 	 */
-	async _pGrantBackgroundFeats (bgEnt) {
-		for (const {name, source, displayName} of getGrantedFeats(bgEnt.feats)) {
+	async _pGrantOriginFeats (ent) {
+		for (const {name, source, displayName} of getGrantedFeats(ent?.feats)) {
 			const feat = await CharacterSheetClassData.pGetFeat({name, source}).catch(() => null);
 			if (!feat) continue;
 			const isApply = await InputUiUtil.pGetUserBoolean({
 				title: "Grant Origin Feat?",
-				htmlDescription: `<div>This background grants the origin feat <b>${(displayName || feat.name).qq()}</b>.<br>Add it now?</div>`,
+				htmlDescription: `<div>${(ent.name || "This").qq()} grants the origin feat <b>${(displayName || feat.name).qq()}</b>.<br>Add it now?</div>`,
 				textYes: "Add",
 				textNo: "Skip",
 			});
 			if (!isApply) continue;
-			const bonuses = await pResolveFeat(this._comp, feat);
-			if (bonuses == null) continue;
-			this._comp.addOriginFeat({name: feat.name, source: feat.source, displayName: displayName || feat.name, bonuses});
+			await this._pTakeOriginFeat(feat, displayName || feat.name);
 		}
+
+		for (const grant of getGrantedFeatCategories(ent?.feats)) {
+			for (let i = 0; i < grant.count; ++i) await this._pPickOriginFeatFromCategory(ent, grant);
+		}
+	}
+
+	/** "An Origin feat of your choice": the picker, then the feat's own questions. */
+	async _pPickOriginFeatFromCategory (ent, grant) {
+		const taken = new Set((this._comp._state.originFeats || []).map(it => `${it.name}|${it.source}`.toLowerCase()));
+		const pool = (await CharacterSheetClassData.pGetAllFeats())
+			.filter(f => String(f.category || "").toUpperCase().split(":")[0] === grant.category)
+			.filter(f => !taken.has(`${f.name}|${f.source}`.toLowerCase()));
+
+		if (!pool.length) {
+			JqueryUtil.doToast({type: "warning", content: "No feats of that kind are available in the books this character allows."});
+			return;
+		}
+
+		const feat = await InputUiUtil.pGetUserEnum({
+			values: pool,
+			isResolveItem: true,
+			fnDisplay: f => `${f.name} (${Parser.sourceJsonToAbv(f.source)})`,
+			title: `${ent.name}: choose an Origin feat`,
+			placeholder: "Select...",
+		});
+		if (feat == null) return;
+		await this._pTakeOriginFeat(feat, feat.name);
+	}
+
+	async _pTakeOriginFeat (feat, displayName) {
+		const bonuses = await pResolveFeat(this._comp, feat);
+		if (bonuses == null) return;
+		this._comp.addOriginFeat({name: feat.name, source: feat.source, displayName, bonuses});
 	}
 
 	/**
@@ -2904,7 +2945,9 @@ export class CharacterPageBase {
 		const policy = this._comp._state.hpPolicy || "ask";
 		if (policy === "average") return applyGain(avgTotal);
 		if (policy === "max") return applyGain(maxTotal);
-		if (policy === "roll") return applyGain(rollTotal());
+		// Rolling is the one policy where the answer is not the sheet's to give: the dice are on the
+		// table. So it asks for what was rolled — the raw dice — and adds Constitution itself
+		if (policy === "roll") return this._pApplyRolledHp({faces, conMod, numLevels, applyGain});
 
 		const optAvg = `Add average (+${avgTotal} HP)`;
 		const optMax = `Add max (+${maxTotal} HP)`;
@@ -2920,7 +2963,49 @@ export class CharacterPageBase {
 		});
 		if (choice == null || choice === optSkip) return;
 
-		applyGain(choice === optRoll ? rollTotal() : choice === optMax ? maxTotal : avgTotal);
+		if (choice === optRoll) return this._pApplyRolledHp({faces, conMod, numLevels, applyGain});
+		applyGain(choice === optMax ? maxTotal : avgTotal);
+	}
+
+	/**
+	 * Hit points from dice that were actually rolled.
+	 *
+	 * A sheet that rolls for you is fine until somebody rolls at the table, which is the usual case:
+	 * then the number it invented is simply wrong. So this asks for the dice — *just* the dice — and
+	 * does the rest itself: Constitution per level, the floor of 1 per level that the rules impose,
+	 * and anything else that adds hit points per level. Pre-filled with a roll of its own, so
+	 * accepting it is one click for anybody who did not roll their own.
+	 *
+	 * @param applyGain adds the total to max and current HP, and says so.
+	 */
+	async _pApplyRolledHp ({faces, conMod, numLevels, applyGain}) {
+		const suggested = getLevelUpHp({faces, conMod: 0, numLevels, fnRoll: f => Math.floor(Math.random() * f) + 1}).total;
+		const perLevelBonus = getHpBonusPerLevel(this._comp._getState());
+
+		const ptCon = conMod ? `, ${conMod > 0 ? "+" : "−"}${Math.abs(conMod)} Constitution per level` : "";
+		const ptBonus = perLevelBonus ? `, +${perLevelBonus} per level from feats` : "";
+
+		// The prompt has to say what it will do with the number, or it invites the *total* instead
+		const elePre = document.createElement("div");
+		elePre.className = "ve-small ve-mb-2";
+		elePre.textContent = `Enter what you rolled on ${numLevels}d${faces} — the dice alone${ptCon}${ptBonus} is added for you.`;
+
+		const rolled = await InputUiUtil.pGetUserNumber({
+			title: `Rolled hit points (${numLevels}d${faces})`,
+			default: suggested,
+			min: numLevels,
+			max: numLevels * faces,
+			int: true,
+			elePre,
+		});
+		if (rolled == null) return;
+
+		// The dice are added exactly as rolled — dividing them per level and rounding would invent hit
+		// points nobody rolled. Constitution and any per-level feat bonus are added once per level,
+		// and the rules' floor of 1 hit point per level is applied to the whole
+		const dice = Math.max(0, Number(rolled) || 0);
+		const total = Math.max(numLevels, dice + numLevels * (conMod + perLevelBonus));
+		applyGain(total);
 	}
 }
 
