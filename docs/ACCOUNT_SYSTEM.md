@@ -182,6 +182,18 @@ disabled until the character has been uploaded, since there is nothing to place 
 
 *Characters* on a table lists the party; opening one shows a **read-only card**.
 
+### Opening a character from the account system
+
+The account system's own page opens on an overview of every character you have — what each one is,
+which table it sits at, its history, and buttons to delete one or bring a deleted one back. It has
+no editor, deliberately: that service does not know what a character is, and giving it a second
+editor would be the coupling this split exists to avoid.
+
+So it links here instead. All three pages accept **`?character=<id>`**: a character already in this
+browser is simply selected, and one that is only online is downloaded first. A link to something
+that is not there leaves you on your own sheet rather than showing an error about a URL you did not
+type.
+
 ### Lending your character to the DM
 
 A DM reads the characters at their table and cannot write them — unless you let them. When the

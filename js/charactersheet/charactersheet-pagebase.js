@@ -1109,7 +1109,43 @@ export class CharacterPageBase {
 
 		this._doRenderAll();
 
+		// After the store, because the character asked for may already be here; and after the
+		// adapter, because if it is not, it has to be fetched
+		this._pOpenRequestedCharacter();
+
 		window.dispatchEvent(new Event("toolsLoaded"));
+	}
+
+	/**
+	 * `?character=<id>` — a link straight to one character.
+	 *
+	 * This is what makes the account system's overview able to *say* "open this one": it lists
+	 * characters it cannot render, and the pages that can render them are here. A character already
+	 * in this browser is simply selected; one that is only online is pulled first, which is the same
+	 * path the sync panel's Download takes.
+	 *
+	 * Silent when it cannot: a stale link, or one for a character on the other page, should leave
+	 * somebody looking at their own sheet rather than at an error about a URL they did not type.
+	 */
+	async _pOpenRequestedCharacter () {
+		const id = new URL(window.location.href).searchParams.get("character");
+		if (!id) return;
+
+		if (id in this._store.characters) {
+			if (id !== this._store.currentId) this._switchCharacter(id);
+			return;
+		}
+
+		if (!this._syncAdapter) return;
+
+		try {
+			const {envelope, version} = await this._syncAdapter.pLoad(id);
+			this._doAdoptEnvelope(id, envelope, version);
+			// Adopting stores it; opening it is the point of the link
+			this._switchCharacter(id);
+		} catch (e) {
+			JqueryUtil.doToast({type: "danger", content: `Could not open that character: ${e?.message || e}`});
+		}
 	}
 
 	// region Subclass hooks

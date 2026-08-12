@@ -249,6 +249,7 @@ async function runAutoPush ({browser, check}) {
 	await runTables({browser, check});
 	await runSidekickControl({browser, check});
 	await runGmWrite({browser, check});
+	await runOpenByLink({browser, check});
 	await runHistory({browser, check});
 }
 
@@ -505,12 +506,49 @@ async function runGmWrite ({browser, check}) {
 }
 
 /**
+ * `?character=<id>` — opening one character by link.
+ *
+ * This is what lets the account system's own overview *say* "open this one": it lists characters it
+ * has no way to render, and these pages are what render them. A character only the server has must
+ * therefore be fetched, not just selected.
+ */
+async function runOpenByLink ({browser, check}) {
+	const page = await openWithStubAdapter(browser, {
+		user: {id: "u1", name: "Ada"},
+		isStorage: true,
+		url: `${SHEET_URL}?character=remote-1`,
+		seed: `window.__stubStore.characters["remote-1"] = {envelope: {version: 2, state: {name: "Fetched By Link", hpMax: 31}}, version: 4, history: []};`,
+	});
+	await page.waitForTimeout(2500);
+
+	check("a character the browser has never seen is fetched and opened",
+		await page.inputValue("#cs-name") === "Fetched By Link", await page.inputValue("#cs-name"));
+	check("and it is the whole character, not just its name",
+		await page.inputValue("#cs-hp-max") === "31", await page.inputValue("#cs-hp-max"));
+	check("it is kept, so the link need not be followed again",
+		await page.evaluate(() => !!JSON.parse(localStorage.getItem("charactersheet-characters")).characters["remote-1"]));
+
+	check("no page errors (open by link)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
+	await page.close();
+
+	// A link to something that is not there leaves somebody on their own sheet rather than an error
+	const missing = await openWithStubAdapter(browser, {
+		user: {id: "u1", name: "Ada"},
+		isStorage: true,
+		url: `${SHEET_URL}?character=no-such-character`,
+	});
+	await missing.waitForTimeout(1500);
+	check("a stale link does not take the page down", missing.errors.length === 0, missing.errors.slice(0, 3).join(" | "));
+	await missing.close();
+}
+
+/**
  * A page with a stand-in account system on `/online/client.js`.
  *
  * Serving the script rather than injecting the adapter directly is the point: it exercises the same
  * path a real deployment takes, including the fork refusing to look anywhere else.
  */
-async function openWithStubAdapter (browser, {user = null, failWith = null, isStorage = false, url = SHEET_URL} = {}) {
+async function openWithStubAdapter (browser, {user = null, failWith = null, isStorage = false, url = SHEET_URL, seed = ""} = {}) {
 	const page = await browser.newPage();
 	const errors = [];
 	page.on("pageerror", e => errors.push(e.message));
@@ -631,7 +669,9 @@ async function openWithStubAdapter (browser, {user = null, failWith = null, isSt
 
 	await page.route("**/online/client.js", route => route.fulfill({
 		contentType: "text/javascript",
-		body: isStorage ? storage : readOnly,
+		// `seed` runs after the store is defined, so a suite can put a character on the stand-in
+		// server that this browser has never seen
+		body: (isStorage ? storage : readOnly) + seed,
 	}));
 
 	await page.goto(url, {waitUntil: "load"});

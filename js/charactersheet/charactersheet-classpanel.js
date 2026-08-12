@@ -211,7 +211,11 @@ export class CharacterClassPanel {
 		wrp.className = "ve-mb-2";
 
 		if (!cls) {
-			wrp.innerHTML = `<div class="bold">${entry.name.qq()} ${entry.level}</div><div class="ve-muted ve-small">Class data not available (${entry.source.qq()}).</div>`;
+			// A class with no source at all is a character from somewhere else — an old save, another
+			// tool, a hand-written file. Saying which book is missing is the point of this line, so
+			// where there is no answer it says that rather than taking the panel down
+			const why = entry.source ? `${entry.source.qq()} is not loaded` : "no source was recorded for it";
+			wrp.innerHTML = `<div class="bold">${(entry.name || "Unknown class").qq()} ${entry.level ?? ""}</div><div class="ve-muted ve-small">Class data not available: ${why}.</div>`;
 			this._wrp.appendChild(wrp);
 			return;
 		}
