@@ -1,8 +1,22 @@
-import {getAbilityPackages, getExpertiseChoices, getFixedAbilityBonuses, getProfListDisplay, getSkillChoices} from "./charactersheet-choices.js";
+import {
+	ALL_TOOL_NAMES,
+	CHOICE_TYPE_SKILL,
+	CHOICE_TYPE_TOOL,
+	CHOICE_TYPE_LANGUAGE,
+	getAbilityPackages,
+	getChoiceWithoutHeld,
+	getExpertiseChoices,
+	getFixedAbilityBonuses,
+	getHeldProficiencyNames,
+	getLanguageChoices,
+	getProfListDisplay,
+	getSkillChoices,
+	getToolChoices,
+} from "./charactersheet-choices.js";
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {getDynamicSpellGrants, getSpellGrantGroups, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
-import {getEntityProficiencies} from "./charactersheet-proficiencies.js";
+import {getEntityProficiencies, PROF_KIND_LANGUAGE, PROF_KIND_TOOL} from "./charactersheet-proficiencies.js";
 import {getEntityDefenses} from "./charactersheet-defenses.js";
 
 /**
@@ -60,22 +74,71 @@ export function applyFeatFixedGrants (comp, feat) {
 
 	comp.setProficienciesFromSource(feat.name, getEntityProficiencies(feat));
 	comp.setDefensesFromSource(feat.name, getEntityDefenses(feat));
+}
 
-	// The outright grants are stored structurally above; only the unresolved choices need a note
+/**
+ * Whatever a feat's tool and language choices could not be asked for — the shapes this code does
+ * not understand — left as a note, so a grant is never silently dropped. Everything `getToolChoices`
+ * and `getLanguageChoices` *do* understand is picked properly instead, by `pResolveFeatSkillChoices`.
+ */
+function _noteUnresolvedProfChoices (comp, feat, resolved) {
 	const pts = [];
-	const langs = getProfListDisplay(feat.languageProficiencies, {isChoiceOnly: true});
-	if (langs) pts.push(`Languages: ${langs}`);
-	const tools = getProfListDisplay(feat.toolProficiencies, {isChoiceOnly: true});
-	if (tools) pts.push(`Tools: ${tools}`);
+	if (!resolved.has(CHOICE_TYPE_LANGUAGE)) {
+		const langs = getProfListDisplay(feat.languageProficiencies, {isChoiceOnly: true});
+		if (langs) pts.push(`Languages: ${langs}`);
+	}
+	if (!resolved.has(CHOICE_TYPE_TOOL)) {
+		const tools = getProfListDisplay(feat.toolProficiencies, {isChoiceOnly: true});
+		if (tools) pts.push(`Tools: ${tools}`);
+	}
 	if (pts.length) comp.appendToTextProp("proficienciesText", `${feat.name}: ${pts.join("; ")}`);
 }
 
-/** Interactively resolve a feat's structured skill and Expertise choices (Prodigy, Skill Expert, ...). */
+/**
+ * Interactively resolve everything a feat asks the player to pick: skills, Expertise, tools and
+ * languages, plus the few whose choice the book states only in prose.
+ *
+ * Tools and languages used to be written into a notes box instead of being chosen — Crafter's three
+ * artisan's tools and Musician's three instruments are structured data, and both arrived as a line
+ * of text that nothing counted. A proficiency as prose is invisible to everything, exactly as an
+ * origin feat as prose was.
+ *
+ * @return {Set<string>} the choice types that were actually offered, so the caller knows what is
+ *   left to fall back to a note.
+ */
 export async function pResolveFeatSkillChoices (comp, feat) {
+	const held = getHeldProficiencyNames(comp._getState());
+	const resolved = new Set();
+
+	/** One choice, minus what the character already has — the same rule every other chooser follows. */
+	const pResolve = async (choice, pApply) => {
+		const offered = getChoiceWithoutHeld(choice, held);
+		if (!offered) return;
+		const picked = await pPickList({
+			count: offered.count,
+			from: offered.from,
+			title: `${feat.name}: ${offered.label.replace(/^Choose /, "choose ")}`,
+		});
+		(picked || []).forEach(name => {
+			held[choice.type]?.add(name);
+			pApply(name);
+		});
+		if (picked?.length) resolved.add(choice.type);
+	};
+
 	for (const choice of getSkillChoices({groups: feat.skillProficiencies, sourceName: feat.name})) {
-		const picked = await pPickList({count: choice.count, from: choice.from, title: `${feat.name}: choose skill${choice.count > 1 ? "s" : ""}`});
-		(picked || []).forEach(name => comp.setSkillProfByName(name, PROF_STATE_PROFICIENT));
+		await pResolve(choice, name => comp.setSkillProfByName(name, PROF_STATE_PROFICIENT));
 	}
+
+	for (const choice of getToolChoices({groups: feat.toolProficiencies, sourceName: feat.name})) {
+		await pResolve(choice, name => comp.addProficiency({kind: PROF_KIND_TOOL, name, source: feat.name}));
+	}
+
+	for (const choice of getLanguageChoices({groups: feat.languageProficiencies, sourceName: feat.name})) {
+		await pResolve(choice, name => comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: feat.name}));
+	}
+
+	await pResolveProseFeatChoices(comp, feat, held);
 
 	const proficientNames = CHAR_SHEET_SKILLS
 		.filter(({key}) => (Number(comp._state[`skill_${key}`]) || 0) >= PROF_STATE_PROFICIENT)
@@ -84,6 +147,47 @@ export async function pResolveFeatSkillChoices (comp, feat) {
 		const picked = await pPickList({count: choice.count, from: choice.from, title: `${feat.name}: choose Expertise skill${choice.count > 1 ? "s" : ""}`});
 		(picked || []).forEach(name => comp.setSkillProfByName(name, PROF_STATE_EXPERTISE));
 	}
+
+	return resolved;
+}
+
+/**
+ * Feats whose choice the book states only in a sentence.
+ *
+ * Almost every feat's grants are structured, and reading them is how the builder stays honest — but
+ * Skilled is "proficiency in any combination of three skills or tools of your choice" and carries no
+ * `skillProficiencies` at all, in either printing. Nothing could ask for it, so the feat arrived
+ * granting nothing whatsoever. Curated deliberately narrowly: only where the prose leaves no room
+ * for interpretation.
+ */
+const _PROSE_FEAT_CHOICES = {
+	skilled: {count: 3, isSkillsOrTools: true, what: "skills or tools"},
+};
+
+async function pResolveProseFeatChoices (comp, feat, held) {
+	const spec = _PROSE_FEAT_CHOICES[String(feat.name || "").toLowerCase()];
+	if (!spec?.isSkillsOrTools) return;
+
+	// One pool, because the feat lets the two be mixed freely
+	const skills = CHAR_SHEET_SKILLS.map(({name}) => name).filter(name => !held[CHOICE_TYPE_SKILL]?.has(name));
+	const tools = ALL_TOOL_NAMES.filter(name => !held[CHOICE_TYPE_TOOL]?.has(name));
+	const isSkill = new Set(skills);
+
+	const picked = await pPickList({
+		count: spec.count,
+		from: [...skills, ...tools],
+		title: `${feat.name}: choose ${spec.count} ${spec.what}`,
+	});
+
+	(picked || []).forEach(name => {
+		if (isSkill.has(name)) {
+			held[CHOICE_TYPE_SKILL]?.add(name);
+			comp.setSkillProfByName(name, PROF_STATE_PROFICIENT);
+		} else {
+			held[CHOICE_TYPE_TOOL]?.add(name);
+			comp.addProficiency({kind: PROF_KIND_TOOL, name, source: feat.name});
+		}
+	});
 }
 
 /** Resolve a feat's ability increases (fixed + a single choose group); returns bonuses, or null if cancelled. */
@@ -183,7 +287,8 @@ export async function pResolveFeat (comp, feat, {grantKeyPrefix = null} = {}) {
 	const bonuses = await pResolveFeatAbility(comp, feat);
 	if (bonuses == null) return null;
 	applyFeatFixedGrants(comp, feat);
-	await pResolveFeatSkillChoices(comp, feat);
+	const resolved = await pResolveFeatSkillChoices(comp, feat);
+	_noteUnresolvedProfChoices(comp, feat, resolved);
 	await pResolveEntitySpellGrants(comp, feat, {grantKeyPrefix: grantKeyPrefix || `feat:${feat.name}|${feat.source}`});
 	return bonuses;
 }

@@ -244,7 +244,9 @@ export function getLanguageChoices ({groups, sourceName}) {
 }
 
 /** The `{anyX: n}` tool keys, and what each draws from. */
-const _ALL_TOOLS = [...ARTISANS_TOOLS, ...GAMING_SETS, ...MUSICAL_INSTRUMENTS, ...OTHER_TOOLS].sort();
+/** Every tool a "choose any tool" may draw from. Exported: a prose-only feat (Skilled) needs it too. */
+export const ALL_TOOL_NAMES = [...ARTISANS_TOOLS, ...GAMING_SETS, ...MUSICAL_INSTRUMENTS, ...OTHER_TOOLS].sort();
+const _ALL_TOOLS = ALL_TOOL_NAMES;
 const _TOOL_ANY_KEYS = {
 	anyGamingSet: {from: GAMING_SETS, what: "gaming set"},
 	anyMusicalInstrument: {from: MUSICAL_INSTRUMENTS, what: "musical instrument"},

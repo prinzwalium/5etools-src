@@ -345,6 +345,101 @@ async function runReviewAttribution ({browser, check}) {
 
 	check("no page errors (review attribution)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
 	await page.close();
+
+	await runFeatOwnChoices({browser, check});
+}
+
+/**
+ * A granted feat asks its own questions.
+ *
+ * Taking Skilled used to grant nothing at all: the 2024 feat states "any combination of three skills
+ * or tools of your choice" in a sentence and carries no `skillProficiencies`, so there was nothing
+ * to read and nothing to ask. Crafter and Musician *are* structured, and fared no better — their
+ * three tools were written into a notes box, where nothing counts them. A proficiency as prose is
+ * invisible to everything, exactly as an origin feat as prose was.
+ */
+async function runFeatOwnChoices ({browser, check}) {
+	const base = {
+		name: "Feat Tester",
+		level: 1,
+		abil_str: 10,
+		abil_dex: 10,
+		abil_con: 10,
+		abil_int: 10,
+		abil_wis: 10,
+		abil_cha: 10,
+		hpMax: 10,
+		hpCur: 10,
+		classes: [{id: "a", name: "Fighter", source: "XPHB", level: 1, hdFaces: 10}],
+	};
+
+	/** Take the background's granted feat, answering `n` of its own picks with the first option. */
+	const pTake = async (page, n) => {
+		await page.locator("#cs-background-panel button", {hasText: "Take it"}).first().click();
+		await page.waitForTimeout(1200);
+		await page.locator(".ve-ui-modal__inner button", {hasText: "Add" }).last().click();
+		await page.waitForTimeout(1200);
+		for (let i = 0; i < n; ++i) {
+			const top = page.locator(".ve-ui-modal__inner").last();
+			const sel = top.locator("select").first();
+			if (!await sel.count()) break;
+			await sel.selectOption({index: 1}).catch(() => {});
+			await top.locator("button", {hasText: /^OK$/}).first().click().catch(() => {});
+			await page.waitForTimeout(900);
+		}
+		await page.waitForTimeout(1200);
+	};
+
+	// ---------- Skilled: prose-only, three skills or tools ----------
+	const pageSkilled = await openPage(browser, {
+		url: BUILDER_URL,
+		state: storeOf({...base, backgroundText: "Noble", refBackground: {name: "Noble", source: "XPHB"}}),
+	});
+	await pageSkilled.locator("#cs-background-panel").waitFor({timeout: 20000});
+	await pageSkilled.waitForTimeout(2500);
+
+	await pTake(pageSkilled, 3);
+
+	const afterSkilled = await pageSkilled.evaluate(() => {
+		const s = window.__csPage._comp._getState();
+		return {
+			feats: (s.originFeats || []).map(f => f.name),
+			skills: Object.entries(s).filter(([k, v]) => k.startsWith("skill_") && Number(v) > 0).map(([k]) => k.slice(6)),
+			tools: (s.proficiencies || []).filter(p => p.kind === "tool").length,
+		};
+	});
+	check("Skilled is taken as a real feat", afterSkilled.feats.includes("Skilled"), JSON.stringify(afterSkilled));
+	// Three picks, from one pool the feat lets you mix freely
+	check("and its three skills-or-tools land on the character",
+		afterSkilled.skills.length + afterSkilled.tools >= 3, JSON.stringify(afterSkilled));
+	check("no page errors (Skilled)", pageSkilled.errors.length === 0, pageSkilled.errors.slice(0, 3).join(" | "));
+	await pageSkilled.close();
+
+	// ---------- Crafter: structured tool choice, previously only a note ----------
+	const pageCrafter = await openPage(browser, {
+		url: BUILDER_URL,
+		state: storeOf({...base, backgroundText: "Artisan", refBackground: {name: "Artisan", source: "XPHB"}}),
+	});
+	await pageCrafter.locator("#cs-background-panel").waitFor({timeout: 20000});
+	await pageCrafter.waitForTimeout(2500);
+
+	await pTake(pageCrafter, 3);
+
+	const afterCrafter = await pageCrafter.evaluate(() => {
+		const s = window.__csPage._comp._getState();
+		return {
+			feats: (s.originFeats || []).map(f => f.name),
+			tools: (s.proficiencies || []).filter(p => p.kind === "tool").map(p => p.source),
+			profText: s.proficienciesText || "",
+		};
+	});
+	check("Crafter is taken as a real feat", afterCrafter.feats.includes("Crafter"), JSON.stringify(afterCrafter));
+	check("and its three tools are stored as proficiencies",
+		afterCrafter.tools.filter(src => src === "Crafter").length === 3, JSON.stringify(afterCrafter));
+	check("rather than as a line of text nothing counts",
+		!/Crafter/.test(afterCrafter.profText), afterCrafter.profText.slice(0, 200));
+	check("no page errors (Crafter)", pageCrafter.errors.length === 0, pageCrafter.errors.slice(0, 3).join(" | "));
+	await pageCrafter.close();
 }
 
 async function pickWizardEntity (page, {btnText, query, rowText, srcText}) {

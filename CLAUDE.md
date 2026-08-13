@@ -108,6 +108,12 @@ template, run `node node/generate-pages.js` and commit both.
   (what the character has) and `getFixedProficiencyNames` (what a *picked but unapplied* entity is
   about to hand it, which is the guide's whole draft) subtract from every chooser, and a choice with
   nothing left to offer is spent rather than owed.
+- **A granted feat asks its own questions.** Taking Skilled must offer its three skills-or-tools,
+  Crafter its three artisan's tools, Musician its three instruments. Tools and languages are
+  resolved by `pResolveFeatSkillChoices` (not written into a notes box — a proficiency as prose is
+  invisible to everything, exactly as an origin feat as prose was). Skilled states its choice only
+  in a sentence and carries no `skillProficiencies` at all, so it is the one entry in the curated
+  `_PROSE_FEAT_CHOICES` map in `charactersheet-featgrant.js`.
 - **A feat uid may narrow the feat as well as name it.** `"magic initiate; wizard|xphb"` is Magic
   Initiate taken with the Wizard list; only the part before the semicolon is the name a taken feat is
   stored under. `getGrantedFeats` splits the two (`name`, `subChoice`, `displayName`), which is what
