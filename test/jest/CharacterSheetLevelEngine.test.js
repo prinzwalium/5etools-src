@@ -16,6 +16,7 @@ import {
 	getHitDieAverage,
 	getLevelUpHp,
 	getMulticlassRequirementsDisplay,
+	getFeatProgressionCounts,
 	getOptionalFeatureCounts,
 	getPactSlots,
 	getPreparedSpellsDisplay,
@@ -126,6 +127,70 @@ describe("Leveling engine: multiclass slot stacking (PHB multiclass table)", () 
 		const meta = getSpellcastingMeta([{cls: getClass("fighter"), sc: null, level: 5}]);
 		expect(meta.slots).toBeNull();
 		expect(meta.casterLevel).toBe(0);
+	});
+});
+
+/**
+ * `featProgression` — the field the 2024 classes moved two things into.
+ *
+ * A Fighting Style is a *feat* of category `FS` now, not an optional feature, and every class gains
+ * an Epic Boon at 19. Reading only `optionalfeatureProgression` meant a 2024 Fighter was never once
+ * asked for its Fighting Style.
+ */
+describe("Leveling engine: feats the class table grants", () => {
+	it("Gives the 2024 Fighter its Fighting Style at level 1", () => {
+		const progs = getFeatProgressionCounts(getClass("fighter", "XPHB"), 1);
+		expect(progs.find(it => it.name === "Fighting Style")).toEqual({name: "Fighting Style", categories: ["FS"], count: 1});
+	});
+
+	it("And its Epic Boon only once level 19 arrives", () => {
+		const fighter = getClass("fighter", "XPHB");
+		expect(getFeatProgressionCounts(fighter, 18).find(it => it.name === "Epic Boon")).toBeUndefined();
+		expect(getFeatProgressionCounts(fighter, 19).find(it => it.name === "Epic Boon").count).toBe(1);
+	});
+
+	it("Reads a Paladin's style at 2, not at 1", () => {
+		const paladin = getClass("paladin", "XPHB");
+		expect(getFeatProgressionCounts(paladin, 1).find(it => it.name === "Fighting Style")).toBeUndefined();
+		const at2 = getFeatProgressionCounts(paladin, 2).find(it => it.name === "Fighting Style");
+		// The category list narrows the pool: a Paladin's style, not any style
+		expect(at2.categories).toEqual(["FS", "FS:P"]);
+	});
+
+	it("Reads a subclass's own grant (Champion's extra style at 7)", () => {
+		const champion = getSubclass("fighter", "Champion", "XPHB");
+		expect(getFeatProgressionCounts(champion, 6)).toEqual([]);
+		expect(getFeatProgressionCounts(champion, 7)[0].name).toBe("Fighting Style");
+	});
+
+	it("Says nothing for a class with no such grants", () => {
+		expect(getFeatProgressionCounts(getClass("fighter"), 20)).toEqual([]);
+		expect(getFeatProgressionCounts(null, 5)).toEqual([]);
+	});
+});
+
+/**
+ * The 2024 prepared casters replaced the formula with an exact by-level table. Reading only the
+ * formula left every one of them with no prepared limit at all.
+ */
+describe("Leveling engine: prepared spells, both editions", () => {
+	it("Still reads the 2014 formula", () => {
+		expect(getPreparedSpellCount(getClass("cleric"), 5, 3)).toBe(8);
+	});
+
+	it("Reads the 2024 table, which does not depend on the ability modifier", () => {
+		const cleric = getClass("cleric", "XPHB");
+		expect(getPreparedSpellCount(cleric, 1, 0)).toBe(4);
+		expect(getPreparedSpellCount(cleric, 5, 99)).toBe(9);
+		expect(getPreparedSpellCount(cleric, 20, 0)).toBe(22);
+	});
+
+	it("Describes the 2024 allowance as the number it is", () => {
+		expect(getPreparedSpellsDisplay(getClass("wizard", "XPHB"), 3)).toBe("6 (class table)");
+	});
+
+	it("Says nothing for a class that does not prepare", () => {
+		expect(getPreparedSpellCount(getClass("fighter"), 5)).toBeNull();
 	});
 });
 

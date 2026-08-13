@@ -1,7 +1,7 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
 import {getEncumbrance} from "./charactersheet-derive.js";
-import {getAsiCount, getCantripsKnown, getExpertiseSkillCount, getSpellsKnown, getWeaponMasteryCount} from "./charactersheet-levelengine.js";
+import {getAsiCount, getCantripsKnown, getExpertiseSkillCount, getFeatProgressionCounts, getSpellsKnown, getWeaponMasteryCount} from "./charactersheet-levelengine.js";
 import {AUDIT_BROKEN, auditCharacter, groupFindings} from "./charactersheet-audit.js";
 import {getGrantedFeatCategories, getGrantedFeats} from "./charactersheet-choices.js";
 import {getTraitChoices} from "./charactersheet-traitchoices.js";
@@ -27,7 +27,8 @@ export class CharacterAuditPanel {
 			"refSpecies", "refBackground", "speciesText", "backgroundText", "hpMax",
 			// Taking the background's origin feat is one of the things this panel asks for, so it
 			// has to notice when it happens — and the same goes for picking a lineage or an ancestry
-			"originFeats", "spellsKnown", "traitChoices",
+			// …and a Fighting Style or Epic Boon taken from the class panel, which this panel counts
+			"originFeats", "spellsKnown", "traitChoices", "featureFeats",
 			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
 			"abil_str", "abil_dex", "abil_con", "abil_int", "abil_wis", "abil_cha",
 		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
@@ -47,6 +48,17 @@ export class CharacterAuditPanel {
 
 		const masteryTotal = loaded.reduce((acc, {entry, cls}) => acc + (cls ? getWeaponMasteryCount(cls, entry.level) : 0), 0);
 		const masteryTaken = (state.weaponMasteries || []).length;
+
+		// Feats the class table grants by category — the 2024 Fighting Style and the Epic Boon at 19
+		let classFeatTotal = 0; let classFeatTaken = 0;
+		loaded.forEach(({entry, cls, sc}) => {
+			[...getFeatProgressionCounts(cls, entry.level), ...(sc ? getFeatProgressionCounts(sc, entry.level) : [])]
+				.forEach(prog => {
+					classFeatTotal += prog.count;
+					classFeatTaken += (state.featureFeats || [])
+						.filter(it => it.entryId === entry.id && prog.categories.includes(String(it.category || "").toUpperCase())).length;
+				});
+		});
 
 		// Spells a caster is owed. Per class, since a multiclass caster's counts are separate, and
 		// summed here because what somebody wants to know is "how many am I short"
@@ -70,6 +82,8 @@ export class CharacterAuditPanel {
 			expertiseTotal,
 			expertiseTaken,
 			masteryTotal,
+			classFeatTotal,
+			classFeatTaken,
 			masteryTaken,
 			cantripsTotal,
 			cantripsTaken,

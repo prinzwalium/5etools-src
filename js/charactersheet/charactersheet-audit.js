@@ -157,6 +157,15 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 		out.push(_mkFinding(AUDIT_UNCLAIMED, "background", "No background picked yet."));
 	}
 
+	// The 2024 classes grant a Fighting Style and an Epic Boon through the class table. Unclaimed,
+	// they are simply missing from the character — and nothing was counting them at all.
+	if (counts.classFeatTotal != null && counts.classFeatTotal > (counts.classFeatTaken || 0)) {
+		const owed = counts.classFeatTotal - (counts.classFeatTaken || 0);
+		out.push(_mkFinding(AUDIT_UNCLAIMED, "classfeat",
+			`${owed} class-granted feat${owed === 1 ? "" : "s"} (Fighting Style, Epic Boon) still to choose.`,
+			"Choose them in the class panel."));
+	}
+
 	// A 2024 background hands you a feat. It used to be written into the notes as a line of text,
 	// where nothing counted it and its own choices were never asked; if it was skipped, this is
 	// what says so.

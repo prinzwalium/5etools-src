@@ -100,8 +100,17 @@ const _getProgressionValue = (clsOrSc, prop, level) => {
 export function getCantripsKnown (clsOrSc, level) { return _getProgressionValue(clsOrSc, "cantripProgression", level); }
 export function getSpellsKnown (clsOrSc, level) { return _getProgressionValue(clsOrSc, "spellsKnownProgression", level); }
 
-/** Human-readable form of a `preparedSpells` formula, e.g. "<$level$> + <$wis_mod$>" → "class level + WIS modifier". */
-export function getPreparedSpellsDisplay (cls) {
+/**
+ * Human-readable form of the prepared-spell allowance.
+ *
+ * The 2024 classes give it as a by-level table (`preparedSpellsProgression`) rather than the 2014
+ * formula, so there is nothing to spell out: the number *is* the rule.
+ */
+export function getPreparedSpellsDisplay (cls, level = null) {
+	if (cls?.preparedSpellsProgression) {
+		const n = _getProgressionValue(cls, "preparedSpellsProgression", level ?? 1);
+		return n == null ? null : `${n} (class table)`;
+	}
 	if (!cls?.preparedSpells) return null;
 	return cls.preparedSpells
 		.replace(/<\$level\$>/g, "class level")
@@ -111,11 +120,21 @@ export function getPreparedSpellsDisplay (cls) {
 }
 
 /**
- * Number of spells a prepared caster can prepare, from the `preparedSpells` formula.
- * Handles the level/half-level tokens and the ability-modifier token; returns at least 1
- * (you always prepare something), or `null` when the class does not prepare spells.
+ * Number of spells a prepared caster can prepare.
+ *
+ * Two shapes, one per edition. 2014 gives a **formula** (`preparedSpells`, "class level + WIS
+ * modifier"); 2024 replaced it with an exact **by-level table** (`preparedSpellsProgression`) that
+ * no longer depends on the ability modifier at all. Reading only the formula left every 2024
+ * prepared caster — Cleric, Druid, Wizard, Bard, Paladin, Ranger, Sorcerer, Warlock — with no
+ * prepared limit whatsoever, so nothing could say how many spells they were owed.
+ *
+ * Returns at least 1 (you always prepare something), or `null` when the class does not prepare.
  */
 export function getPreparedSpellCount (cls, level, abilityMod = 0) {
+	if (cls?.preparedSpellsProgression) {
+		const n = _getProgressionValue(cls, "preparedSpellsProgression", level);
+		return n == null ? null : Math.max(1, n);
+	}
 	if (!cls?.preparedSpells) return null;
 	level = _clampLevel(level);
 	const expr = String(cls.preparedSpells)
@@ -192,6 +211,36 @@ export function getOptionalFeatureCounts (clsOrSc, level) {
 				});
 			}
 			return {name, featureTypes: featureType || [], count};
+		})
+		.filter(it => it.count > 0);
+}
+
+/**
+ * Feats a class grants by level, as *categories* to choose from.
+ *
+ * The 2024 classes moved two things out of `optionalfeatureProgression` and into `featProgression`:
+ * a **Fighting Style** (Fighter 1, Paladin 2, Ranger 2, Champion 7) — which is a feat of category
+ * `FS` now, not an optional feature — and an **Epic Boon** at 19, for all thirteen. Reading only
+ * `optionalfeatureProgression` meant a 2024 Fighter was never once asked for its Fighting Style.
+ *
+ * The shape matches `optionalfeatureProgression` deliberately, so the panels can treat the two
+ * alike; `categories` replaces `featureTypes`, and names a feat category rather than a feature type.
+ *
+ * @return {Array<{name, categories: Array<string>, count: number}>}
+ */
+export function getFeatProgressionCounts (clsOrSc, level) {
+	level = _clampLevel(level);
+	return (clsOrSc?.featProgression || [])
+		.map(({name, category, progression}) => {
+			let count = 0;
+			if (Array.isArray(progression)) count = Number(progression[level - 1]) || 0;
+			else {
+				// Cumulative by level, as the class tables read: the highest entry at or below `level`
+				Object.entries(progression || {}).forEach(([lvl, cnt]) => {
+					if (Number(lvl) <= level) count = Math.max(count, Number(cnt) || 0);
+				});
+			}
+			return {name, categories: [category].flat().filter(Boolean).map(it => String(it).toUpperCase()), count};
 		})
 		.filter(it => it.count > 0);
 }

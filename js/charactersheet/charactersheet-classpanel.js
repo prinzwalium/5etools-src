@@ -1013,7 +1013,7 @@ export class CharacterClassPanel {
 			const bits = [];
 			const cantrips = getCantripsKnown(casterEnt, entry.level);
 			const known = getSpellsKnown(casterEnt, entry.level);
-			const prepared = getPreparedSpellsDisplay(cls) || (sc ? getPreparedSpellsDisplay(sc) : null);
+			const prepared = getPreparedSpellsDisplay(cls, entry.level) || (sc ? getPreparedSpellsDisplay(sc, entry.level) : null);
 			if (cantrips != null) bits.push(`${cantrips} cantrips`);
 			if (known != null) bits.push(`${known} spells known`);
 			else if (prepared) bits.push(`prepares ${prepared}`);

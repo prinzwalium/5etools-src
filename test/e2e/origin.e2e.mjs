@@ -347,6 +347,97 @@ async function runReviewAttribution ({browser, check}) {
 	await page.close();
 
 	await runFeatOwnChoices({browser, check});
+	await runClassTableGrants({browser, check});
+}
+
+/**
+ * What the *class table* grants, in both editions.
+ *
+ * Two fields nobody was reading. `featProgression` holds the 2024 Fighting Style (Fighter 1,
+ * Paladin 2) and the Epic Boon at 19 — a Fighting Style is a feat of category `FS` now, not an
+ * optional feature, so a 2024 Fighter went through the whole guided setup and was never once asked
+ * for one. And `preparedSpellsProgression` replaced the 2014 formula with an exact by-level table,
+ * so every 2024 prepared caster had no prepared limit at all.
+ */
+async function runClassTableGrants ({browser, check}) {
+	const page = await openPage(browser, {
+		url: BUILDER_URL,
+		state: storeOf({
+			name: "Table Tester",
+			level: 5,
+			abil_str: 16,
+			abil_dex: 12,
+			abil_con: 14,
+			abil_int: 10,
+			abil_wis: 10,
+			abil_cha: 8,
+			hpMax: 44,
+			hpCur: 44,
+			classes: [{id: "a", name: "Fighter", source: "XPHB", level: 5, hdFaces: 10}],
+		}),
+	});
+	await page.locator("#cs-class-panel").waitFor({timeout: 20000});
+	await page.waitForTimeout(3000);
+
+	// The choosers live inside the collapsed "Features by level" section
+	await page.evaluate(() => document.querySelectorAll("#cs-class-panel details").forEach(d => d.open = true));
+	await page.waitForTimeout(400);
+
+	const panelText = await page.locator("#cs-class-panel").innerText();
+	check("the class panel offers the 2024 Fighter its Fighting Style",
+		/Fighting Style \(0\/1\)/.test(panelText), panelText.slice(0, 400));
+	// Offered once, not twice: the feature card and the class table describe the same grant
+	check("and offers it exactly once",
+		(panelText.match(/Choose Fighting Style/g) || []).length === 1, panelText.slice(0, 600));
+	check("and the build check says it is owed",
+		/Fighting Style/.test(await page.locator("#cs-audit").innerText()),
+		(await page.locator("#cs-audit").innerText()).slice(0, 300));
+
+	// Taking it clears both
+	await page.locator("#cs-class-panel button", {hasText: "Choose Fighting Style"}).first().click();
+	await page.waitForTimeout(1500);
+	const picker = page.locator(".ve-ui-modal__inner").last();
+	await picker.locator("select").first().selectOption({index: 1});
+	await picker.locator("button", {hasText: /^OK$/}).first().click();
+	await page.waitForTimeout(2000);
+
+	const taken = await page.evaluate(() => (window.__csPage._comp._state.featureFeats || [])
+		.filter(it => it.category === "FS").map(it => it.name));
+	check("choosing one records a real feat of that category", taken.length === 1, JSON.stringify(taken));
+	check("and the build check stops asking",
+		!/Fighting Style/.test(await page.locator("#cs-audit").innerText()),
+		(await page.locator("#cs-audit").innerText()).slice(0, 300));
+
+	check("no page errors (class table feats)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
+	await page.close();
+
+	// ---------- the 2024 prepared caster ----------
+	const pageCleric = await openPage(browser, {
+		url: BUILDER_URL,
+		state: storeOf({
+			name: "Prep Tester",
+			level: 5,
+			abil_str: 10,
+			abil_dex: 10,
+			abil_con: 14,
+			abil_int: 10,
+			abil_wis: 16,
+			abil_cha: 10,
+			hpMax: 38,
+			hpCur: 38,
+			classes: [{id: "a", name: "Cleric", source: "XPHB", level: 5, hdFaces: 8}],
+		}),
+	});
+	await pageCleric.locator("#cs-class-panel").waitFor({timeout: 20000});
+	await pageCleric.waitForTimeout(3000);
+
+	// The 2024 table gives a Cleric 5 nine prepared spells, and does not use the ability modifier
+	check("a 2024 prepared caster has a prepared limit at all",
+		/prepares 9/.test(await pageCleric.locator("#cs-class-panel").innerText()),
+		(await pageCleric.locator("#cs-class-panel").innerText()).slice(0, 500));
+
+	check("no page errors (prepared spells)", pageCleric.errors.length === 0, pageCleric.errors.slice(0, 3).join(" | "));
+	await pageCleric.close();
 }
 
 /**

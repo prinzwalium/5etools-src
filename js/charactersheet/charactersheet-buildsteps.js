@@ -2,6 +2,7 @@ import {
 	getAsiCount,
 	getCantripsKnown,
 	getExpertiseSkillCount,
+	getFeatProgressionCounts,
 	getOptionalFeatureCounts,
 	getSpellsKnown,
 	getWeaponMasteryCount,
@@ -31,6 +32,7 @@ export const STEP_ASI = "asi";
 export const STEP_EXPERTISE = "expertise";
 export const STEP_MASTERY = "mastery";
 export const STEP_OPTIONAL_FEATURE = "optionalFeature";
+export const STEP_CLASS_FEAT = "classFeat";
 export const STEP_ORIGIN_CHOICE = "originChoice";
 export const STEP_ORIGIN_FEAT = "originFeat";
 export const STEP_TRAIT_CHOICE = "traitChoice";
@@ -145,6 +147,27 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 				ctx: {entry, cls},
 			});
 		}
+
+		// A feat the class table grants by category — the 2024 Fighting Style (Fighter 1, Paladin and
+		// Ranger 2) and the Epic Boon at 19. These live in `featProgression`, not
+		// `optionalfeatureProgression`, which is why a 2024 Fighter was never asked for its style
+		[...getFeatProgressionCounts(cls, entry.level), ...(sc ? getFeatProgressionCounts(sc, entry.level) : [])]
+			.forEach(prog => {
+				// Counted by *category*, not by a key: the class panel already offers these from the
+				// feature card that mentions them, under a key of its own. What matters is that a
+				// Fighting Style was taken for this class, not which chooser recorded it
+				const taken = (st.featureFeats || [])
+					.filter(it => it.entryId === entry.id && prog.categories.includes(String(it.category || "").toUpperCase())).length;
+				if (taken >= prog.count) return;
+				out.push({
+					key: `${STEP_CLASS_FEAT}:${entry.id}:${prog.name}`,
+					kind: STEP_CLASS_FEAT,
+					label: prog.name,
+					detail: entry.name,
+					count: prog.count - taken,
+					ctx: {entry, prog},
+				});
+			});
 
 		getOptionalFeatureCounts(cls, entry.level).forEach(prog => {
 			const chosen = (entry.optionalFeatures || []).filter(it => it.progressionName === prog.name).length;

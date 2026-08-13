@@ -1,4 +1,4 @@
-import {getOutstandingDecisions, STEP_ASI, STEP_EXPERTISE, STEP_HP, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
+import {getOutstandingDecisions, STEP_ASI, STEP_CLASS_FEAT, STEP_EXPERTISE, STEP_HP, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {pPickList} from "./charactersheet-featgrant.js";
@@ -62,6 +62,15 @@ export class CharacterBuildWalk {
 
 			case STEP_OPTIONAL_FEATURE:
 				return this._page._classPanel._pOnChooseOptionalFeature({entry: ctx.entry, prog: ctx.prog});
+
+			// The class panel already offers these from the feature card that mentions them; the guide
+			// reuses that picker, and the count is by category, so either route satisfies it
+			case STEP_CLASS_FEAT:
+				return this._page._classPanel._pOnChooseFeatureFeat({
+					entry: ctx.entry,
+					featureKey: `classprog:${ctx.prog.name}`,
+					grant: {category: ctx.prog.categories[0], count: ctx.prog.count, name: ctx.prog.name},
+				});
 
 			case STEP_MASTERY:
 				return this._page._classPanel._pOnChooseWeaponMastery();

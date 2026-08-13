@@ -259,8 +259,18 @@ Key fields (all read by `charactersheet-levelengine.js` unless noted):
   groups with buckets `prepared`/`known`/`expanded`/`innate`, each keyed by
   **class level** → list of uids (`"cure wounds|phb"`) or dynamic
   `{choose}`/`{all}` filters. `getGrantedSpellUids` reads the plain-uid ones.
-- **`optionalfeatureProgression`** — counts of Invocations / Fighting Styles /
-  Maneuvers etc. by level (`getOptionalFeatureCounts`).
+- **`optionalfeatureProgression`** — counts of Invocations / Maneuvers etc. by
+  level (`getOptionalFeatureCounts`).
+- **`featProgression`** — feats the class table grants *by category*: the 2024
+  **Fighting Style** (Fighter 1, Paladin 2, Ranger 2, Champion 7) is a feat of
+  category `FS` now, not an optional feature, and every class gains an **Epic
+  Boon** at 19 (`getFeatProgressionCounts`). The class panel also offers these
+  from the feature card that names them, so the guide and the Build Check count
+  what was taken **by category**, not by which chooser recorded it.
+- **`preparedSpellsProgression`** — the 2024 prepared casters replaced the
+  `preparedSpells` formula with an exact by-level table that no longer uses the
+  ability modifier. `getPreparedSpellCount` reads whichever the class has;
+  reading only the formula left every XPHB prepared caster with no limit at all.
 - **`startingProficiencies`** (skills/tools/languages, some as `{choose}`),
   **`startingEquipment`** (`defaultData` A/B groups), **`multiclassing`**.
 - Feature *effects* that are only prose (a subclass adding an ability mod to

@@ -290,7 +290,7 @@ export class CharacterSpellsPanel {
 			if (maxCantrips != null) limits.push(`${maxCantrips} cantrip${maxCantrips === 1 ? "" : "s"}`);
 		}
 		const knownEnt = [cls, sc].find(it => it?.spellsKnownProgression);
-		const preparedEnt = [cls, sc].find(it => it?.preparedSpells);
+		const preparedEnt = [cls, sc].find(it => it?.preparedSpells || it?.preparedSpellsProgression);
 		if (knownEnt) {
 			const maxKnown = getSpellsKnown(knownEnt, entry.level);
 			if (maxKnown != null) limits.push(`${maxKnown} spells known`);
@@ -409,7 +409,7 @@ export class CharacterSpellsPanel {
 			}
 
 			const knownEnt = [cls, sc].find(it => it?.spellsKnownProgression);
-			const preparedEnt = [cls, sc].find(it => it?.preparedSpells);
+			const preparedEnt = [cls, sc].find(it => it?.preparedSpells || it?.preparedSpellsProgression);
 			if (knownEnt) {
 				const maxKnown = getSpellsKnown(knownEnt, entry.level);
 				if (maxKnown != null) out.push({text: `Spells known: ${cntLeveled}/${maxKnown}`, isOver: cntLeveled > maxKnown});
