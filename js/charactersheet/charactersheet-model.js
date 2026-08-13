@@ -99,6 +99,10 @@ export class CharacterModel extends BaseComponent {
 			acMisc: 0, // flat misc bonus added to computed AC
 			initMisc: 0,
 			speed: "30 ft.",
+			// Which size, when the species offers a choice ("Small or Medium" — 30 of them do). Stored
+			// as the data's abbreviation; blank means unanswered, not Medium.
+			size: "",
+			creatureTypes: [], // what kind of creature the species is — a Plasmoid is an Ooze, not a Humanoid
 
 			hpMax: 0,
 			hpCur: 0,
@@ -291,8 +295,10 @@ export class CharacterModel extends BaseComponent {
 	 * @param from the entity that granted it — "Sailor", "Human". Recorded because more than one can
 	 *        grant one, and a panel that has to guess which of them a feat belongs to guesses wrong.
 	 */
-	addOriginFeat ({name, source, displayName = null, bonuses = null, from = null}) {
-		if (this._state.originFeats.some(it => it.name === name && it.source === source)) return false;
+	addOriginFeat ({name, source, displayName = null, bonuses = null, from = null, isRepeatable = false}) {
+		// A feat the book marks repeatable may be held twice; anything else is a duplicate. Without
+		// this the picker would offer a second Skilled and then drop it on the floor.
+		if (!isRepeatable && this._state.originFeats.some(it => it.name === name && it.source === source)) return false;
 		const id = CryptUtil.uid();
 		this._state.originFeats = [...this._state.originFeats, {id, name, source, displayName: displayName || name, bonuses, from}];
 		if (bonuses) this.applyAbilityBonuses(bonuses, {source: `${displayName || name} (feat)`, logId: id});
@@ -785,6 +791,11 @@ export class CharacterModel extends BaseComponent {
 			Object.entries(grp).forEach(([k, v]) => { if (v === true) this.setSkillProfByName(k, 1); });
 		});
 
+		// A species with one size settles it; one with a choice leaves it for the player to answer
+		const sizes = [race.size].flat().filter(Boolean);
+		if (sizes.length === 1) this._state.size = sizes[0];
+		this._state.creatureTypes = [race.creatureTypes].flat().filter(Boolean);
+
 		this.setProficienciesFromSource(race.name, getEntityProficiencies(race));
 		// Darkvision, resistances, immunities and the rest are structured now, so they are no longer
 		// copied into the notes box as well
@@ -892,6 +903,22 @@ export class CharacterModel extends BaseComponent {
 		if (cls.hd && cls.hd.faces) this._state.hdTotal = `${level}d${cls.hd.faces}`;
 		(cls.proficiency || []).forEach(abv => this._state[`save_${abv}`] = true);
 		if (cls.spellcastingAbility) this._state.spellAbility = cls.spellcastingAbility;
+	}
+
+	/**
+	 * Proficiency in one saving throw. Classes set these directly on apply; a feat (Resilient) grants
+	 * one by choice, and goes through here so there is one way in.
+	 */
+	/** The size a species left to the player, as the data's abbreviation ("S"/"M"). */
+	setSize (abv) {
+		this._state.size = abv || "";
+	}
+
+	setSaveProficiency (abv, isProficient = true) {
+		const prop = `save_${abv}`;
+		if (!(prop in this.__state)) return false;
+		this._state[prop] = !!isProficient;
+		return true;
 	}
 
 	/** Set the (single) primary class from picked class data, replacing any existing classes. */

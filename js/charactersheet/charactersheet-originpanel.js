@@ -54,10 +54,16 @@ export class CharacterOriginPanel {
 		// Answering a choice is the other half of "still to choose"
 		this._comp._addHookBase("choiceLog", () => this._pRender());
 		this._comp._addHookBase("abilityBonusLog", () => this._pRender());
-		// …as is picking a lineage or an ancestry, which nothing else here would notice
-		this._comp._addHookBase("traitChoices", () => this._pRender());
-		this._comp._addHookBase("defenses", () => this._pRender());
-		CHAR_SHEET_SKILLS.forEach(({key}) => this._comp._addHookBase(`skill_${key}`, () => this._pRender()));
+		// Everything else this panel *reads*. A panel that renders a prop and does not watch it shows
+		// yesterday's answer until a reload, which has caught this feature four times now — so the
+		// rule is that each prop appearing above is listed here too.
+		[
+			"traitChoices", // a lineage or an ancestry
+			"defenses", // what a "choose one" pick resolved to
+			"size", // the size a species left open
+			"creatureTypes",
+			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
+		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
 		this._pRender();
 	}
 
@@ -109,9 +115,16 @@ export class CharacterOriginPanel {
 		if (ent?.size || ent?.speed) {
 			const meta = document.createElement("span");
 			meta.className = "ve-muted ve-small ve-mr-1";
+			// Once a size is chosen it is the character's size, not the species' menu
+			const chosenSize = this._kind === "species" ? this._comp._state.size : null;
 			meta.textContent = [
-				(ent.size || []).map(sz => Parser.sizeAbvToFull(sz)).join("/"),
+				chosenSize
+					? Parser.sizeAbvToFull(chosenSize)
+					: (ent.size || []).map(sz => Parser.sizeAbvToFull(sz)).join("/"),
 				Parser.getSpeedString ? Parser.getSpeedString(ent) : null,
+				// A Plasmoid is an Ooze and a Skeleton is Undead — which decides what spells can target
+				// them, so it belongs on the sheet rather than only in the species' prose
+				[ent.creatureTypes].flat().filter(Boolean).map(it => String(it).toTitleCase()).join(", ") || null,
 			].filter(Boolean).join(" · ");
 			wrp.appendChild(meta);
 		}
@@ -249,6 +262,11 @@ export class CharacterOriginPanel {
 				? `Origin feat: ${missingFeats.map(it => it.displayName || it.name).join(", ")}`
 				: "Origin feat of your choice";
 			rows.push({text: what, btn: "Take it", pFn: () => this._page._pGrantOriginFeats(ent)});
+		}
+
+		// A size the species left open — 30 of them do, and it is a rule, not a label
+		if (this._kind === "species" && [ent.size].flat().filter(Boolean).length > 1 && !this._comp._state.size) {
+			rows.push({text: "Size", btn: "Choose", pFn: () => this._page._pResolveSizeChoice(ent)});
 		}
 
 		// "Choose one of the following" traits — an Elf's Lineage, a Dragonborn's Ancestry. These read

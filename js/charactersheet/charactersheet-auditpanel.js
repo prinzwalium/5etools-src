@@ -28,7 +28,7 @@ export class CharacterAuditPanel {
 			// Taking the background's origin feat is one of the things this panel asks for, so it
 			// has to notice when it happens — and the same goes for picking a lineage or an ancestry
 			// …and a Fighting Style or Epic Boon taken from the class panel, which this panel counts
-			"originFeats", "spellsKnown", "traitChoices", "featureFeats",
+			"originFeats", "spellsKnown", "traitChoices", "featureFeats", "size",
 			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
 			"abil_str", "abil_dex", "abil_con", "abil_int", "abil_wis", "abil_cha",
 		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
@@ -117,7 +117,13 @@ export class CharacterAuditPanel {
 				.filter(choice => !this._comp.getTraitChoice(ent.name, choice.trait))
 				.map(choice => ({from: ent.name, trait: choice.trait})));
 
-		return {grantedOriginFeats, grantedFeatChoices, openTraitChoices};
+		// A species that offers "Small or Medium" is asking a question, and 30 of them do
+		const speciesEnt = ents[1];
+		const isSizeOwed = !!speciesEnt
+			&& [speciesEnt.size].flat().filter(Boolean).length > 1
+			&& !this._comp._state.size;
+
+		return {grantedOriginFeats, grantedFeatChoices, openTraitChoices, isSizeOwed};
 	}
 
 	async _pRender () {

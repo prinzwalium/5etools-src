@@ -23,6 +23,15 @@ const getItem = name => ITEMS.find(it => it.name === name);
 
 const namesOf = (defenses, kind) => defenses.filter(it => it.kind === kind).map(it => it.name);
 
+describe("Senses a feat improves rather than grants", () => {
+	// `bonusSenses` is the spelling a feat uses when it *raises* a sense; reading only `senses` lost
+	// Keenness of the Stone Giant's darkvision entirely
+	it("Reads bonusSenses alongside senses", () => {
+		const out = getEntityDefenses({name: "Keenness of the Stone Giant", bonusSenses: [{darkvision: 60}]});
+		expect(out.map(it => it.name)).toEqual(["Darkvision 60 ft."]);
+	});
+});
+
 describe("Defenses: what a species grants", () => {
 	it("Reads a fixed damage resistance and a darkvision range", () => {
 		const dwarf = getEntityDefenses(getRace("Dwarf", "PHB"));

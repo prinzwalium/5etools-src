@@ -737,7 +737,7 @@ export class CharacterWizard {
 
 			const bonuses = await pResolveFeat(comp, feat);
 			if (bonuses == null) continue;
-			comp.addOriginFeat({name: feat.name, source: feat.source, displayName: displayName || feat.name, bonuses, from: ent.name});
+			comp.addOriginFeat({name: feat.name, source: feat.source, displayName: displayName || feat.name, bonuses, from: ent.name, isRepeatable: !!feat.repeatable});
 		}
 
 		// "An Origin feat of your choice" (the 2024 Human's Versatile) is a pick, not a confirmation
@@ -759,7 +759,7 @@ export class CharacterWizard {
 
 				const bonuses = await pResolveFeat(comp, feat);
 				if (bonuses == null) break;
-				comp.addOriginFeat({name: feat.name, source: feat.source, displayName: feat.name, bonuses, from: ent.name});
+				comp.addOriginFeat({name: feat.name, source: feat.source, displayName: feat.name, bonuses, from: ent.name, isRepeatable: !!feat.repeatable});
 			}
 		}
 	}

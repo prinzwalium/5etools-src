@@ -9,6 +9,7 @@ import {
 	STEP_ORIGIN_FEAT,
 	STEP_SPELLS,
 	STEP_SUBCLASS,
+	STEP_SIZE,
 	STEP_TRAIT_CHOICE,
 	getOutstandingDecisions,
 } from "../../js/charactersheet/charactersheet-buildsteps.js";
@@ -152,6 +153,28 @@ describe("Outstanding decisions: the pools and the rest", () => {
 	it("Copes with no arguments at all", () => {
 		expect(kindsOf(getOutstandingDecisions())).toContain(STEP_HP);
 		expect(kindsOf(getOutstandingDecisions({}))).not.toContain(STEP_MASTERY);
+	});
+});
+
+/**
+ * Thirty species offer "Small or Medium", and it decides carrying capacity, grappling and squeezing.
+ * The panel only ever printed it as a slash, so nobody chose.
+ */
+describe("Outstanding decisions: a size the species left open", () => {
+	const AASIMAR = {name: "Aasimar", size: ["S", "M"]};
+	const DWARF = {name: "Dwarf", size: ["M"]};
+
+	it("Asks when the species offers more than one", () => {
+		expect(kindsOf(getOutstandingDecisions({state: baseState({hpMax: 9}), speciesEnt: AASIMAR}))).toContain(STEP_SIZE);
+	});
+
+	it("And stops once one is chosen", () => {
+		const state = baseState({hpMax: 9, size: "S"});
+		expect(kindsOf(getOutstandingDecisions({state, speciesEnt: AASIMAR}))).not.toContain(STEP_SIZE);
+	});
+
+	it("Never asks a species with only one size", () => {
+		expect(kindsOf(getOutstandingDecisions({state: baseState({hpMax: 9}), speciesEnt: DWARF}))).not.toContain(STEP_SIZE);
 	});
 });
 

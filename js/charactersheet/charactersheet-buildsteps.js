@@ -36,6 +36,7 @@ export const STEP_CLASS_FEAT = "classFeat";
 export const STEP_ORIGIN_CHOICE = "originChoice";
 export const STEP_ORIGIN_FEAT = "originFeat";
 export const STEP_TRAIT_CHOICE = "traitChoice";
+export const STEP_SIZE = "size";
 export const STEP_SPELLS = "spells";
 export const STEP_HP = "hp";
 
@@ -96,6 +97,19 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 				label: `Origin feat of your choice`,
 				detail: ent.name,
 				count: owed,
+				ctx: {ent},
+			});
+		}
+
+		// Thirty species offer a size ("Small or Medium"), and it decides carrying capacity, grappling
+		// and squeezing — but the panel only ever printed it as decoration, so nobody chose
+		if (kind === "species" && [ent.size].flat().filter(Boolean).length > 1 && !st.size) {
+			out.push({
+				key: `${STEP_SIZE}:${ent.name}`,
+				kind: STEP_SIZE,
+				label: "Size",
+				detail: ent.name,
+				count: 1,
 				ctx: {ent},
 			});
 		}

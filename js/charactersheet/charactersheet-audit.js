@@ -74,7 +74,7 @@ export function checkMulticlassRequirements (requirements, state) {
  *   character has reached the level for and not answered.
  * @return {Array<{severity: string, key: string, message: string, hint: string|null}>}
  */
-export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}, grantedOriginFeats = [], grantedFeatChoices = [], openTraitChoices = []} = {}) {
+export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}, grantedOriginFeats = [], grantedFeatChoices = [], openTraitChoices = [], isSizeOwed = false} = {}) {
 	const out = [];
 	if (!state) return out;
 
@@ -189,6 +189,14 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 				"Take it from the species or background panel."));
 		}
 	});
+
+	// A species that offers "Small or Medium" is asking a question, and the answer changes carrying
+	// capacity, grappling and squeezing
+	if (isSizeOwed) {
+		out.push(_mkFinding(AUDIT_UNCLAIMED, "size",
+			"Your species offers a choice of size, not yet made.",
+			"Choose it from the species panel."));
+	}
 
 	// A "choose one of the following" trait — an Elf's Lineage, a Dragonborn's Ancestry — decides a
 	// cantrip, a damage type, a breath weapon. Unpicked, it reads on the sheet as a trait the

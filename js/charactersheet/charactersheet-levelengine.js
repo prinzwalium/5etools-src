@@ -148,6 +148,16 @@ export function getPreparedSpellCount (cls, level, abilityMod = 0) {
 }
 
 /**
+ * How many prepared spells may be swapped when this class gains a level (2024 `preparedSpellsChange`).
+ * `null` when the class does not say — which is every 2014 class.
+ */
+export function getPreparedSpellsChange (cls, level) {
+	if (!cls?.preparedSpellsChange) return null;
+	const n = _getProgressionValue(cls, "preparedSpellsChange", level);
+	return n || null;
+}
+
+/**
  * Combined spellcasting for a set of leveled classes.
  * @param classEntries [{cls, sc, level}] — class entity, optional subclass entity, class level
  * @return {{slots: ?Array<number>, casterLevel: number, pact: ?{count: number, level: number}, casters: Array}}

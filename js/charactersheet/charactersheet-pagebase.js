@@ -1836,6 +1836,7 @@ export class CharacterPageBase {
 		this._comp.applyPickedRace({doc, ent});
 		if (ent) {
 			await this._pOfferAbilityBonuses(ent, doc.n);
+			await this._pResolveSizeChoice(ent);
 			await this._pResolveProficiencyChoices({ent, kind: "race"});
 			// The 2024 Human's Versatile grants an Origin feat, in the same way a background does
 			await this._pGrantOriginFeats(ent);
@@ -1845,6 +1846,26 @@ export class CharacterPageBase {
 			// A species' lineage spells (Elf, Tiefling, ...) use the same `additionalSpells` shape as feats
 			await pResolveEntitySpellGrants(this._comp, ent, {grantKeyPrefix: `race:${ent.name}|${ent.source}`});
 		}
+	}
+
+	/**
+	 * The size a species leaves to the player — "Small or Medium", which 30 of them say.
+	 *
+	 * It is a real decision (carrying capacity, grappling, squeezing), not a label, so it is asked
+	 * once and stored rather than printed as a slash and forgotten.
+	 */
+	async _pResolveSizeChoice (ent) {
+		const sizes = [ent?.size].flat().filter(Boolean);
+		if (sizes.length < 2) return;
+		const picked = await InputUiUtil.pGetUserEnum({
+			values: sizes,
+			isResolveItem: true,
+			fnDisplay: abv => Parser.sizeAbvToFull(abv),
+			title: `${ent.name}: which size?`,
+			placeholder: "Select a size...",
+		});
+		if (picked == null) return;
+		this._comp.setSize(picked);
 	}
 
 	/**
@@ -2079,7 +2100,9 @@ export class CharacterPageBase {
 		const taken = new Set((this._comp._state.originFeats || []).map(it => `${it.name}|${it.source}`.toLowerCase()));
 		const pool = (await CharacterSheetClassData.pGetAllFeats())
 			.filter(f => String(f.category || "").toUpperCase().split(":")[0] === grant.category)
-			.filter(f => !taken.has(`${f.name}|${f.source}`.toLowerCase()));
+			// A feat the book marks `repeatable` may legitimately be taken again — Skilled and Magic
+			// Initiate both are, and filtering them out blocked a legal second take
+			.filter(f => f.repeatable || !taken.has(`${f.name}|${f.source}`.toLowerCase()));
 
 		if (!pool.length) {
 			JqueryUtil.doToast({type: "warning", content: "No feats of that kind are available in the books this character allows."});
@@ -2100,7 +2123,7 @@ export class CharacterPageBase {
 	async _pTakeOriginFeat (feat, displayName, from) {
 		const bonuses = await pResolveFeat(this._comp, feat);
 		if (bonuses == null) return;
-		this._comp.addOriginFeat({name: feat.name, source: feat.source, displayName, bonuses, from});
+		this._comp.addOriginFeat({name: feat.name, source: feat.source, displayName, bonuses, from, isRepeatable: !!feat.repeatable});
 	}
 
 	/**

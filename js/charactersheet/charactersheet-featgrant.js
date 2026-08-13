@@ -161,6 +161,20 @@ export async function pResolveFeatSkillChoices (comp, feat) {
 		await pResolve(choice, name => comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: feat.name}));
 	}
 
+	// A saving-throw proficiency of your choice — Resilient, and nothing else in the books. Its own
+	// field, unread until now, so taking Resilient did nothing at all to the sheet
+	for (const grp of (feat.savingThrowProficiencies || [])) {
+		const from = [grp?.choose?.from].flat().filter(Boolean)
+			.filter(abv => !comp._state[`save_${abv}`]);
+		if (!from.length) continue;
+		const picked = await pPickAbilities({
+			count: grp.choose.count || 1,
+			from,
+			title: `${feat.name}: proficiency in which saving throw?`,
+		});
+		(picked || []).forEach(abv => comp.setSaveProficiency(abv, true));
+	}
+
 	// "Any combination of three skills or tools" — one pool, spendable either way
 	const toolNames = await CharacterSheetClassData.pGetToolProficiencyNames();
 	for (const choice of getSkillToolLanguageChoices({groups: feat.skillToolLanguageProficiencies, sourceName: feat.name, toolNames})) {

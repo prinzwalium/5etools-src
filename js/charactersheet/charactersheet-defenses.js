@@ -98,10 +98,15 @@ export function getEntityDefenses (ent) {
 	_SENSE_KEYS.forEach(key => {
 		if (ent[key]) out.push({kind: DEFENSE_KIND_SENSE, name: formatSense(key, ent[key]), note: null});
 	});
-	(Array.isArray(ent.senses) ? ent.senses : []).forEach(grp => {
-		if (!grp || typeof grp !== "object") return;
-		Object.entries(grp).forEach(([key, range]) => {
-			if (_SENSE_KEYS.includes(key)) out.push({kind: DEFENSE_KIND_SENSE, name: formatSense(key, range), note: null});
+	// `senses` is the feat spelling; `bonusSenses` the one a feat uses when it *improves* a sense it
+	// does not itself grant (Keenness of the Stone Giant's darkvision). Both are the same shape, and
+	// reading only the first lost the second entirely.
+	[ent.senses, ent.bonusSenses].forEach(arr => {
+		(Array.isArray(arr) ? arr : []).forEach(grp => {
+			if (!grp || typeof grp !== "object") return;
+			Object.entries(grp).forEach(([key, range]) => {
+				if (_SENSE_KEYS.includes(key)) out.push({kind: DEFENSE_KIND_SENSE, name: formatSense(key, range), note: null});
+			});
 		});
 	});
 

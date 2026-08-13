@@ -123,6 +123,19 @@ template, run `node node/generate-pages.js` and commit both.
   and misses every *Supplies*, *Utensils*, instrument and gaming set, 28 of 40 in the base file.
   Item *groups* ("Artisan's Tools" as a category) and magic variants (a *+1 Rhythm-Maker's Drum*)
   are excluded; the static list in `choices.js` is only the fallback.
+- **A species' size can be a question.** Thirty offer "Small or Medium" (`size: ["S","M"]`), which
+  decides carrying capacity, grappling and squeezing — so it is asked, stored in `size`, and shown
+  as the character's size rather than as the species' menu. `creatureTypes` is recorded beside it: a
+  Plasmoid is an Ooze, and that decides what can target it.
+- **Two feat fields beyond the obvious ones.** `savingThrowProficiencies` is Resilient, and nothing
+  else in the books; `bonusSenses` is how a feat *raises* a sense it does not grant. Both were
+  unread, so both feats did nothing at all.
+- **A `repeatable` feat may be taken twice.** Skilled and Magic Initiate both are. The pickers used
+  to filter out anything already held, and `addOriginFeat` deduplicated by name, so a legal second
+  take was offered and then dropped.
+- **A panel watches every prop it renders.** A hook list that misses one shows yesterday's answer
+  until a reload; that has caught this feature four separate times (a lineage, a class-granted feat,
+  a size, an origin feat).
 - **A feat uid may narrow the feat as well as name it.** `"magic initiate; wizard|xphb"` is Magic
   Initiate taken with the Wizard list; only the part before the semicolon is the name a taken feat is
   stored under. `getGrantedFeats` splits the two (`name`, `subChoice`, `displayName`), which is what

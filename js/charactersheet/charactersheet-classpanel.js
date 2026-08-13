@@ -8,6 +8,7 @@ import {
 	getWeaponMasteryCount,
 	getMulticlassRequirementsDisplay,
 	getOptionalFeatureCounts,
+	getPreparedSpellsChange,
 	getPreparedSpellsDisplay,
 	getSpellcastingMeta,
 	getSpellsKnown,
@@ -682,7 +683,8 @@ export class CharacterClassPanel {
 			.map(it => `${it.name}|${it.source}`));
 		const pool = (await CharacterSheetClassData.pGetAllFeats())
 			.filter(f => CharacterClassPanel._featMatchesCategory(f, grant.category))
-			.filter(f => !chosenUids.has(`${f.name}|${f.source}`));
+			// `repeatable` feats may be taken again; the rest may not
+			.filter(f => f.repeatable || !chosenUids.has(`${f.name}|${f.source}`));
 
 		// A button that does nothing reads as a broken page. Say which of the two it is: nothing of
 		// this kind exists in the loaded books, or you have taken them all
@@ -1017,6 +1019,9 @@ export class CharacterClassPanel {
 			if (cantrips != null) bits.push(`${cantrips} cantrips`);
 			if (known != null) bits.push(`${known} spells known`);
 			else if (prepared) bits.push(`prepares ${prepared}`);
+			// What a level-up lets you swap, which is a 2024 rule and easy to forget
+			const swap = getPreparedSpellsChange(cls, entry.level) ?? (sc ? getPreparedSpellsChange(sc, entry.level) : null);
+			if (swap) bits.push(`${swap} may be swapped on a level-up`);
 			if (bits.length) parts.push(`<div class="ve-muted">${cls.name.qq()}: ${bits.join(", ")}</div>`);
 		});
 
