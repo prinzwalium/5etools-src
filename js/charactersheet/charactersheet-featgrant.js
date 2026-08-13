@@ -1,5 +1,4 @@
 import {
-	ALL_TOOL_NAMES,
 	CHOICE_TYPE_SKILL,
 	CHOICE_TYPE_TOOL,
 	CHOICE_TYPE_LANGUAGE,
@@ -11,6 +10,7 @@ import {
 	getLanguageChoices,
 	getProfListDisplay,
 	getSkillChoices,
+	getSkillToolLanguageChoices,
 	getToolChoices,
 } from "./charactersheet-choices.js";
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
@@ -126,6 +126,29 @@ export async function pResolveFeatSkillChoices (comp, feat) {
 		if (picked?.length) resolved.add(choice.type);
 	};
 
+	/**
+	 * The mixed pool is subtracted per kind, not per choice type: a pick spendable on a skill *or* a
+	 * tool has to lose the skills you have and the tools you have, and each pick then narrows
+	 * whichever pool it came from.
+	 */
+	const pResolveMixed = async choice => {
+		const from = choice.from.filter(name => !_getMixedType(choice, name, held).isHeld);
+		if (!from.length) return;
+		const picked = await pPickList({
+			count: Math.min(choice.count, from.length),
+			from,
+			title: `${feat.name}: ${choice.label.replace(/^Choose /, "choose ")}`,
+		});
+		(picked || []).forEach(name => {
+			const {type} = _getMixedType(choice, name, held);
+			held[type]?.add(name);
+			if (type === CHOICE_TYPE_SKILL) comp.setSkillProfByName(name, PROF_STATE_PROFICIENT);
+			else if (type === CHOICE_TYPE_TOOL) comp.addProficiency({kind: PROF_KIND_TOOL, name, source: feat.name});
+			else comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: feat.name});
+		});
+		if (picked?.length) [CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, CHOICE_TYPE_LANGUAGE].forEach(t => resolved.add(t));
+	};
+
 	for (const choice of getSkillChoices({groups: feat.skillProficiencies, sourceName: feat.name})) {
 		await pResolve(choice, name => comp.setSkillProfByName(name, PROF_STATE_PROFICIENT));
 	}
@@ -138,7 +161,11 @@ export async function pResolveFeatSkillChoices (comp, feat) {
 		await pResolve(choice, name => comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: feat.name}));
 	}
 
-	await pResolveProseFeatChoices(comp, feat, held);
+	// "Any combination of three skills or tools" — one pool, spendable either way
+	const toolNames = await CharacterSheetClassData.pGetToolProficiencyNames();
+	for (const choice of getSkillToolLanguageChoices({groups: feat.skillToolLanguageProficiencies, sourceName: feat.name, toolNames})) {
+		await pResolveMixed(choice);
+	}
 
 	const proficientNames = CHAR_SHEET_SKILLS
 		.filter(({key}) => (Number(comp._state[`skill_${key}`]) || 0) >= PROF_STATE_PROFICIENT)
@@ -152,42 +179,15 @@ export async function pResolveFeatSkillChoices (comp, feat) {
 }
 
 /**
- * Feats whose choice the book states only in a sentence.
+ * Which kind a name in a mixed pool belongs to, and whether the character already has it.
  *
- * Almost every feat's grants are structured, and reading them is how the builder stays honest — but
- * Skilled is "proficiency in any combination of three skills or tools of your choice" and carries no
- * `skillProficiencies` at all, in either printing. Nothing could ask for it, so the feat arrived
- * granting nothing whatsoever. Curated deliberately narrowly: only where the prose leaves no room
- * for interpretation.
+ * The pools come from the choice itself, so a name is classified by the data that offered it rather
+ * than by guessing from its spelling.
  */
-const _PROSE_FEAT_CHOICES = {
-	skilled: {count: 3, isSkillsOrTools: true, what: "skills or tools"},
-};
-
-async function pResolveProseFeatChoices (comp, feat, held) {
-	const spec = _PROSE_FEAT_CHOICES[String(feat.name || "").toLowerCase()];
-	if (!spec?.isSkillsOrTools) return;
-
-	// One pool, because the feat lets the two be mixed freely
-	const skills = CHAR_SHEET_SKILLS.map(({name}) => name).filter(name => !held[CHOICE_TYPE_SKILL]?.has(name));
-	const tools = ALL_TOOL_NAMES.filter(name => !held[CHOICE_TYPE_TOOL]?.has(name));
-	const isSkill = new Set(skills);
-
-	const picked = await pPickList({
-		count: spec.count,
-		from: [...skills, ...tools],
-		title: `${feat.name}: choose ${spec.count} ${spec.what}`,
-	});
-
-	(picked || []).forEach(name => {
-		if (isSkill.has(name)) {
-			held[CHOICE_TYPE_SKILL]?.add(name);
-			comp.setSkillProfByName(name, PROF_STATE_PROFICIENT);
-		} else {
-			held[CHOICE_TYPE_TOOL]?.add(name);
-			comp.addProficiency({kind: PROF_KIND_TOOL, name, source: feat.name});
-		}
-	});
+function _getMixedType (choice, name, held) {
+	const type = [CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, CHOICE_TYPE_LANGUAGE]
+		.find(t => (choice.pools?.[t] || []).includes(name)) || CHOICE_TYPE_TOOL;
+	return {type, isHeld: !!held[type]?.has(name)};
 }
 
 /** Resolve a feat's ability increases (fixed + a single choose group); returns bonuses, or null if cancelled. */

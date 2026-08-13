@@ -6,6 +6,11 @@
  * arrays, producing a by-level array of resolved feature entries (with `gainSubclassFeature` markers
  * preserved). Everything here builds on that, rather than re-implementing uid parsing.
  */
+import {ALL_TOOL_NAMES} from "./charactersheet-choices.js";
+
+/** Artisan's tools, instrument, gaming set, tool — the item types a proficiency can name. */
+const _TOOL_TYPE_ABVS = new Set(["AT", "INS", "GS", "T"]);
+
 export class CharacterSheetClassData {
 	/**
 	 * Active source-filter predicate (`source => boolean`), or null for "everything".
@@ -120,6 +125,47 @@ export class CharacterSheetClassData {
 				const hash = UrlUtil.URL_TO_HASH_BUILDER[page](it);
 				return !ExcludeUtil.isExcluded(hash, "optionalfeature", it.source);
 			});
+		})();
+	}
+
+	static _pToolNames = null;
+
+	/**
+	 * Every tool a character can be proficient with, read from the item data.
+	 *
+	 * By the item's **type code**, never by its name: matching `" Tools"` would find Smith's Tools and
+	 * miss all seven *Supplies* (Alchemist's, Painter's, ...), Cook's Utensils, all 23 instruments and
+	 * all five gaming sets — 28 of the 40 in the base file alone. The codes are `AT` artisan's tools,
+	 * `INS` instrument, `GS` gaming set, `T` tool, and they span two files, so the built list is used
+	 * rather than either file directly.
+	 *
+	 * Magic items carry the same type codes (a *Horn of Valhalla* is an `INS`), so only base items
+	 * count: proficiency is with the kind of tool, not with a particular magical one.
+	 */
+	static pGetToolProficiencyNames () {
+		return this._pToolNames ||= (async () => {
+			try {
+				const all = await Renderer.item.pBuildList();
+				const names = new Set(
+					all
+						.filter(it => _TOOL_TYPE_ABVS.has(String(it.type || "").split("|")[0]))
+						// "Artisan's Tools" and "Gaming Set" are the *category*, not a tool you can be
+						// proficient with — the data marks them as groups
+						.filter(it => !it._isItemGroup)
+						// A *+1 Rhythm-Maker's Drum* is an instrument, but proficiency is with the Drum
+						.filter(it => !it.baseItem && !it.wondrous && !it.reqAttune && (!it.rarity || it.rarity === "none"))
+						// Base gear, or something with a price — which is what separates a tool anyone can
+						// buy from a named treasure that happens to share its type
+						.filter(it => it._isBaseItem || it.value != null)
+						.map(it => it.name)
+						.filter(Boolean),
+				);
+				const out = [...names].sort(SortUtil.ascSortLower);
+				// A filter that matched nothing is a broken read, not an empty world
+				return out.length ? out : ALL_TOOL_NAMES;
+			} catch (e) {
+				return ALL_TOOL_NAMES;
+			}
 		})();
 	}
 

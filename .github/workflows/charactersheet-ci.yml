@@ -39,6 +39,12 @@ jobs:
                npx eslint .
                npx stylelint scss/charactersheet.scss
 
+         # `no-undef` is off repo-wide (5etools' script-tag globals), so a missing import is not a
+         # lint error — it is a ReferenceError the moment somebody clicks the thing. This runs the
+         # rule over the fork's modules only, with those globals declared.
+         -  name: No undefined symbols
+            run: node scripts/check-charactersheet-imports.mjs
+
          -  name: Unit tests
             run: npm run test:unit -- test/jest/CharacterSheet
 

@@ -12,6 +12,8 @@ import {
 	getAbilityPackages,
 	getFixedAbilityBonuses,
 	getGrantedFeats,
+	getSkillToolLanguageChoices,
+	CHOICE_TYPE_SKILL_TOOL_LANGUAGE,
 	getChoiceWithoutHeld,
 	getFixedProficiencyNames,
 	getHeldProficiencyNames,
@@ -290,6 +292,56 @@ describe("Choices: tool picks", () => {
 		const [choice] = getToolChoices({groups: [{choose: {from: ["smith's tools", "mason's tools"]}}], sourceName: "Dwarf"});
 		expect(choice.from).toEqual(["Smith's Tools", "Mason's Tools"]);
 		expect(getToolChoices({groups: [{"thieves' tools": true}], sourceName: "Rogue"})).toEqual([]);
+	});
+});
+
+/**
+ * `skillToolLanguageProficiencies` — the field that says "any combination of three skills or tools".
+ *
+ * Skilled looked prose-only for as long as only `skillProficiencies` was read; the choice is
+ * structured, in its own field, with `anySkill`/`anyTool` as the pool tokens. Reading it is what
+ * turned a curated special case back into ordinary data.
+ */
+describe("Choices: one pick across skills, tools and languages", () => {
+	const TOOLS = ["Smith's Tools", "Lute", "Dice Set"];
+
+	it("Reads the mixed-pool shape Skilled uses", () => {
+		const [choice] = getSkillToolLanguageChoices({
+			groups: [{choose: [{from: ["anySkill", "anyTool"], count: 3}]}],
+			sourceName: "Skilled",
+			toolNames: TOOLS,
+		});
+		expect(choice).toMatchObject({type: CHOICE_TYPE_SKILL_TOOL_LANGUAGE, sourceName: "Skilled", count: 3});
+		expect(choice.label).toBe("Choose 3 skills or tools");
+		// One pool, so a pick can be spent either way
+		expect(choice.from).toEqual(expect.arrayContaining(["Acrobatics", "Smith's Tools"]));
+		expect(choice.pools.skill).toContain("Stealth");
+		expect(choice.pools.tool).toEqual(TOOLS);
+		expect(choice.pools.language).toEqual([]);
+	});
+
+	it("Reads the bare-token shape, one choice per token", () => {
+		const choices = getSkillToolLanguageChoices({
+			groups: [{anyLanguage: 1, anyTool: 1}],
+			sourceName: "Custom Background",
+			toolNames: TOOLS,
+		});
+		expect(choices).toHaveLength(2);
+		expect(choices.map(c => c.count)).toEqual([1, 1]);
+	});
+
+	it("Takes the tool list it is given, so the pool can come from the item data", () => {
+		const [choice] = getSkillToolLanguageChoices({
+			groups: [{anyTool: 2}],
+			sourceName: "Feat",
+			toolNames: ["Painter's Supplies"],
+		});
+		expect(choice.from).toEqual(["Painter's Supplies"]);
+	});
+
+	it("Skips a token it does not know rather than guessing a pool", () => {
+		expect(getSkillToolLanguageChoices({groups: [{choose: [{from: ["anyNonsense"], count: 1}]}], sourceName: "X"})).toEqual([]);
+		expect(getSkillToolLanguageChoices({})).toEqual([]);
 	});
 });
 

@@ -272,3 +272,22 @@ If you'd rather not resolve a conflict by hand, you can open a Claude Code
 session and say *"pull the latest from upstream into my fork."* The repo's
 `CLAUDE.md` tells Claude exactly how this fork is structured and how to resolve
 these specific conflict points, so it can do it for you safely.
+
+---
+
+## Undefined symbols (a missing `import`)
+
+`no-undef` is **off** repo-wide, and has to be: 5etools loads `Parser`, `Renderer`, `UiUtil` and
+dozens more as script-tag globals, so the rule would be one long list of false positives. The cost
+is that a missing `import` in one of the fork's ES modules is not a lint error either — it is a
+`ReferenceError` in the browser, at the moment somebody clicks the thing, and it has reached a
+running page twice.
+
+So the rule runs separately, over the fork's modules only, with those globals declared:
+
+```bash
+node scripts/check-charactersheet-imports.mjs
+```
+
+It runs in CI. If you add a new 5etools global to a Character Sheet module, add it to `SITE_GLOBALS`
+in that script — after checking it really is one (`grep "globalThis.<Name> =" js/utils-ui.js`).

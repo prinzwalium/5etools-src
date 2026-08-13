@@ -1,9 +1,11 @@
 import {CHAR_SHEET_ABILITIES} from "./charactersheet-consts.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {
+	ALL_TOOL_NAMES,
 	CHOICE_TYPE_ABILITY,
 	CHOICE_TYPE_LANGUAGE,
 	CHOICE_TYPE_SKILL,
+	CHOICE_TYPE_SKILL_TOOL_LANGUAGE,
 	CHOICE_TYPE_TOOL,
 	getAbilityPackageDisplay,
 	getChoiceSignature,
@@ -78,6 +80,13 @@ export class CharacterWizard {
 		this._eleBody = null;
 		this._eleFooter = null;
 		this._doClose = null;
+
+		// The Choices step renders synchronously, four steps after this; starting the read now means
+		// the real tool list is there when it needs one, and the static fallback if the read fails
+		this._toolNames = ALL_TOOL_NAMES;
+		CharacterSheetClassData.pGetToolProficiencyNames()
+			.then(names => this._toolNames = names)
+			.catch(() => {});
 	}
 
 	static async pShow ({comp, page = null}) {
@@ -383,6 +392,7 @@ export class CharacterWizard {
 			race: this._draft.race?.ent,
 			background: this._draft.background?.ent,
 			cls: this._draft.cls,
+			toolNames: this._toolNames,
 		});
 
 		// Drop stale selections (e.g. after going back and changing class)
@@ -979,9 +989,17 @@ export class CharacterWizard {
 			const selections = this._draft.choiceSelections.get(getChoiceSignature(choice));
 			if (!selections?.size) return;
 
-			if (choice.type === CHOICE_TYPE_SKILL) selections.forEach(name => comp.setSkillProfByName(name, 1));
-			else if (choice.type === CHOICE_TYPE_LANGUAGE) selections.forEach(name => comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: choice.sourceName}));
-			else if (choice.type === CHOICE_TYPE_TOOL) selections.forEach(name => comp.addProficiency({kind: PROF_KIND_TOOL, name, source: choice.sourceName}));
+			// A mixed pool ("three skills or tools") is applied per pick, by the pool the name came from
+			const typeOf = name => (choice.type === CHOICE_TYPE_SKILL_TOOL_LANGUAGE
+				? [CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, CHOICE_TYPE_LANGUAGE].find(t => (choice.pools?.[t] || []).includes(name)) || CHOICE_TYPE_TOOL
+				: choice.type);
+
+			selections.forEach(name => {
+				const type = typeOf(name);
+				if (type === CHOICE_TYPE_SKILL) comp.setSkillProfByName(name, 1);
+				else if (type === CHOICE_TYPE_LANGUAGE) comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: choice.sourceName});
+				else if (type === CHOICE_TYPE_TOOL) comp.addProficiency({kind: PROF_KIND_TOOL, name, source: choice.sourceName});
+			});
 
 			comp.recordChoice({
 				sig: getChoiceSignature(choice),

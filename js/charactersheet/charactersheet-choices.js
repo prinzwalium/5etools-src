@@ -22,6 +22,8 @@ export const OTHER_TOOLS = ["Disguise kit", "Forgery kit", "Herbalism kit", "Nav
 export const CHOICE_TYPE_SKILL = "skill";
 export const CHOICE_TYPE_LANGUAGE = "language";
 export const CHOICE_TYPE_TOOL = "tool";
+/** One pick that may be spent on a skill, a tool *or* a language — see `getSkillToolLanguageChoices`. */
+export const CHOICE_TYPE_SKILL_TOOL_LANGUAGE = "skillToolLanguage";
 export const CHOICE_TYPE_ABILITY = "ability";
 export const CHOICE_TYPE_EXPERTISE = "expertise";
 
@@ -243,10 +245,85 @@ export function getLanguageChoices ({groups, sourceName}) {
 	return out;
 }
 
-/** The `{anyX: n}` tool keys, and what each draws from. */
-/** Every tool a "choose any tool" may draw from. Exported: a prose-only feat (Skilled) needs it too. */
+/**
+ * Every tool a "choose any tool" may draw from.
+ *
+ * A static fallback, not the truth: the real list is the item data, read by
+ * `CharacterSheetClassData.pGetToolProficiencyNames`. This is what callers that cannot await get,
+ * and what applies when the item data will not load.
+ */
 export const ALL_TOOL_NAMES = [...ARTISANS_TOOLS, ...GAMING_SETS, ...MUSICAL_INSTRUMENTS, ...OTHER_TOOLS].sort();
 const _ALL_TOOLS = ALL_TOOL_NAMES;
+
+/**
+ * `skillToolLanguageProficiencies` — one pick spendable across the three kinds.
+ *
+ * The books' "any combination of three skills or tools of your choice" (Skilled, a Half-Elf's Skill
+ * Versatility) is not three skill picks *and* three tool picks; it is three picks from one pool. The
+ * data says exactly that, in its own field, with `anySkill` / `anyTool` / `anyLanguage` as the pool
+ * tokens — which is why nothing was found by reading `skillProficiencies` alone.
+ *
+ * Two shapes appear:
+ *  - `{choose: [{from: ["anySkill", "anyTool"], count: 3}]}` — the mixed pool;
+ *  - a bare `{anyTool: 1}` or `{anyLanguage: 1, anyTool: 1}` group, which is the same thing with one
+ *    token per key.
+ *
+ * `toolNames` is injected rather than read here, so this stays pure and testable: callers that can
+ * await pass the real item-data list, and the rest get the static fallback.
+ *
+ * @return {Array} choices whose `pools` say which kind each option in `from` belongs to.
+ */
+export function getSkillToolLanguageChoices ({groups, sourceName, toolNames = ALL_TOOL_NAMES} = {}) {
+	const out = [];
+	const _WHAT = {[CHOICE_TYPE_SKILL]: "skill", [CHOICE_TYPE_TOOL]: "tool", [CHOICE_TYPE_LANGUAGE]: "language"};
+
+	const mkPools = tokens => {
+		const pools = {[CHOICE_TYPE_SKILL]: [], [CHOICE_TYPE_TOOL]: [], [CHOICE_TYPE_LANGUAGE]: []};
+		tokens.forEach(token => {
+			switch (token) {
+				case "anySkill": pools[CHOICE_TYPE_SKILL] = _ALL_SKILL_NAMES(); break;
+				case "anyTool": pools[CHOICE_TYPE_TOOL] = [...toolNames]; break;
+				case "anyLanguage": pools[CHOICE_TYPE_LANGUAGE] = (Parser.LANGUAGES_ALL || []).map(_titleCase); break;
+				case "anyStandardLanguage": pools[CHOICE_TYPE_LANGUAGE] = (Parser.LANGUAGES_STANDARD || []).map(_titleCase); break;
+				// An unknown token would silently shrink the pool, so it is skipped rather than guessed at
+			}
+		});
+		return pools;
+	};
+
+	const push = ({tokens, count}) => {
+		const pools = mkPools(tokens);
+		const from = [...pools[CHOICE_TYPE_SKILL], ...pools[CHOICE_TYPE_TOOL], ...pools[CHOICE_TYPE_LANGUAGE]];
+		if (!from.length) return;
+		const n = count || 1;
+		// "3 skills or tools", not "3 skill or tools" — each kind carries the plural
+		const kinds = Object.entries(pools)
+			.filter(([, list]) => list.length)
+			.map(([type]) => `${_WHAT[type]}${n > 1 ? "s" : ""}`);
+		out.push({
+			id: _nextId(),
+			type: CHOICE_TYPE_SKILL_TOOL_LANGUAGE,
+			sourceName,
+			count: n,
+			from,
+			pools,
+			label: `Choose ${n} ${kinds.join(" or ")}`,
+		});
+	};
+
+	(groups || []).forEach(grp => {
+		Object.entries(grp || {}).forEach(([k, v]) => {
+			if (k === "choose") {
+				[v].flat().filter(Boolean).forEach(c => push({tokens: [c.from].flat().filter(Boolean), count: c.count}));
+				return;
+			}
+			if (typeof v === "number") push({tokens: [k], count: v});
+		});
+	});
+
+	return out;
+}
+
 const _TOOL_ANY_KEYS = {
 	anyGamingSet: {from: GAMING_SETS, what: "gaming set"},
 	anyMusicalInstrument: {from: MUSICAL_INSTRUMENTS, what: "musical instrument"},
@@ -432,7 +509,7 @@ export function getGrantedFeatCategories (feats) {
  * `cls` skill choices come from `startingProficiencies`; class tools/languages are
  * rendered text in the data, not structured choices, so they are not queued.
  */
-export function getPendingChoices ({race = null, background = null, cls = null} = {}) {
+export function getPendingChoices ({race = null, background = null, cls = null, toolNames = ALL_TOOL_NAMES} = {}) {
 	const out = [];
 
 	if (race) {
@@ -441,6 +518,7 @@ export function getPendingChoices ({race = null, background = null, cls = null} 
 		out.push(...getSkillChoices({groups: race.skillProficiencies, sourceName}));
 		out.push(...getLanguageChoices({groups: race.languageProficiencies, sourceName}));
 		out.push(...getToolChoices({groups: race.toolProficiencies, sourceName}));
+		out.push(...getSkillToolLanguageChoices({groups: race.skillToolLanguageProficiencies, sourceName, toolNames}));
 	}
 
 	if (cls) {
@@ -454,6 +532,7 @@ export function getPendingChoices ({race = null, background = null, cls = null} 
 		out.push(...getSkillChoices({groups: background.skillProficiencies, sourceName}));
 		out.push(...getLanguageChoices({groups: background.languageProficiencies, sourceName}));
 		out.push(...getToolChoices({groups: background.toolProficiencies, sourceName}));
+		out.push(...getSkillToolLanguageChoices({groups: background.skillToolLanguageProficiencies, sourceName, toolNames}));
 	}
 
 	return out;

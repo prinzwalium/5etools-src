@@ -5,7 +5,7 @@ import {getLevelUpHp} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, formatBreakdown, getConcentrationSaveDc} from "./charactersheet-derive.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CharacterWizard} from "./charactersheet-wizard.js";
-import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getChoiceWithoutHeld, getFixedAbilityBonuses, getFixedProficiencyNames, getGrantedFeatCategories, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getResistChoices, mergeHeldProficiencyNames} from "./charactersheet-choices.js";
+import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_SKILL_TOOL_LANGUAGE, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getChoiceWithoutHeld, getFixedAbilityBonuses, getFixedProficiencyNames, getGrantedFeatCategories, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getResistChoices, mergeHeldProficiencyNames} from "./charactersheet-choices.js";
 import {pPickAbilities, pPickList, pResolveEntitySpellGrants, pResolveFeat} from "./charactersheet-featgrant.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL, PROF_KINDS, groupProficienciesByKind} from "./charactersheet-proficiencies.js";
 import {DEFENSE_KINDS, DEFENSE_KIND_RESIST, DEFENSE_KIND_SENSE, getAllDefenses, groupDefensesByKind} from "./charactersheet-defenses.js";
@@ -2002,7 +2002,8 @@ export class CharacterPageBase {
 	 * become proficiency notes. Ability-score choices are handled separately by `_pOfferAbilityBonuses`.
 	 */
 	async _pResolveProficiencyChoices ({ent, kind}) {
-		const choices = getPendingChoices({[kind]: ent}).filter(c => c.type !== CHOICE_TYPE_ABILITY);
+		const toolNames = await CharacterSheetClassData.pGetToolProficiencyNames();
+		const choices = getPendingChoices({[kind]: ent, toolNames}).filter(c => c.type !== CHOICE_TYPE_ABILITY);
 		if (!choices.length) return;
 
 		// What is already held comes out of every list, and each pick joins it — otherwise the second
@@ -2013,15 +2014,26 @@ export class CharacterPageBase {
 		);
 
 		for (const choice of choices) {
-			const offered = getChoiceWithoutHeld(choice, held);
-			if (!offered) continue;
+			// A pick spendable on a skill *or* a tool is classified by the pool it came from, so it
+			// loses the right things and lands in the right place
+			const isMixed = choice.type === CHOICE_TYPE_SKILL_TOOL_LANGUAGE;
+			const typeOf = name => (isMixed
+				? [CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, CHOICE_TYPE_LANGUAGE].find(t => (choice.pools?.[t] || []).includes(name)) || CHOICE_TYPE_TOOL
+				: choice.type);
 
-			const picked = await pPickList({count: offered.count, from: offered.from, title: `${ent.name}: ${choice.label}`});
+			const offered = isMixed
+				? {...choice, from: choice.from.filter(name => !held[typeOf(name)]?.has(name))}
+				: getChoiceWithoutHeld(choice, held);
+			if (!offered?.from?.length) continue;
+
+			const count = Math.min(choice.count || 1, offered.from.length);
+			const picked = await pPickList({count, from: offered.from, title: `${ent.name}: ${choice.label}`});
 			(picked || []).forEach(name => {
-				held[choice.type]?.add(name);
-				if (choice.type === CHOICE_TYPE_SKILL) this._comp.setSkillProfByName(name, PROF_STATE_PROFICIENT);
-				else if (choice.type === CHOICE_TYPE_LANGUAGE) this._comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: ent.name});
-				else if (choice.type === CHOICE_TYPE_TOOL) this._comp.addProficiency({kind: PROF_KIND_TOOL, name, source: ent.name});
+				const type = typeOf(name);
+				held[type]?.add(name);
+				if (type === CHOICE_TYPE_SKILL) this._comp.setSkillProfByName(name, PROF_STATE_PROFICIENT);
+				else if (type === CHOICE_TYPE_LANGUAGE) this._comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: ent.name});
+				else if (type === CHOICE_TYPE_TOOL) this._comp.addProficiency({kind: PROF_KIND_TOOL, name, source: ent.name});
 			});
 
 			// Recorded the same way the guided setup records it, so a character built either way looks

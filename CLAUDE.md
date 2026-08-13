@@ -110,10 +110,19 @@ template, run `node node/generate-pages.js` and commit both.
   nothing left to offer is spent rather than owed.
 - **A granted feat asks its own questions.** Taking Skilled must offer its three skills-or-tools,
   Crafter its three artisan's tools, Musician its three instruments. Tools and languages are
-  resolved by `pResolveFeatSkillChoices` (not written into a notes box — a proficiency as prose is
-  invisible to everything, exactly as an origin feat as prose was). Skilled states its choice only
-  in a sentence and carries no `skillProficiencies` at all, so it is the one entry in the curated
-  `_PROSE_FEAT_CHOICES` map in `charactersheet-featgrant.js`.
+  resolved by `pResolveFeatSkillChoices`, never written into a notes box — a proficiency as prose is
+  invisible to everything, exactly as an origin feat as prose was.
+- **"Any combination of three skills or tools" is a field, not prose.** It lives in
+  `skillToolLanguageProficiencies` (Skilled, a Half-Elf's Skill Versatility, the Custom Background),
+  whose `anySkill` / `anyTool` / `anyLanguage` tokens name a *pool* rather than a list. Reading only
+  `skillProficiencies` finds nothing there and makes the feat look like prose worth curating — it is
+  not. `getSkillToolLanguageChoices` parses it into one mixed pool, and a pick is applied by which
+  pool it came from.
+- **The tool list comes from the item data, by type code.** `AT`/`INS`/`GS`/`T`
+  (`pGetToolProficiencyNames`), never by matching `" Tools"` in the name — that finds Smith's Tools
+  and misses every *Supplies*, *Utensils*, instrument and gaming set, 28 of 40 in the base file.
+  Item *groups* ("Artisan's Tools" as a category) and magic variants (a *+1 Rhythm-Maker's Drum*)
+  are excluded; the static list in `choices.js` is only the fallback.
 - **A feat uid may narrow the feat as well as name it.** `"magic initiate; wizard|xphb"` is Magic
   Initiate taken with the Wizard list; only the part before the semicolon is the name a taken feat is
   stored under. `getGrantedFeats` splits the two (`name`, `subChoice`, `displayName`), which is what
