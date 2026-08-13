@@ -301,6 +301,50 @@ export async function runPlaytestFindings ({browser, check}) {
 
 	check("no page errors (duplicate skills)", page2.errors.length === 0, page2.errors.slice(0, 3).join(" | "));
 	await page2.close();
+
+	await runReviewAttribution({browser, check});
+}
+
+/**
+ * Every granted feat on the review says which entity grants it.
+ *
+ * A Human noble read "Species: Human … Origin Feat: Skilled, one of your choice", and the obvious
+ * reading — that the species had granted Skilled — was the wrong one. The Human grants a feat of
+ * your choice and one skill; Skilled comes from the Noble background. Nothing on that screen said
+ * so, and the character it built was right while the summary that described it was not.
+ */
+async function runReviewAttribution ({browser, check}) {
+	const page = await openPage(browser, {url: BUILDER_URL, state: storeOf({name: "Review Tester", level: 1, classes: []})});
+	await page.waitForTimeout(3000);
+	await page.click("#cs-btn-wizard");
+	await page.waitForSelector(".ve-ui-modal__overlay", {timeout: 15000});
+
+	await pickWizardEntity(page, {btnText: "Choose Species...", query: "human", rowText: "Human", srcText: "PHB'24"});
+	await clickWizardNext(page);
+	await page.waitForFunction(() => document.querySelector("#cs-wiz-sel-class")?.options.length > 1, {timeout: 20000});
+	await page.selectOption("#cs-wiz-sel-class", {label: "Fighter (PHB'24)"});
+	await clickWizardNext(page);
+	// Noble grants Skilled by name; the Human grants one of your choice. Both must be attributed.
+	await pickWizardEntity(page, {btnText: "Choose Background...", query: "noble", rowText: "Noble", srcText: "PHB'24"});
+	await clickWizardNext(page);
+
+	await page.selectOption("#cs-wiz-sel-abil-method", "standardArray");
+	await page.waitForTimeout(400);
+	const scores2 = ["15", "14", "13", "12", "10", "8"];
+	const abvs2 = ["str", "dex", "con", "int", "wis", "cha"];
+	for (let i = 0; i < 6; ++i) await page.selectOption(`[data-cs-wiz-abv='${abvs2[i]}']`, scores2[i]);
+	await clickWizardNext(page);
+	await clickWizardNext(page); // choices
+	await clickWizardNext(page); // equipment
+
+	const review = (await page.locator(".ve-ui-modal__overlay").first().innerText()).replace(/\s+/g, " ");
+	check("the review names the entity that grants a feat by name",
+		/Skilled \(from Noble\)/.test(review), review.slice(0, 500));
+	check("and the entity whose feat is still to choose",
+		/one of your choice \(from Human\)/.test(review), review.slice(0, 500));
+
+	check("no page errors (review attribution)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
+	await page.close();
 }
 
 async function pickWizardEntity (page, {btnText, query, rowText, srcText}) {

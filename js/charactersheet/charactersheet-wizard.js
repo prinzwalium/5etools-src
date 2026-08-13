@@ -830,12 +830,20 @@ export class CharacterWizard {
 		if (selectionSummaries.length) addRow("Choices", selectionSummaries.join("<br>"));
 
 		// Named here because finishing will ask about it — a feat that arrives unannounced, with its
-		// own questions, is a surprise in the middle of the last click
-		const featEnts = [this._draft.background?.ent, this._draft.race?.ent];
-		const featNames = featEnts.flatMap(ent => getGrantedFeats(ent?.feats).map(it => (it.displayName || it.name).qq()));
-		const nChoiceFeats = featEnts.reduce((acc, ent) => acc + getGrantedFeatCategories(ent?.feats).reduce((a, it) => a + it.count, 0), 0);
-		const featParts = [...featNames, ...Array.from({length: nChoiceFeats}, () => "one of your choice")];
-		if (featParts.length) addRow("Origin Feat", featParts.join(", "));
+		// own questions, is a surprise in the middle of the last click.
+		//
+		// Each one says which entity grants it. Without that, a Human noble read as
+		// "Origin Feat: Skilled, one of your choice" beside "Species: Human", and the obvious
+		// conclusion — that the species had granted Skilled — was the wrong one.
+		const featEnts = [this._draft.background?.ent, this._draft.race?.ent].filter(Boolean);
+		const featParts = featEnts.flatMap(ent => [
+			...getGrantedFeats(ent.feats).map(it => `${(it.displayName || it.name).qq()} <span class="ve-muted">(from ${ent.name.qq()})</span>`),
+			...Array.from(
+				{length: getGrantedFeatCategories(ent.feats).reduce((a, it) => a + it.count, 0)},
+				() => `one of your choice <span class="ve-muted">(from ${ent.name.qq()})</span>`,
+			),
+		]);
+		if (featParts.length) addRow("Origin Feat", featParts.join("<br>"));
 
 		const suggestedHp = this._getSuggestedHpMax();
 
