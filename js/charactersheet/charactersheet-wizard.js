@@ -1009,6 +1009,10 @@ export class CharacterWizard {
 			});
 		});
 
+		// The size a species leaves open belongs with its other questions, asked while the species is
+		// being applied — not deferred to the list of things that need the character to exist first
+		if (this._page) await this._page._pResolveSizeChoice(this._draft.race?.ent);
+
 		// A 2024 background grants an Origin feat, and it is part of the character rather than a note
 		// about it: without this the wizard wrote "Feat: Tavern Brawler" into a text box and stopped,
 		// so nothing counted it, nothing showed it, and its own choices were never asked
