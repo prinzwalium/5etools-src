@@ -2984,20 +2984,6 @@ export class CharacterPageBase {
 		const primary = this._comp._state.classes.find(c => c.hdFaces);
 		if (!primary) return;
 
-		// What this level actually gains, shown before anything is committed — and a way out that
-		// leaves the character as it was. Every sheet walks you through a level-up; none says what the
-		// outcome will be first, so the only way to find out has been to do it and look.
-		if (!await this._pConfirmLevelUp({prevLevel, newLevel})) {
-			this._suppressLevelPrompt += 1;
-			try {
-				this._comp._state.level = prevLevel;
-			} finally {
-				this._suppressLevelPrompt -= 1;
-				this._lastLevel = prevLevel;
-			}
-			return;
-		}
-
 		const faces = primary.hdFaces;
 		const numLevels = newLevel - prevLevel;
 		const conMod = Parser.getAbilityModNumber(Number(this._comp._state.abil_con) || 10);
@@ -3025,32 +3011,52 @@ export class CharacterPageBase {
 		const ptConMod = conMod ? ` ${conMod > 0 ? "+" : "−"} ${Math.abs(conMod)} per level` : "";
 		const optRoll = `Roll ${numLevels}d${faces}${ptConMod}`;
 		const optSkip = "Enter manually / skip";
+		const optCancel = `Cancel — stay at level ${prevLevel}`;
 
+		// What the level actually brings, on the prompt that was going to interrupt anyway. A second
+		// dialog would have been the honest reading of "preview, then commit", and it is the wrong
+		// one: this is already the moment the sheet stops and asks, so the answer belongs here.
 		const choice = await InputUiUtil.pGetUserEnum({
-			values: [optAvg, optMax, optRoll, optSkip],
+			values: [optAvg, optMax, optRoll, optSkip, optCancel],
 			isResolveItem: true,
 			title: `Level up to ${newLevel}${numLevels > 1 ? ` (+${numLevels} levels)` : ""}`,
 			placeholder: "How do you want to gain HP?",
+			elePost: await this._pGetLevelUpPreviewEle({prevLevel, newLevel}),
 		});
+
+		// Backing out puts the level where it was and changes nothing else — the point of showing the
+		// diff at all is that seeing it can change your mind
+		if (choice === optCancel) return this._doRevertLevel(prevLevel);
 		if (choice == null || choice === optSkip) return;
 
 		if (choice === optRoll) return this._pApplyRolledHp({faces, conMod, numLevels, applyGain});
 		applyGain(choice === optMax ? maxTotal : avgTotal);
 	}
 
+	/** Put the level back, without the change re-triggering this whole prompt. */
+	_doRevertLevel (prevLevel) {
+		this._suppressLevelPrompt += 1;
+		try {
+			this._comp._state.level = prevLevel;
+		} finally {
+			this._suppressLevelPrompt -= 1;
+			this._lastLevel = prevLevel;
+		}
+	}
+
 	/**
-	 * Show what the new level brings, and let it be waved off.
+	 * What the new level brings, as an element for the level-up prompt.
 	 *
-	 * Reports only: `getLevelUpPreview` derives the diff and writes nothing, so declining here leaves
-	 * the character untouched apart from the level being put back.
+	 * Reports only: `getLevelUpPreview` derives the diff and writes nothing, which is what lets the
+	 * prompt offer a way out that leaves the character exactly as it was.
 	 *
-	 * @return {boolean} whether to go ahead.
+	 * @return {?Element} null when there is nothing worth reading.
 	 */
-	async _pConfirmLevelUp ({prevLevel, newLevel}) {
+	async _pGetLevelUpPreviewEle ({prevLevel, newLevel}) {
 		const loaded = await CharacterSheetClassData.pGetLoadedClasses(this._comp._state.classes).catch(() => []);
 		// The class whose level moved — with one class that is the only one; with several, the primary
 		const meta = loaded.find(it => it.entry?.hdFaces) || loaded[0];
-		if (!meta?.cls) return true;
+		if (!meta?.cls) return null;
 
 		const state = this._comp._getState();
 		const abv = meta.cls.spellcastingAbility;
@@ -3064,22 +3070,19 @@ export class CharacterPageBase {
 			abilityMod: abv ? Parser.getAbilityModNumber(Number(state[`abil_${abv}`]) || 10) : 0,
 		});
 
-		// Nothing worth reading means nothing worth interrupting for
-		if (!preview.lines.length && !preview.decisions.length) return true;
+		if (!preview.lines.length && !preview.decisions.length) return null;
 
 		const fmt = ({label, detail}) => `<li>${label.qq()}${detail ? ` <span class="ve-muted">(${detail.qq()})</span>` : ""}</li>`;
-		const htmlDescription = `
-			<div class="ve-flex-col">
+		// Built through `ElementUtil`, not `document.createElement`: the modal appends via `.vee`,
+		// which only that helper adds — a plain element is dropped without a word
+		return ElementUtil.getOrModify({
+			tag: "div",
+			clazz: "ve-flex-col cs__level-preview ve-mb-2",
+			html: `
 				<div class="bold ve-mb-1">Level ${prevLevel} &rarr; ${newLevel}</div>
 				${preview.lines.length ? `<div class="ve-small">You gain:</div><ul class="ve-small ve-mb-2">${preview.lines.map(fmt).join("")}</ul>` : ""}
-				${preview.decisions.length ? `<div class="ve-small">You will then choose:</div><ul class="ve-small">${preview.decisions.map(fmt).join("")}</ul>` : ""}
-			</div>`;
-
-		return !!await InputUiUtil.pGetUserBoolean({
-			title: `Level up to ${newLevel}?`,
-			htmlDescription,
-			textYes: "Level up",
-			textNo: "Cancel",
+				${preview.decisions.length ? `<div class="ve-small">You will then choose:</div><ul class="ve-small ve-mb-0">${preview.decisions.map(fmt).join("")}</ul>` : ""}
+			`,
 		});
 	}
 

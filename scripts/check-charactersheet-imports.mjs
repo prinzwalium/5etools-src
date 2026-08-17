@@ -26,7 +26,7 @@ const SITE_GLOBALS = [
 	"BaseComponent", "ComponentUiUtil", "ProxyBase", "ManageBrewUi", "ScaleCreature", "Charges",
 	"$", "jQuery", "PageFilterClasses", "PageFilterFeats", "PageFilterSpells", "PageFilterBestiary",
 	"PageFilterItems", "PageFilterBackgrounds", "PageFilterRaces", "PageFilterOptionalFeatures",
-	"FilterBox", "SourceUtil", "TabUiUtil", "ClassesPage", "ListPage", "e_", "ee",
+	"FilterBox", "SourceUtil", "TabUiUtil", "ClassesPage", "ListPage", "ElementUtil",
 	"RenderableCollectionBase", "SearchUiUtil",
 ];
 

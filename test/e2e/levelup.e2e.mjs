@@ -39,10 +39,12 @@ export async function run ({browser, check}) {
 	await page.dispatchEvent("#cs-level", "change");
 	await page.waitForTimeout(2500);
 
+	// One dialog, not two: the preview rides on the prompt that was going to interrupt anyway
 	const modal = page.locator(".ve-ui-modal__inner").last();
 	const text = (await modal.innerText()).replace(/\s+/g, " ");
 
 	check("levelling up shows what the level brings, before committing", /Level 4 . 5/.test(text), text.slice(0, 300));
+	check("on the same prompt that asks about hit points", /Add average/.test(text), text.slice(0, 400));
 	check("including the hit points, with the arithmetic shown",
 		/\+8 hit points/.test(text) && /Constitution/.test(text), text.slice(0, 300));
 	check("the proficiency bonus when it moves", /Proficiency bonus/.test(text) && /\+2 . \+3/.test(text), text.slice(0, 300));
@@ -50,7 +52,8 @@ export async function run ({browser, check}) {
 	check("and the subclass's own feature, named for it", /Champion/.test(text), text.slice(0, 300));
 
 	// Declining leaves the character exactly as it was — the point of previewing at all
-	await modal.locator("button", {hasText: "Cancel"}).first().click();
+	await modal.locator("select").first().selectOption({label: "Cancel — stay at level 4"});
+	await modal.locator("button", {hasText: /^OK$/}).first().click();
 	await page.waitForTimeout(1500);
 
 	check("declining puts the level back", await page.inputValue("#cs-level") === "4", await page.inputValue("#cs-level"));
@@ -60,11 +63,14 @@ export async function run ({browser, check}) {
 	await page.fill("#cs-level", "5");
 	await page.dispatchEvent("#cs-level", "change");
 	await page.waitForTimeout(2000);
-	await page.locator(".ve-ui-modal__inner button", {hasText: "Level up"}).last().click();
+	const modal2 = page.locator(".ve-ui-modal__inner").last();
+	await modal2.locator("select").first().selectOption({label: "Add average (+8 HP)"});
+	await modal2.locator("button", {hasText: /^OK$/}).first().click();
 	await page.waitForTimeout(1800);
 
-	const hpPrompt = (await page.locator(".ve-ui-modal__inner").last().innerText()).replace(/\s+/g, " ");
-	check("accepting carries on to the hit-point prompt", /Level up to 5|How do you want/i.test(hpPrompt), hpPrompt.slice(0, 200));
+	check("accepting applies the hit points it promised",
+		await page.inputValue("#cs-hp-max") === "44", await page.inputValue("#cs-hp-max"));
+	check("and keeps the level", await page.inputValue("#cs-level") === "5", await page.inputValue("#cs-level"));
 
 	check("no page errors (level-up preview)", page.errors.length === 0, page.errors.slice(0, 3).join(" | "));
 	await page.close();
