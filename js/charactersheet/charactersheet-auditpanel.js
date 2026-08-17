@@ -5,6 +5,7 @@ import {getAsiCount, getCantripsKnown, getExpertiseSkillCount, getFeatProgressio
 import {AUDIT_BROKEN, auditCharacter, groupFindings} from "./charactersheet-audit.js";
 import {getGrantedFeatCategories, getGrantedFeats} from "./charactersheet-choices.js";
 import {getTraitChoices} from "./charactersheet-traitchoices.js";
+import {bindPanelRender} from "./charactersheet-panelrender.js";
 
 /**
  * The build audit, on the builder: what breaks a rule, and what the character is owed but has not
@@ -22,17 +23,9 @@ export class CharacterAuditPanel {
 	}
 
 	init () {
-		[
-			"classes", "level", "inventory", "weaponMasteries", "pendingAbilityOffers",
-			"refSpecies", "refBackground", "speciesText", "backgroundText", "hpMax",
-			// Taking the background's origin feat is one of the things this panel asks for, so it
-			// has to notice when it happens — and the same goes for picking a lineage or an ancestry
-			// …and a Fighting Style or Epic Boon taken from the class panel, which this panel counts
-			"originFeats", "spellsKnown", "traitChoices", "featureFeats", "size",
-			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
-			"abil_str", "abil_dex", "abil_con", "abil_int", "abil_wis", "abil_cha",
-		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
-		this._pRender();
+		// The whole state, not a list: this panel reads more of the character than any other, and a
+		// missed prop makes it demand something already taken. See `charactersheet-panelrender.js`.
+		bindPanelRender(this._comp, () => this._pRender());
 	}
 
 	/** What the character's classes grant, and how much of it has been taken. */

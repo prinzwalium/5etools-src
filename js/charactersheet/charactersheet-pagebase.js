@@ -16,6 +16,7 @@ import {EV_DAMAGE, EV_DEATH_SAVE, EV_DOWN, EV_HEAL, EV_LEVEL} from "./characters
 import {PORTRAIT_MIME, PORTRAIT_QUALITY, getPortraitTargetSize, isPortraitTooLarge} from "./charactersheet-portrait.js";
 import {getCharacterSummary, getSummaryLines} from "./charactersheet-summary.js";
 import {getHpBonusPerLevel} from "./charactersheet-features.js";
+import {getLevelUpPreview} from "./charactersheet-levelpreview.js";
 import {deleteSyncMeta, getKeptBothName, getMissingAdapterMethods, getSyncBasePath, getSyncCapabilities, getSyncClientUrl, getSyncMeta, getSyncStatus, getUnsyncedRows, hasGmWriteSupport, hasSidekickControlSupport, isAdapterValid, isSameOrigin, isSyncConflict, planSync, setSyncMeta} from "./charactersheet-sync.js";
 
 /**
@@ -2982,6 +2983,21 @@ export class CharacterPageBase {
 
 		const primary = this._comp._state.classes.find(c => c.hdFaces);
 		if (!primary) return;
+
+		// What this level actually gains, shown before anything is committed — and a way out that
+		// leaves the character as it was. Every sheet walks you through a level-up; none says what the
+		// outcome will be first, so the only way to find out has been to do it and look.
+		if (!await this._pConfirmLevelUp({prevLevel, newLevel})) {
+			this._suppressLevelPrompt += 1;
+			try {
+				this._comp._state.level = prevLevel;
+			} finally {
+				this._suppressLevelPrompt -= 1;
+				this._lastLevel = prevLevel;
+			}
+			return;
+		}
+
 		const faces = primary.hdFaces;
 		const numLevels = newLevel - prevLevel;
 		const conMod = Parser.getAbilityModNumber(Number(this._comp._state.abil_con) || 10);
@@ -3020,6 +3036,51 @@ export class CharacterPageBase {
 
 		if (choice === optRoll) return this._pApplyRolledHp({faces, conMod, numLevels, applyGain});
 		applyGain(choice === optMax ? maxTotal : avgTotal);
+	}
+
+	/**
+	 * Show what the new level brings, and let it be waved off.
+	 *
+	 * Reports only: `getLevelUpPreview` derives the diff and writes nothing, so declining here leaves
+	 * the character untouched apart from the level being put back.
+	 *
+	 * @return {boolean} whether to go ahead.
+	 */
+	async _pConfirmLevelUp ({prevLevel, newLevel}) {
+		const loaded = await CharacterSheetClassData.pGetLoadedClasses(this._comp._state.classes).catch(() => []);
+		// The class whose level moved — with one class that is the only one; with several, the primary
+		const meta = loaded.find(it => it.entry?.hdFaces) || loaded[0];
+		if (!meta?.cls) return true;
+
+		const state = this._comp._getState();
+		const abv = meta.cls.spellcastingAbility;
+		const preview = getLevelUpPreview({
+			cls: meta.cls,
+			sc: meta.sc,
+			levelFrom: prevLevel,
+			levelTo: newLevel,
+			conMod: Parser.getAbilityModNumber(Number(state.abil_con) || 10),
+			hpPerLevel: getHpBonusPerLevel(state),
+			abilityMod: abv ? Parser.getAbilityModNumber(Number(state[`abil_${abv}`]) || 10) : 0,
+		});
+
+		// Nothing worth reading means nothing worth interrupting for
+		if (!preview.lines.length && !preview.decisions.length) return true;
+
+		const fmt = ({label, detail}) => `<li>${label.qq()}${detail ? ` <span class="ve-muted">(${detail.qq()})</span>` : ""}</li>`;
+		const htmlDescription = `
+			<div class="ve-flex-col">
+				<div class="bold ve-mb-1">Level ${prevLevel} &rarr; ${newLevel}</div>
+				${preview.lines.length ? `<div class="ve-small">You gain:</div><ul class="ve-small ve-mb-2">${preview.lines.map(fmt).join("")}</ul>` : ""}
+				${preview.decisions.length ? `<div class="ve-small">You will then choose:</div><ul class="ve-small">${preview.decisions.map(fmt).join("")}</ul>` : ""}
+			</div>`;
+
+		return !!await InputUiUtil.pGetUserBoolean({
+			title: `Level up to ${newLevel}?`,
+			htmlDescription,
+			textYes: "Level up",
+			textNo: "Cancel",
+		});
 	}
 
 	/**

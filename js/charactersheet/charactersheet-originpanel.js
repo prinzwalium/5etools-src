@@ -13,6 +13,7 @@ import {getEntityProficiencies} from "./charactersheet-proficiencies.js";
 import {getEntityDefenses} from "./charactersheet-defenses.js";
 import {getTraitChoices} from "./charactersheet-traitchoices.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
+import {bindPanelRender} from "./charactersheet-panelrender.js";
 
 /**
  * What a species or a background actually gives you — the same treatment the class panel gives a
@@ -46,25 +47,10 @@ export class CharacterOriginPanel {
 	}
 
 	init () {
-		const ref = this._kind === "species" ? "refSpecies" : "refBackground";
-		this._comp._addHookBase(ref, () => this._pRender());
-		// A tick beside a grant is only true while it is true
-		this._comp._addHookBase("proficiencies", () => this._pRender());
-		this._comp._addHookBase("originFeats", () => this._pRender());
-		// Answering a choice is the other half of "still to choose"
-		this._comp._addHookBase("choiceLog", () => this._pRender());
-		this._comp._addHookBase("abilityBonusLog", () => this._pRender());
-		// Everything else this panel *reads*. A panel that renders a prop and does not watch it shows
-		// yesterday's answer until a reload, which has caught this feature four times now — so the
-		// rule is that each prop appearing above is listed here too.
-		[
-			"traitChoices", // a lineage or an ancestry
-			"defenses", // what a "choose one" pick resolved to
-			"size", // the size a species left open
-			"creatureTypes",
-			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
-		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
-		this._pRender();
+		// Watches the whole state rather than a list of props. The list went stale four times — a
+		// lineage, a class-granted feat, a size, an origin feat — each time leaving this panel showing
+		// an answer the character had already given. See `charactersheet-panelrender.js`.
+		bindPanelRender(this._comp, () => this._pRender());
 	}
 
 	get _ref () { return this._kind === "species" ? this._comp._state.refSpecies : this._comp._state.refBackground; }

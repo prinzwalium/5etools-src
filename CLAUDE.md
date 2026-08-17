@@ -23,9 +23,10 @@ Each page's controller keeps only its own DOM assembly + rendering.
 - `js/charactersheet.js`, `js/charbuilder.js`, `js/sidekick.js` — the three page entry points
 - `js/charactersheet/*.js` — the shared modules: pure rules (`derive`,
   `levelengine`, `choices`, `abilityscores`, `equipment`, `actions`, `charstore`,
-  `defenses`, `sidekick`, `citations`, `journal`, `portrait`, `sync`, `buildsteps`, `consts`),
+  `defenses`, `sidekick`, `citations`, `journal`, `portrait`, `sync`, `buildsteps`,
+  `levelpreview`, `consts`),
   data access (`classdata`), the model (`model`), the page
-  base (`pagebase`), and the panel renderers (`classpanel`, `originpanel`, `inventorypanel`,
+  base (`pagebase`), the shared panel re-render (`panelrender`), and the panel renderers (`classpanel`, `originpanel`, `inventorypanel`,
   `spellspanel`, `actionspanel`, `auditpanel`, `wizard`, `buildwalk`)
 - `css/charactersheet.css`, `scss/charactersheet.scss` (shared by all three pages)
 - `node/generate-pages/template/page/template-page-charactersheet.hbs`,
@@ -133,9 +134,17 @@ template, run `node node/generate-pages.js` and commit both.
 - **A `repeatable` feat may be taken twice.** Skilled and Magic Initiate both are. The pickers used
   to filter out anything already held, and `addOriginFeat` deduplicated by name, so a legal second
   take was offered and then dropped.
-- **A panel watches every prop it renders.** A hook list that misses one shows yesterday's answer
-  until a reload; that has caught this feature four separate times (a lineage, a class-granted feat,
-  a size, an origin feat).
+- **The small panels watch the whole character, not a list of props.** A hook list that misses one
+  shows yesterday's answer until a reload, and that caught this feature four separate times (a
+  lineage, a class-granted feat, a size, an origin feat), so species, background and the Build Check
+  now re-render on any state change via `bindPanelRender` (`charactersheet-panelrender.js`),
+  debounced a frame. The big panels — class, inventory, spells — keep explicit lists, because their
+  renders load entity data.
+- **A level says what it brings before you take it.** `charactersheet-levelpreview.js` is pure —
+  derive at N, derive at N+1, subtract — and lists hit points, proficiency bonus, features, slots and
+  resources, then what the level will *ask* (ASI, subclass, masteries, cantrips). It reports and
+  never writes, which is what lets **Cancel** put the level back and change nothing else. It reads
+  both shapes class data takes: the loader's dereferenced features and the files' raw string refs.
 - **A feat uid may narrow the feat as well as name it.** `"magic initiate; wizard|xphb"` is Magic
   Initiate taken with the Wizard list; only the part before the semicolon is the name a taken feat is
   stored under. `getGrantedFeats` splits the two (`name`, `subChoice`, `displayName`), which is what

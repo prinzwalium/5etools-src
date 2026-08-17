@@ -128,11 +128,16 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
       clause — plus *their* save DC or attack bonus rather than a formula to work out. Concentration
       and ritual are flagged. The deck is built only when asked for, since it needs the whole spell
       list loaded, and exists only on paper.
-- [ ] **Level-up preview.** Show the diff *before* committing: "+1d8+2 HP · Extra Attack · one new
-      spell to pick · 3rd-level slots 0→2 · proficiency bonus unchanged". Every sheet walks you
-      through a level-up; none shows the outcome first or lets you back out cleanly. Cheap because
-      the level engine already derives everything by level — derive at N and N+1 and diff. The same
-      machinery answers "what did I gain at 4th?".
+- [x] **Level-up preview.** Raising the level now shows what it brings *before* anything is
+      committed — hit points with the arithmetic spelled out, the proficiency bonus when it moves,
+      each feature gained (the subclass's named for it), new spell slots as "0 → 2", and below that
+      what the level will then ask you to choose: an Ability Score Improvement, a subclass, weapon
+      masteries, cantrips. **Cancel puts the level back and changes nothing else**, which is the
+      point: a mis-typed level used to mean undoing a scatter of changes by hand.
+      `charactersheet-levelpreview.js` is pure — derive at N, derive at N+1, subtract — and reports
+      without writing, which is what makes declining free. It reads both shapes class data takes
+      (the loader's dereferenced features and the files' raw string refs), because a preview that
+      cannot be unit-tested is a preview nobody can trust.
 - [x] **Build audit.** A *Build Check* panel on the builder, in two halves: what breaks a rule (a
       fourth attuned item, an unmet multiclass prerequisite read from the class's own
       `multiclassing.requirements`, over-encumbered, class levels that do not add up, hit points
@@ -243,6 +248,16 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
   page (5) — no new upstream conflict points in any of them.
 
 ## Housekeeping
+
+- [x] **Panels watch the whole character, not a list of props.** Every panel used to name the props
+      it re-rendered on, and the rule was that a panel watches every prop it renders. That rule was
+      broken four separate times — a lineage, a class-granted feat, a size, an origin feat — each
+      one showing an answer the player had already given until the page was reloaded. The list is
+      invisible from the render code that depends on it and nothing checks the two agree, so it is
+      the kind of convention that fails quietly. The small panels (species, background, Build Check)
+      now re-render on any state change, debounced a frame so a burst collapses into one render
+      (`charactersheet-panelrender.js`). The big ones keep explicit lists: their renders load entity
+      data, and their props have not gone stale.
 
 - [x] **Protect `main`.** Branch rulesets are in place for `main` and `beta`, so the
       "Sync fork → Discard commits" button can no longer wipe the fork.
