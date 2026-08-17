@@ -102,7 +102,7 @@ That's ~95% of the work, and it is **conflict-proof**.
 
 ---
 
-## The only 4 places a conflict can happen
+## The only 5 places a conflict can happen
 
 The Character Sheet has to be "registered" into a few shared files so the app
 knows the page exists. These are the **only** spots that can ever conflict. If
@@ -182,6 +182,26 @@ The fork adds one script and one dev dependency for its browser tests:
 ```
 
 If this ever conflicts, keep **both** sides' lines — upstream's dependency changes and these two.
+
+---
+
+### 5. `Dockerfile` — the entrypoint
+
+Upstream's `Dockerfile` is two lines. The fork adds an entrypoint, which is what lets a deployment
+set its default books from the Compose environment (see [`DEFAULT_BOOKS.md`](DEFAULT_BOOKS.md)):
+
+```dockerfile
+RUN mv /var/www/localhost/htdocs/docker/entrypoint.sh /docker-entrypoint.sh \
+	&& chmod +x /docker-entrypoint.sh \
+	&& rm -rf /var/www/localhost/htdocs/docker
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["lighttpd", "-D", "-f", "/etc/lighttpd/lighttpd.conf"]
+```
+
+`CMD` restates the base image's own command, because setting `ENTRYPOINT` discards the inherited
+one. If upstream ever changes that command, **take upstream's `CMD` and keep the fork's other three
+lines** — a stale `CMD` here means a container that starts and serves nothing.
 
 ---
 

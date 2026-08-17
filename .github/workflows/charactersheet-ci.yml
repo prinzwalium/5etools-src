@@ -46,7 +46,7 @@ jobs:
             run: node scripts/check-charactersheet-imports.mjs
 
          -  name: Unit tests
-            run: npm run test:unit -- test/jest/CharacterSheet
+            run: npm run test:unit -- test/jest/CharacterSheet test/jest/DeployDefaults
 
          # The generated pages must match their templates, or the browser tests below would be
          # testing something that is not in the repo.

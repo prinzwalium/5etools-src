@@ -36,6 +36,10 @@ Each page's controller keeps only its own DOM assembly + rendering.
 - `.github/workflows/` — `charactersheet-ci.yml`, `sync-upstream.yml`, and
   `docker-image.yml` (the `:latest` / `:beta` image build). Upstream ships only
   `main.yml` and `pages.yml`; leave those alone.
+- `js/deploy-defaults.js`, `docker/entrypoint.sh`, `docker/compose.example.yml` — the
+  deploy-time default book selection (`docs/DEFAULT_BOOKS.md`). The entrypoint turns
+  `DEFAULT_LOAD` / `DEFAULT_DENY` / `DEFAULT_BREW` into a global and injects two script
+  tags into the served HTML at container start, so no page template edit is needed.
 - `scripts/` — upstream has no such directory. `update-from-upstream.sh` (the
   preferred way to take an upstream update) and `rehearse-upstream-sync.sh`
   (replays the sync workflow's steps over a synthetic upstream, so the merge and
@@ -52,6 +56,8 @@ Each page's controller keeps only its own DOM assembly + rendering.
    `_PageGeneratorSidekick` classes + their three
    `new _PageGenerator...(),` registration lines
 4. `package.json` — a `test:e2e` script and the `playwright-core` dev dependency (two lines)
+5. `Dockerfile` — an `ENTRYPOINT` (plus the `CMD` that setting one discards, and the `RUN` that
+   installs it) for the deploy-time default books. Upstream's is two lines.
 
 Exact snippets and resolution steps: `docs/CHARACTER_SHEET_MAINTENANCE.md`.
 The account-system contract (a *separate* repo): `docs/ACCOUNT_SYSTEM.md`.

@@ -26,7 +26,7 @@ const SITE_GLOBALS = [
 	"BaseComponent", "ComponentUiUtil", "ProxyBase", "ManageBrewUi", "ScaleCreature", "Charges",
 	"$", "jQuery", "PageFilterClasses", "PageFilterFeats", "PageFilterSpells", "PageFilterBestiary",
 	"PageFilterItems", "PageFilterBackgrounds", "PageFilterRaces", "PageFilterOptionalFeatures",
-	"FilterBox", "SourceUtil", "TabUiUtil", "ClassesPage", "ListPage", "ElementUtil",
+	"PageFilterBase", "FilterBox", "SourceUtil", "TabUiUtil", "ClassesPage", "ListPage", "ElementUtil",
 	"RenderableCollectionBase", "SearchUiUtil",
 ];
 
@@ -47,7 +47,7 @@ const eslint = new ESLint({
 	},
 });
 
-const results = await eslint.lintFiles(["js/charactersheet/*.js", "js/charactersheet.js", "js/charbuilder.js", "js/sidekick.js"]);
+const results = await eslint.lintFiles(["js/charactersheet/*.js", "js/charactersheet.js", "js/charbuilder.js", "js/sidekick.js", "js/deploy-defaults.js"]);
 const failures = results.filter(r => r.errorCount);
 
 if (!failures.length) {
