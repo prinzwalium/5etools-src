@@ -5,7 +5,7 @@
  * `PageFilterBase.defaultSourceSelFn` actually reaches the source filter a page builds — which
  * depends on script order, on the page booting from `window.onload`, and on the filter having
  * nothing saved to prefer. That is the half that would break silently, so it is checked here, with
- * the tags injected exactly the way `docker/entrypoint.sh` injects them.
+ * the tags injected exactly the way `docker/inject-defaults.sh` injects them at build time.
  */
 
 import {BASE_URL} from "./util-e2e.mjs";

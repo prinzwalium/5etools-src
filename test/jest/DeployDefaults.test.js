@@ -26,6 +26,13 @@ describe("Deploy defaults: reading the environment", () => {
 		expect(parseDeployConfig({brew: "Grim Hollow; Humblewood"}).brew).toEqual(["Grim Hollow", "Humblewood"]);
 	});
 
+	it("Keeps a comma inside a title once the list is punctuated with semicolons", () => {
+		// "The Griffon's Saddlebag, Book 1" is one book. Splitting on both separators halves a
+		// list that was written correctly, and the halves match the wrong things or nothing at all
+		expect(parseDeployConfig({brew: "The Griffon's Saddlebag, Book 1 (2024); Humblewood"}).brew)
+			.toEqual(["The Griffon's Saddlebag, Book 1 (2024)", "Humblewood"]);
+	});
+
 	it("Takes a JSON array as readily as a string", () => {
 		expect(parseDeployConfig({allow: ["xphb", "xdmg"]}).allow).toEqual(["XPHB", "XDMG"]);
 	});

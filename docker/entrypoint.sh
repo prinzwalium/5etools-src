@@ -1,13 +1,15 @@
 #!/bin/sh
-# Turn the container's environment into the site's default book selection.
+# Turn the container's environment into the site's default book selection, then start the server.
 #
-# 5etools has no server: every page is a static file, and every setting lives in the visitor's own
-# browser. So "the books this server starts you with" cannot be a config file the site reads — it
-# has to reach the browser as part of the page. This writes the environment out as one small script
-# and injects it, plus the module that applies it, into each served page.
+# 5etools has no server side: every page is a static file, and every setting lives in the visitor's
+# own browser. So "the books this server starts you with" cannot be a config file the site reads —
+# it has to reach the browser as part of the page. `docker/inject-defaults.sh` put the script tags
+# there when the image was built; this writes what they read.
 #
-# Runs before the web server, then hands over to it (`exec "$@"`), so an unconfigured deployment is
-# byte-for-byte the image it always was.
+# It touches exactly one file — one the build already created and made writable — so the container
+# can run as any user. And it never fails the container: a default book list is a convenience, and
+# a web server that will not start because of one is a bad trade. If the write fails it says so,
+# loudly and specifically, and serves the site unconfigured.
 #
 # Environment (all optional; each takes a comma- or semicolon-separated list):
 #   DEFAULT_LOAD / DEFAULT_ALLOW  source codes to start ticked. Naming any makes the list
@@ -27,11 +29,9 @@ DEPLOY_DENY="${DEFAULT_DENY:-}"
 DEPLOY_BREW="${DEFAULT_BREW:-${DEFAULT_HOMEBREW:-}}"
 
 CONFIG_FILE="${WEB_ROOT}/js/deploy-defaults-config.js"
-MARKER="js/deploy-defaults.js"
-SNIPPET='<script type="text/javascript" src="js/deploy-defaults-config.js"></script><script type="module" src="js/deploy-defaults.js"></script>'
 
 # A JSON string body: backslashes first, then quotes, then the newlines a multi-line env var can
-# carry. Missing any one of the three writes a broken script tag into every page on the site.
+# carry. Missing any one of the three writes a broken script into every page on the site.
 json_escape () {
 	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\r' '  '
 }
@@ -43,25 +43,24 @@ fi
 
 echo "[deploy-defaults] load=[${DEPLOY_ALLOW}] deny=[${DEPLOY_DENY}] brew=[${DEPLOY_BREW}]"
 
-mkdir -p "${WEB_ROOT}/js"
+if [ ! -w "${CONFIG_FILE}" ]; then
+	echo "[deploy-defaults] WARNING: cannot write ${CONFIG_FILE} — the default book list will NOT be applied." >&2
+	if [ ! -e "${CONFIG_FILE}" ]; then
+		echo "[deploy-defaults] The file is missing, so the web root is not this image's own." >&2
+		echo "[deploy-defaults] A volume mounted over ${WEB_ROOT} replaces the built site; mount your data elsewhere." >&2
+	else
+		echo "[deploy-defaults] The file exists but is not writable by user $(id -u):$(id -g)." >&2
+		echo "[deploy-defaults] Either drop 'read_only: true' from the service, or rebuild the image." >&2
+	fi
+	echo "[deploy-defaults] Serving the site unconfigured rather than refusing to start." >&2
+	exec "$@"
+fi
+
 cat > "${CONFIG_FILE}" <<EOF
 /* Generated at container start by docker/entrypoint.sh — edits here are overwritten. */
 globalThis.DEPLOY_DEFAULTS = {"allow": "$(json_escape "${DEPLOY_ALLOW}")", "deny": "$(json_escape "${DEPLOY_DENY}")", "brew": "$(json_escape "${DEPLOY_BREW}")"};
 EOF
 
-# Injected last in the body, which is where it has to be: the tags run in document order, so this
-# lands after `filter.js` has defined what it wraps and before `window.onload` builds the filters.
-# The marker check keeps a container restart from stacking a second copy.
-cnt=0
-for file in "${WEB_ROOT}"/*.html; do
-	[ -f "${file}" ] || continue
-	# `if` rather than `&&`, because `set -e` and a short-circuiting test are a bad pair
-	if grep -q "${MARKER}" "${file}"; then continue; fi
-	if ! grep -q '</body>' "${file}"; then continue; fi
-	sed -i "s|</body>|${SNIPPET}</body>|" "${file}"
-	cnt=$((cnt + 1))
-done
-
-echo "[deploy-defaults] wired ${cnt} page(s)"
+echo "[deploy-defaults] applied"
 
 exec "$@"

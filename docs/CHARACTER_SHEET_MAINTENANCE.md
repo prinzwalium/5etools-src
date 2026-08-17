@@ -193,6 +193,7 @@ set its default books from the Compose environment (see [`DEFAULT_BOOKS.md`](DEF
 ```dockerfile
 RUN mv /var/www/localhost/htdocs/docker/entrypoint.sh /docker-entrypoint.sh \
 	&& chmod +x /docker-entrypoint.sh \
+	&& sh /var/www/localhost/htdocs/docker/inject-defaults.sh /var/www/localhost/htdocs \
 	&& rm -rf /var/www/localhost/htdocs/docker
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

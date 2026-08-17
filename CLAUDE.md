@@ -36,10 +36,15 @@ Each page's controller keeps only its own DOM assembly + rendering.
 - `.github/workflows/` — `charactersheet-ci.yml`, `sync-upstream.yml`, and
   `docker-image.yml` (the `:latest` / `:beta` image build). Upstream ships only
   `main.yml` and `pages.yml`; leave those alone.
-- `js/deploy-defaults.js`, `docker/entrypoint.sh`, `docker/compose.example.yml` — the
-  deploy-time default book selection (`docs/DEFAULT_BOOKS.md`). The entrypoint turns
-  `DEFAULT_LOAD` / `DEFAULT_DENY` / `DEFAULT_BREW` into a global and injects two script
-  tags into the served HTML at container start, so no page template edit is needed.
+- `js/deploy-defaults.js`, `docker/inject-defaults.sh`, `docker/entrypoint.sh`,
+  `docker/compose.example.yml` — the deploy-time default book selection
+  (`docs/DEFAULT_BOOKS.md`). Split across build and start-up on purpose: the **build**
+  injects the two script tags into every page and leaves a world-writable
+  `js/deploy-defaults-config.js`; **start-up** only overwrites that one file from
+  `DEFAULT_LOAD` / `DEFAULT_DENY` / `DEFAULT_BREW`. That is what lets the container run as a
+  non-root user — creating a file in the web root needs permission on the directory, which
+  `user: 1000:1000` lacks. Start-up never fails the container: if the write is refused it
+  says why and serves the site unconfigured.
 - `scripts/` — upstream has no such directory. `update-from-upstream.sh` (the
   preferred way to take an upstream update) and `rehearse-upstream-sync.sh`
   (replays the sync workflow's steps over a synthetic upstream, so the merge and

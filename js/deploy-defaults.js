@@ -37,8 +37,14 @@ export const STORAGE_KEY_BREW = "deployDefaults_brewInstalled";
 export function parseDeployConfig (raw) {
 	const asList = val => {
 		if (val == null) return [];
-		// A JSON array, or the comma/semicolon-separated string an env var can carry
-		const arr = Array.isArray(val) ? val : String(val).split(/[,;]/);
+
+		// A semicolon anywhere makes semicolons *the* separator, rather than one of two. Book
+		// titles contain commas — "The Griffon's Saddlebag, Book 1" is one book — so splitting on
+		// both would quietly halve a list somebody had punctuated correctly.
+		const arr = Array.isArray(val)
+			? val
+			: String(val).includes(";") ? String(val).split(";") : String(val).split(",");
+
 		return arr.map(it => String(it).trim()).filter(Boolean);
 	};
 
