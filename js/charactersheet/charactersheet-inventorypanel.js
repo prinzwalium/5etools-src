@@ -184,13 +184,16 @@ export class CharacterInventoryPanel {
 	}
 
 	_renderTotals () {
-		const {totalWeightLb, capacityLb} = getEncumbrance(this._comp._getState());
+		const {totalWeightLb, capacityLb, isPowerfulBuild} = getEncumbrance(this._comp._getState());
 		if (!this._comp._state.inventory.length) {
 			this._dispTotals.textContent = "";
 			return;
 		}
 		const isOver = totalWeightLb > capacityLb;
-		this._dispTotals.innerHTML = `${totalWeightLb} / ${capacityLb} lb.${isOver ? ` <span class="ve-text-danger" title="Over standard carrying capacity (Strength × 15)">(encumbered)</span>` : ""}`;
+		// A doubled capacity looks like a bug unless it says what doubled it
+		const ptWhy = isPowerfulBuild ? ` <span class="ve-muted" title="Powerful Build counts you as one size larger for carrying capacity">(Powerful Build)</span>` : "";
+		const titleCap = `Strength × 15${isPowerfulBuild ? ", doubled by Powerful Build" : ""}`;
+		this._dispTotals.innerHTML = `${totalWeightLb} / ${capacityLb} lb.${ptWhy}${isOver ? ` <span class="ve-text-danger" title="Over carrying capacity (${titleCap})">(encumbered)</span>` : ""}`;
 	}
 
 	async _pOnAddItem () {

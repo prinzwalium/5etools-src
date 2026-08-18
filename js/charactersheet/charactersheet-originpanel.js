@@ -1,4 +1,5 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
+import {TRAIT_TAG_POWERFUL_BUILD, getTraitTags} from "./charactersheet-appearance.js";
 import {
 	CHOICE_TYPE_ABILITY,
 	getChoiceSignature,
@@ -80,9 +81,37 @@ export class CharacterOriginPanel {
 			return;
 		}
 
+		this._renderTraitTags(ent);
 		this._renderGrants(ent);
 		this._renderOpenChoices(ent);
 		this._renderTraits(ent);
+	}
+
+	/**
+	 * The species' `traitTags` — what its traits *are*, in one line.
+	 *
+	 * Sixteen species carry them and nothing read them, which is a shame twice over: they are the
+	 * fastest way to see what a species is for, and one of them is a number. **Powerful Build** is
+	 * marked because it doubles carrying capacity, so the tag explains a total elsewhere on the page
+	 * rather than being trivia.
+	 */
+	_renderTraitTags (ent) {
+		const tags = getTraitTags(ent);
+		if (!tags.length) return;
+
+		const wrp = document.createElement("div");
+		wrp.className = "ve-flex-wrap ve-mb-1";
+
+		tags.forEach(tag => {
+			const isCounted = tag === TRAIT_TAG_POWERFUL_BUILD;
+			const ele = document.createElement("span");
+			ele.className = `cs__tag ve-small ve-mr-1${isCounted ? " bold" : ""}`;
+			ele.textContent = tag;
+			if (isCounted) ele.title = "Counts as one size larger for carrying capacity — the inventory total already doubles";
+			wrp.appendChild(ele);
+		});
+
+		this._wrp.appendChild(wrp);
 	}
 
 	_getHeader (ref, ent) {

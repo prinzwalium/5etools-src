@@ -77,7 +77,7 @@ class CharacterBuilderPage extends CharacterPageBase {
 		this._renderProficiencies();
 		this._renderDefenses();
 		this._renderAbilityOffers();
-		this._pRefreshTraitChoices();
+		this._pRefreshSpeciesData();
 		this._lastLevel = this._comp.getLevelNumber();
 	}
 

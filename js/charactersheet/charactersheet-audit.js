@@ -93,7 +93,7 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 	if (encumbrance && encumbrance.capacityLb && encumbrance.totalWeightLb > encumbrance.capacityLb) {
 		out.push(_mkFinding(AUDIT_BROKEN, "encumbrance",
 			`Carrying ${encumbrance.totalWeightLb} lb. against a capacity of ${encumbrance.capacityLb} lb.`,
-			"Strength × 15 is the carrying capacity."));
+			`Strength × 15 is the carrying capacity${encumbrance.isPowerfulBuild ? ", doubled here by Powerful Build" : ""}.`));
 	}
 
 	const classLevels = classes.reduce((acc, it) => acc + (Number(it.level) || 0), 0);

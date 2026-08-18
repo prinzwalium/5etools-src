@@ -6,7 +6,7 @@
  * all — which is the thing that was missing, and which nothing else would notice.
  */
 
-import {BASE_URL, getState, openPage, setField} from "./util-e2e.mjs";
+import {BASE_URL, getState, openPage, pickViaSearch, resolveModals, setField} from "./util-e2e.mjs";
 
 const SHEET_URL = `${BASE_URL}/charactersheet.html`;
 const BUILDER_URL = `${BASE_URL}/charbuilder.html`;
@@ -84,6 +84,46 @@ export async function run ({browser, check}) {
 	const builder = await openPage(browser, {url: BUILDER_URL});
 	check("the builder has the appearance panel as well", await builder.locator("#cs-appearance").count() === 1);
 	check("and the Homebrew button", await builder.locator("#cs-btn-homebrew").count() === 1);
+
+	// ---------- the species' own height and weight table ----------
+
+	// Hidden until a species that has one is picked, so its presence is the answer to "can I roll?"
+	check("no species, no roll button",
+		await builder.locator("#cs-appearance-roll:not(.ve-hidden)").count() === 0);
+
+	// A Loxodon carries both things being checked here — a Random Height and Weight table and
+	// Powerful Build — and is not reprinted anywhere, so the picker offers exactly one of it
+	await pickViaSearch(builder, {btn: "#cs-pick-species", query: "loxodon", rowText: "Loxodon"});
+	await resolveModals(builder);
+	await builder.waitForTimeout(1200);
+
+	check("a species with the table offers the roll",
+		await builder.locator("#cs-appearance-roll:not(.ve-hidden)").count() === 1);
+
+	const rollTitle = await builder.locator("#cs-appearance-roll").getAttribute("title");
+	check("and says what the range is", /\d+'.*\d+ lb\./.test(rollTitle || ""), rollTitle);
+
+	await builder.click("#cs-appearance-roll");
+	await builder.waitForTimeout(600);
+	const rolled = await getState(builder);
+	// Loxodon: 6'7" + 2d10 inches, 295 lb. + (2d4 × the height roll)
+	const inches = /^(\d+)'(?:(\d+)")?$/.exec(rolled.appearanceHeight || "");
+	const heightIn = inches ? (Number(inches[1]) * 12) + Number(inches[2] || 0) : null;
+	check("rolling writes a height inside the species' range",
+		heightIn >= 81 && heightIn <= 99, `${rolled.appearanceHeight} → ${heightIn}in`);
+
+	const weightLb = Number(String(rolled.appearanceWeight || "").replace(/[^\d.]/g, ""));
+	check("and a weight the height accounts for",
+		weightLb >= 299 && weightLb <= 455, rolled.appearanceWeight);
+
+	check("the species' trait tags are shown", await builder.locator(".cs__tag").count() > 0,
+		(await builder.locator("#cs-species-panel").textContent() || "").replace(/\s+/g, " ").slice(0, 120));
+
+	// The tags are recorded on the character, which is what lets the carrying capacity double
+	// without the species entity being around when the inventory is totalled
+	check("the tags are stored on the character, not just rendered",
+		(rolled.speciesTraitTags || []).includes("Powerful Build"), JSON.stringify(rolled.speciesTraitTags));
+
 	check("no page errors on the builder", builder.errors.length === 0, builder.errors.slice(0, 2).join(" | "));
 	await builder.close();
 }

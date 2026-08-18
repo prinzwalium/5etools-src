@@ -208,6 +208,18 @@
 		opacity: 0.85;
 	}
 
+	// A species' `traitTags`, one chip each. Quieter than a badge: these summarise, and one of them
+	// (Powerful Build) is emphasised in markup because it changes a number.
+	.cs__tag {
+		flex: 0 0 auto;
+		font-size: 0.75em;
+		padding: 1px 7px;
+		margin-bottom: 2px;
+		border-radius: 999px;
+		border: 1px solid currentcolor;
+		opacity: 0.7;
+	}
+
 	.cs__feat-body {
 		padding: 0 12px 10px;
 		font-size: 0.9em;

@@ -7,6 +7,12 @@ Done so far: the builder and sheet themselves, the choice engine, the leveling e
 proficiencies, "choose one" species traits, per-character source filtering, stat provenance,
 the UI rework, the sidekick builder, print/PDF export, and the test/CI setup below.
 
+**Status: everything on this list is built.** The one unticked box is struck through — a party
+sheet, which was built instead as a screen in the account system, where a server made the version
+worth having possible. What is left is not on this list and not in this repository: operations for
+the account system (backups with a rehearsed restore, per-user quotas), and whatever the next
+playtest turns up. New work goes at the bottom of its tier, as before.
+
 ---
 
 ## Now
@@ -239,15 +245,44 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
   today cannot be lost except by the user's own browser. Delegating identity to Authentik removes
   the worst of the liability, not all of it.
 
-  **The service now exists**: <https://github.com/PrinzWalium/5etools-online>, which carries the
-  plan (`docs/PLAN.md`) — data model, the three kinds of versioning, the sync rules, and six phases
-  from an OIDC-only proof through to the party sheet. Phase 0 runs: it serves a deliberately
-  incomplete adapter, which this fork refuses, so sync stays off and the pages are unchanged.
-  Fork-side work is confined to a status bubble (phase 0), an Online panel with first-sign-in
-  migration (1), a campaign selector (2), the conflict dialog (3), a History view (4) and the party
-  page (5) — no new upstream conflict points in any of them.
+  **The service exists and all six of its phases are built**:
+  <https://github.com/PrinzWalium/5etools-online>, whose plan (`docs/PLAN.md`) runs from an
+  OIDC-only proof through characters, campaigns and roles, automatic push with conflict resolution,
+  history and restore, to the party sheet — plus an account overview, a GM write loan, a sidekick
+  the whole table can play, and handing a character to another player. The fork side of each landed
+  with it: the status bubble, the Online panel and its first-sign-in migration, the campaign
+  selector, the conflict dialog, the History view. None of it added an upstream conflict point.
+
+  What is left there is **operations, not code**: nightly database backups with at least one
+  rehearsed restore, and a per-user quota on characters and bytes that fails with a clear message
+  rather than silently. Neither belongs in this repository, and neither changes a line here.
 
 ## Housekeeping
+
+- [x] **A deployment can say which books it starts you with.** A self-hosted 5etools serves one
+      table, and that table plays a particular set of books — but every new browser started with
+      everything ticked and no homebrew, so the first thing anyone did was repeat the same twenty
+      clicks across eleven filter panels. `DEFAULT_LOAD`, `DEFAULT_DENY` and `DEFAULT_BREW` in the
+      Compose environment now decide it (`docs/DEFAULT_BOOKS.md`). There is no server to read a
+      config file, so the answer reaches the browser as part of the page: the **image build**
+      injects two script tags and leaves one world-writable config file, and **start-up** overwrites
+      that file from the environment. Splitting it that way is what lets the container run as a
+      non-root user, and start-up is never fatal — an unwritable config says which of its two causes
+      it is and serves the site unconfigured. It **seeds and does not enforce**: a browser that has
+      set its own filters keeps them, and anyone can tick a denied book back on.
+
+- [x] **The last three unread fields.** A field-versus-code sweep had turned up three the app never
+      looked at, and they turned out not to be uniform in value. `heightAndWeight` — 35 species
+      carry a Random Height and Weight table — is now a *Roll* button beside the Appearance fields,
+      with the range in its tooltip; the roll follows the book's actual rule, where the height roll
+      *multiplies* the weight modifier rather than being rolled beside it, which is the difference
+      between a tall character being heavy in proportion and being 118 lb. `primaryAbility` is a
+      line in the guide's ability-score step, which is the one moment a new player wants to know
+      where the 15 goes and the one place the class already said. And `traitTags` are shown on the
+      species panel — but one of them was never cosmetic at all: **Powerful Build** counts a
+      character as one size larger for carrying capacity, so fifteen species had been told, for the
+      life of this feature, that they could carry half what they can.
+
 
 - [x] **Panels watch the whole character, not a list of props.** Every panel used to name the props
       it re-rendered on, and the rule was that a panel watches every prop it renders. That rule was

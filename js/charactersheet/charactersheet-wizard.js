@@ -28,6 +28,7 @@ import {
 	getPointBuyTotalCost,
 	isValidStandardArrayAssignment,
 } from "./charactersheet-abilityscores.js";
+import {getPrimaryAbilities} from "./charactersheet-levelengine.js";
 import {EQUIPMENT_ALWAYS_KEY, getEquipmentChoiceGroups, getEquipmentOptionDisplay, getInventoryItemMeta} from "./charactersheet-equipment.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL} from "./charactersheet-proficiencies.js";
 import {pResolveFeat} from "./charactersheet-featgrant.js";
@@ -304,9 +305,27 @@ export class CharacterWizard {
 
 	/* -------------------------------------------- Step: ability scores -------------------------------------------- */
 
+	/**
+	 * Where the high score goes, according to the class itself.
+	 *
+	 * `primaryAbility` is in the data for every class and was never read, so the step that decides a
+	 * character's whole shape offered no hint at the one moment somebody new needs one.
+	 */
+	_getPrimaryAbilityHint () {
+		const abvs = getPrimaryAbilities(this._draft.cls);
+		if (!abvs.length) return "";
+
+		const names = abvs.map(abv => Parser.attAbvToFull(abv)).filter(Boolean);
+		if (!names.length) return "";
+
+		const ptNames = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+		return `<p class="ve-muted ve-small">A ${this._draft.cls.name} leans on <b>${ptNames}</b>&nbsp;\u2014 the class names it as its primary ability.</p>`;
+	}
+
 	_render_abilities (wrp) {
 		wrp.innerHTML = `
 			<p>Choose how to determine ability scores. Fixed species/background ability bonuses, and any you resolve in the Choices step, are added on top when you finish.</p>
+			${this._getPrimaryAbilityHint()}
 			<div class="ve-flex-v-center ve-mb-2">
 				<label class="ve-flex-v-center"><span class="ve-mr-2">Method</span><select class="ve-form-control ve-input-xs" id="cs-wiz-sel-abil-method" style="max-width: 220px;">
 					<option value="">Keep current scores</option>

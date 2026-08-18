@@ -3,6 +3,7 @@ import "../../js/parser.js";
 import {
 	checkFeatPrerequisites,
 	getAsiCount,
+	getPrimaryAbilities,
 	getClassResources,
 	getExpertiseSkillCount,
 	getGrantedSpellUids,
@@ -534,5 +535,30 @@ describe("Leveling engine: hit points", () => {
 		const {total, perLevel} = getLevelUpHp({faces: 10, conMod: 1, numLevels: 2, fnRoll: () => 7});
 		expect(perLevel).toEqual([8, 8]);
 		expect(total).toBe(16);
+	});
+});
+
+describe("Leveling engine: the ability a class leans on", () => {
+	const loadClass = (file, source) => JSON.parse(fs.readFileSync(`./data/class/class-${file}.json`, "utf8"))
+		.class.find(it => it.source === source);
+
+	it("Reads it off the class, as an abbreviation", () => {
+		expect(getPrimaryAbilities(loadClass("barbarian", "XPHB"))).toEqual(["str"]);
+		expect(getPrimaryAbilities(loadClass("cleric", "XPHB"))).toEqual(["wis"]);
+	});
+
+	it("Returns both when a class names two", () => {
+		// A few name two; the guide says both rather than picking one for the player
+		const both = getPrimaryAbilities({primaryAbility: [{dex: true}, {wis: true}]});
+		expect(both).toEqual(["dex", "wis"]);
+	});
+
+	it("Ignores a false entry rather than counting the key", () => {
+		expect(getPrimaryAbilities({primaryAbility: [{str: true, cha: false}]})).toEqual(["str"]);
+	});
+
+	it("Says nothing when the class does not", () => {
+		expect(getPrimaryAbilities({})).toEqual([]);
+		expect(getPrimaryAbilities(null)).toEqual([]);
 	});
 });

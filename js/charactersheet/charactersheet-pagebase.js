@@ -17,6 +17,7 @@ import {PORTRAIT_MIME, PORTRAIT_QUALITY, getPortraitTargetSize, isPortraitTooLar
 import {getCharacterSummary, getSummaryLines} from "./charactersheet-summary.js";
 import {getHpBonusPerLevel} from "./charactersheet-features.js";
 import {getLevelUpPreview} from "./charactersheet-levelpreview.js";
+import {formatHeight, getHeightAndWeightRange, getHeightAndWeightTable, rollHeightAndWeight} from "./charactersheet-appearance.js";
 import {deleteSyncMeta, getKeptBothName, getMissingAdapterMethods, getSyncBasePath, getSyncCapabilities, getSyncClientUrl, getSyncMeta, getSyncStatus, getUnsyncedRows, hasGmWriteSupport, hasSidekickControlSupport, isAdapterValid, isSameOrigin, isSyncConflict, planSync, setSyncMeta} from "./charactersheet-sync.js";
 
 /**
@@ -1096,7 +1097,7 @@ export class CharacterPageBase {
 		this._comp._addHookBase("pendingAbilityOffers", () => this._renderAbilityOffers());
 		// Trait picks imply resistances, and equipped gear grants them for as long as it is worn
 		this._comp._addHookBase("inventory", () => this._renderDefenses());
-		this._comp._addHookBase("refSpecies", () => this._pRefreshTraitChoices());
+		this._comp._addHookBase("refSpecies", () => this._pRefreshSpeciesData());
 		this._comp._addHookBase("traitChoices", () => { this._renderTraitChoices(); this._renderDefenses(); });
 		// Level gates the later picks (an Aasimar's Celestial Revelation, ...)
 		this._comp._addHookBase("level", () => this._renderTraitChoices());
@@ -1462,6 +1463,7 @@ export class CharacterPageBase {
 					${CharacterPageBase._APPEARANCE_FIELDS
 		.map(([key, label]) => `<label class="cs__field"><span class="cs__lbl">${label}</span><input type="text" id="cs-appearance-${key}" class="ve-form-control ve-input-xs"></label>`)
 		.join("")}
+					<button type="button" class="ve-btn ve-btn-xs ve-btn-default ve-hidden no-print" id="cs-appearance-roll">Roll height &amp; weight</button>
 				</div>
 			</div>`;
 
@@ -1471,8 +1473,46 @@ export class CharacterPageBase {
 		document.getElementById("cs-portrait-file")
 			?.addEventListener("change", evt => this._pOnPortraitPicked(evt.target));
 		this._bindClick("cs-portrait-clear", () => { this._comp._state.portrait = ""; });
+		this._bindClick("cs-appearance-roll", () => this._doRollHeightAndWeight());
 		this._comp._addHookBase("portrait", () => this._renderPortrait());
 		this._renderPortrait();
+		this._renderAppearanceRoll();
+	}
+
+	/**
+	 * The species' Random Height and Weight table, offered as a button.
+	 *
+	 * Shown only when the picked species has the table — 35 do — so the button's presence is itself
+	 * the answer to "can I roll for this?". The range goes in the tooltip, because somebody deciding
+	 * whether to roll wants to know what they are risking.
+	 */
+	_renderAppearanceRoll () {
+		const btn = document.getElementById("cs-appearance-roll");
+		if (!btn) return;
+
+		const hw = this._speciesHeightAndWeight;
+		btn.classList.toggle("ve-hidden", !hw);
+		if (!hw) return;
+
+		const range = getHeightAndWeightRange(hw);
+		btn.title = `${formatHeight(range.minHeightIn)}\u2013${formatHeight(range.maxHeightIn)}, ${range.minWeightLb}\u2013${range.maxWeightLb} lb.`;
+	}
+
+	_doRollHeightAndWeight () {
+		const hw = this._speciesHeightAndWeight;
+		if (!hw) return;
+
+		// `RollerUtil` is the site's own randomness, so this is the roll the rest of the site would
+		// have made; the module's own default is only for a page that somehow lacks it
+		const opts = typeof RollerUtil !== "undefined"
+			? {fnRollDie: faces => RollerUtil.randomise(faces)}
+			: {};
+
+		const rolled = rollHeightAndWeight(hw, opts);
+		if (!rolled) return;
+
+		this._comp._state.appearanceHeight = formatHeight(rolled.heightIn);
+		this._comp._state.appearanceWeight = `${rolled.weightLb} lb.`;
 	}
 
 	_renderPortrait () {
@@ -1920,21 +1960,27 @@ export class CharacterPageBase {
 	}
 
 	/**
-	 * Load the picked species so its "choose one" traits can be offered. Held on the page rather
-	 * than in the character, since it is data rather than a decision.
+	 * Load the picked species, for the two things that need the entity rather than the character:
+	 * its "choose one" traits, and its random height and weight table. Held on the page rather than
+	 * in the character, since both are data rather than decisions.
 	 */
-	async _pRefreshTraitChoices () {
+	async _pRefreshSpeciesData () {
 		const ref = this._comp._state.refSpecies;
 		this._traitChoiceDefs = [];
 		this._traitChoiceSource = ref?.name || null;
+		this._speciesHeightAndWeight = null;
 
 		if (ref?.name && ref?.source) {
 			const hash = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_RACES]({name: ref.name, source: ref.source});
 			const ent = await DataLoader.pCacheAndGet(UrlUtil.PG_RACES, ref.source, hash, {isCopy: true}).catch(() => null);
-			if (ent) this._traitChoiceDefs = getTraitChoices(ent);
+			if (ent) {
+				this._traitChoiceDefs = getTraitChoices(ent);
+				this._speciesHeightAndWeight = getHeightAndWeightTable(ent);
+			}
 		}
 
 		this._renderTraitChoices();
+		this._renderAppearanceRoll();
 	}
 
 	/** Render the species' "choose one" traits, so a pick can be made or changed at any time. */

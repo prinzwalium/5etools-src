@@ -2,6 +2,7 @@ import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SCHEMA_VERSION, CHAR_SHEET_SKILLS, EXPE
 import {getProfListDisplay} from "./charactersheet-choices.js";
 import {getClassProficiencies, getEntityProficiencies, getMulticlassProficiencies} from "./charactersheet-proficiencies.js";
 import {getEntityDefenses} from "./charactersheet-defenses.js";
+import {getTraitTags} from "./charactersheet-appearance.js";
 import {getStateWithMigratedAbilityNotes} from "./charactersheet-charstore.js";
 import {getAmmoRecovered, getChargesAfterRest} from "./charactersheet-equipment.js";
 import {
@@ -103,6 +104,9 @@ export class CharacterModel extends BaseComponent {
 			// as the data's abbreviation; blank means unanswered, not Medium.
 			size: "",
 			creatureTypes: [], // what kind of creature the species is — a Plasmoid is an Ooze, not a Humanoid
+			// The species' `traitTags`. Kept because one of them is a number: Powerful Build doubles
+			// carrying capacity, and the entity is not around when the inventory is totalled.
+			speciesTraitTags: [],
 
 			hpMax: 0,
 			hpCur: 0,
@@ -795,6 +799,7 @@ export class CharacterModel extends BaseComponent {
 		const sizes = [race.size].flat().filter(Boolean);
 		if (sizes.length === 1) this._state.size = sizes[0];
 		this._state.creatureTypes = [race.creatureTypes].flat().filter(Boolean);
+		this._state.speciesTraitTags = getTraitTags(race);
 
 		this.setProficienciesFromSource(race.name, getEntityProficiencies(race));
 		// Darkvision, resistances, immunities and the rest are structured now, so they are no longer

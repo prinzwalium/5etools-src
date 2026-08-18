@@ -256,6 +256,22 @@ export function getFeatProgressionCounts (clsOrSc, level) {
 }
 
 /**
+ * The abilities the class says matter most, as abbreviations.
+ *
+ * `primaryAbility` is a list of `{str: true}`-style maps — a list because a few classes name two,
+ * and 2024 Ranger names one of two. It is the answer to the question every new player asks at the
+ * ability-score step ("where does the 15 go?"), and it was sitting in the data unread.
+ */
+export function getPrimaryAbilities (cls) {
+	const out = [];
+	[cls?.primaryAbility].flat().filter(Boolean).forEach(grp => {
+		if (typeof grp === "string") { out.push(grp.toLowerCase()); return; }
+		Object.entries(grp).forEach(([abv, isPrimary]) => { if (isPrimary === true) out.push(abv.toLowerCase()); });
+	});
+	return [...new Set(out)];
+}
+
+/**
  * Number of Ability Score Improvement features gained by `level` (dereferenced class data).
  * These are the "ASI or feat" slots.
  */

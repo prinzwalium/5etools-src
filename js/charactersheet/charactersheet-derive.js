@@ -11,6 +11,7 @@ import {
 import {getChosenFeatureEffects} from "./charactersheet-features.js";
 import {PG_OPT_FEATURES, getItemCitation} from "./charactersheet-citations.js";
 import {getExpectedHp} from "./charactersheet-levelengine.js";
+import {getCarryMultiplier} from "./charactersheet-appearance.js";
 
 /**
  * Pure derivation of renderable stats from character state.
@@ -422,12 +423,22 @@ export function getUnarmedStrike (state) {
 	};
 }
 
-/** Carried weight from the inventory vs. the standard carrying capacity (Strength × 15). */
+/**
+ * Carried weight from the inventory vs. the carrying capacity (Strength × 15).
+ *
+ * Doubled by **Powerful Build**, which counts a character as one size larger for carrying, pushing,
+ * dragging and lifting — fifteen species have it, and every one of them was being told it could
+ * carry half what it can.
+ */
 export function getEncumbrance (state) {
 	const totalWeightLb = (state.inventory || [])
 		.reduce((acc, it) => acc + ((Number(it.weightLb) || 0) * (Number(it.quantity) || 0)), 0);
+
+	const carryMult = getCarryMultiplier(state.speciesTraitTags);
+
 	return {
 		totalWeightLb: Math.round(totalWeightLb * 100) / 100,
-		capacityLb: (Number(state.abil_str) || 10) * 15,
+		capacityLb: (Number(state.abil_str) || 10) * 15 * carryMult,
+		isPowerfulBuild: carryMult > 1,
 	};
 }
