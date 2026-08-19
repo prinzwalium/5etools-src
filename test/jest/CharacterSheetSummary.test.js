@@ -15,7 +15,9 @@ describe("Character Sheet — read-only summary", () => {
 		abil_int: 12,
 		abil_wis: 13,
 		abil_cha: 8,
-		classes: [{name: "Rogue", subclass: "Thief", level: 5}],
+		// The shape the model actually stores. Writing this as a string is what let
+		// "Rogue ([object Object]) 5" reach the character list unnoticed
+		classes: [{name: "Rogue", subclass: {name: "Thief", shortName: "Thief", source: "PHB"}, level: 5}],
 		hpMax: 33,
 		hpCur: 20,
 		speed: "30 ft.",
@@ -31,6 +33,18 @@ describe("Character Sheet — read-only summary", () => {
 
 		it("Should join a multiclass with a slash", () => {
 			expect(getClassLine({classes: [{name: "Fighter", level: 5}, {name: "Rogue", level: 2}]})).toBe("Fighter 5 / Rogue 2");
+		});
+
+		// A subclass has a short name for exactly this: "Rogue (Thief)", not "Rogue (Path of the Thief)"
+		it("Should prefer the subclass's short name, and never print the object", () => {
+			const line = getClassLine({classes: [{name: "Cleric", level: 3, subclass: {name: "Life Domain", shortName: "Life", source: "XPHB"}}]});
+			expect(line).toBe("Cleric (Life) 3");
+			expect(line).not.toContain("[object");
+		});
+
+		// Characters saved before the subclass became structured still hold a bare string
+		it("Should still read a subclass saved as a string", () => {
+			expect(getClassLine({classes: [{name: "Rogue", subclass: "Thief", level: 5}]})).toBe("Rogue (Thief) 5");
 		});
 
 		// A character typed in by hand still has to show something

@@ -20,8 +20,19 @@ import {deriveCharacterSheet} from "./charactersheet-derive.js";
 /** `Fighter 5 / Rogue 2`, or the typed line when there are no structured classes. */
 export function getClassLine (state) {
 	const classes = (state?.classes || []).filter(it => it?.name);
-	if (classes.length) return classes.map(it => `${it.name}${it.subclass ? ` (${it.subclass})` : ""} ${it.level || 1}`).join(" / ");
-	return (state?.classLevel || "").trim() || "—";
+	// A subclass is `{name, shortName, source}`, not a string. Interpolating it printed
+	// "Wizard ([object Object]) 11" on every card that shows a character's class — and the test that
+	// should have caught it wrote the fixture as a string, which is a shape the model never produces.
+	// Both are accepted now, because a character saved long enough ago may hold either.
+	const subclassOf = it => (typeof it.subclass === "string"
+		? it.subclass
+		: it.subclass?.shortName || it.subclass?.name || null);
+	if (classes.length) {
+		return classes
+			.map(it => `${it.name}${subclassOf(it) ? ` (${subclassOf(it)})` : ""} ${it.level || 1}`)
+			.join(" / ");
+	}
+	return (state?.classText || state?.classLevel || "").trim() || "—";
 }
 
 const _formatMod = mod => `${mod >= 0 ? "+" : "−"}${Math.abs(mod)}`;
@@ -41,8 +52,10 @@ export function getCharacterSummary (state) {
 		name: (st.name || "").trim() || "Unnamed Character",
 		classLine: getClassLine(st),
 		level: derived.totalLevel,
-		species: (st.race || "").trim() || null,
-		background: (st.background || "").trim() || null,
+		// The model spells these `speciesText` and `backgroundText`; `race` and `background` are the
+		// pre-2024 names and are not on a character, so every summary reported neither
+		species: (st.speciesText || st.race || "").trim() || null,
+		background: (st.backgroundText || st.background || "").trim() || null,
 
 		armorClass: derived.armorClass.ac,
 		hpMax: Number(st.hpMax) || 0,
