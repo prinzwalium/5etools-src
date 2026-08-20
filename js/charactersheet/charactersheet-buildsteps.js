@@ -8,7 +8,7 @@ import {
 	getWeaponMasteryCount,
 } from "./charactersheet-levelengine.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
-import {getChoiceSignature, getChoiceWithoutHeld, getGrantedFeatCategories, getGrantedFeats, getHeldProficiencyNames, getPendingChoices} from "./charactersheet-choices.js";
+import {getChoiceSignature, getChoiceWithoutHeld, getGrantedFeatCategories, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getRulesLanguageChoice} from "./charactersheet-choices.js";
 import {getTraitChoices} from "./charactersheet-traitchoices.js";
 
 /**
@@ -39,14 +39,19 @@ export const STEP_TRAIT_CHOICE = "traitChoice";
 export const STEP_SIZE = "size";
 export const STEP_SPELLS = "spells";
 export const STEP_HP = "hp";
+/** A class's starting proficiencies — the four skills a Rogue picks, the three instruments a Bard does. */
+export const STEP_CLASS_PROFICIENCY = "classProficiency";
+/** The languages the 2024 rules give every character, which no species or background carries. */
+export const STEP_LANGUAGE = "language";
 
 /**
  * @param state the character state.
  * @param loaded `[{entry, cls, sc}]` — the character's classes with their data, as the panels load them.
  * @param speciesEnt/backgroundEnt the picked entities, or null.
+ * @param [opts.isClassic] the character plays by the 2014 rules, where languages come from the species.
  * @return {Array<{key, kind, label, detail, count, ctx}>} in the order somebody should answer them.
  */
-export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null, backgroundEnt = null} = {}) {
+export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null, backgroundEnt = null, isClassic = false} = {}) {
 	const out = [];
 	const st = state || {};
 
@@ -135,6 +140,26 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 
 	loaded.forEach(({entry, cls, sc}) => {
 		if (!cls) return;
+
+		/*
+		 * The proficiencies the class itself hands out.
+		 *
+		 * These were missing entirely, which is why a Rogue could be built without ever being asked
+		 * for its four skills or its thieves' tools: the panels apply what a class *fixes* and
+		 * nothing enumerated what it *offers*.
+		 */
+		const heldForClass = getHeldProficiencyNames(st);
+		getPendingChoices({cls})
+			.filter(choice => !(st.choiceLog || []).some(it => it.sig === getChoiceSignature(choice) && it.picks.length))
+			.filter(choice => !!getChoiceWithoutHeld(choice, heldForClass))
+			.forEach(choice => out.push({
+				key: `${STEP_CLASS_PROFICIENCY}:${entry.id}:${getChoiceSignature(choice)}`,
+				kind: STEP_CLASS_PROFICIENCY,
+				label: choice.label,
+				detail: cls.name,
+				count: choice.count || 1,
+				ctx: {ent: cls, choice},
+			}));
 
 		// The subclass, once its level has arrived — a Rogue 3 with no subclass is not playable
 		const gainLevel = _getSubclassGainLevel(cls);
@@ -247,6 +272,29 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 			count: masteryTotal - masteryTaken,
 			ctx: {},
 		});
+	}
+
+	/*
+	 * Languages, which in the 2024 rules no entity grants.
+	 *
+	 * They moved into character creation — Common and two more of your choice — so there is no field
+	 * on a species or a background to read, and nothing asked. The 2014 rules keep them on the
+	 * species, where the origin choices above already find them.
+	 */
+	const languageChoice = getRulesLanguageChoice({isClassic});
+	if (languageChoice) {
+		const held = getHeldProficiencyNames(st);
+		const owed = (languageChoice.count || 0) - ((st.choiceLog || []).find(it => it.sig === getChoiceSignature(languageChoice))?.picks.length || 0);
+		if (owed > 0 && getChoiceWithoutHeld(languageChoice, held)) {
+			out.push({
+				key: `${STEP_LANGUAGE}:rules`,
+				kind: STEP_LANGUAGE,
+				label: languageChoice.label,
+				detail: "Every character knows Common and two more",
+				count: owed,
+				ctx: {choice: languageChoice},
+			});
+		}
 	}
 
 	// Last, because it depends on Constitution, which the decisions above can still change

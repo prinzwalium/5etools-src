@@ -1,4 +1,4 @@
-import {getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getHpBonusPerLevel} from "../../js/charactersheet/charactersheet-features.js";
+import {getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getFeatureResources, getFeatureUses, getHpBonusPerLevel} from "../../js/charactersheet/charactersheet-features.js";
 
 describe("Feature effects: initiative", () => {
 	const ctx = {abilities: {cha: 3, dex: 2}, pb: 3};
@@ -96,5 +96,66 @@ describe("Feature effects: hit points per level", () => {
 	// The same feat twice is still one feat
 	it("Does not count a feature twice", () => {
 		expect(getHpBonusPerLevel({originFeats: [{name: "Tough"}], manualFeats: [{name: "Tough"}]})).toBe(2);
+	});
+});
+
+/*
+ * Not everything a character spends is a column in the class table.
+ *
+ * Magical Cunning, Arcane Recovery, Action Surge and seventeen others are ordinary features whose
+ * limit lives in one sentence of prose, and because nothing read that sentence none of them showed
+ * up as something to spend — a Warlock's sheet said nothing about Magical Cunning at all.
+ */
+describe("Features: uses read from what the book says", () => {
+	const MAGICAL_CUNNING = {
+		name: "Magical Cunning",
+		entries: ["You can perform an esoteric rite for 1 minute. At the end of it, you regain expended Pact Magic spell slots but no more than a number equal to half your maximum (round up). Once you use this feature, you can't do so again until you finish a {@variantrule Long Rest|XPHB}."],
+	};
+
+	const ACTION_SURGE = {
+		name: "Action Surge",
+		entries: [
+			"On your turn, you can take one additional action.",
+			"Once you use this feature, you can't do so again until you finish a {@variantrule Short Rest|XPHB|Short} or {@variantrule Long Rest|XPHB}. Starting at level 17, you can use it twice before a rest but only once on a turn.",
+		],
+	};
+
+	it("Reads one use and the rest that returns it", () => {
+		expect(getFeatureUses(MAGICAL_CUNNING, 2)).toEqual({label: "Magical Cunning", value: "1", kind: "uses", rest: "long"});
+	});
+
+	// "a Short Rest or Long Rest" — the shorter one is the one that decides when you get it back
+	it("Takes the shorter rest when a feature names both", () => {
+		expect(getFeatureUses(ACTION_SURGE, 2).rest).toBe("short");
+	});
+
+	it("Reads the level at which it becomes two", () => {
+		expect(getFeatureUses(ACTION_SURGE, 16).value).toBe("1");
+		expect(getFeatureUses(ACTION_SURGE, 17).value).toBe("2");
+	});
+
+	it("Says nothing about a feature with no limit in it", () => {
+		expect(getFeatureUses({name: "Evasion", entries: ["You can nimbly dodge out of the way."]}, 7)).toBeNull();
+	});
+
+	it("Says nothing about a feature that is not there", () => {
+		expect(getFeatureUses(null, 1)).toBeNull();
+	});
+
+	/*
+	 * A feature that improves at a later level appears twice in the class data — Action Surge is
+	 * granted at 2 and again at 17 — and both grants are the same feature, not two.
+	 */
+	describe("across a whole class", () => {
+		const BY_LEVEL = [[], [ACTION_SURGE], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [ACTION_SURGE]];
+
+		it("Lists it once, at the count the character has reached", () => {
+			expect(getFeatureResources(BY_LEVEL, 17)).toEqual([{label: "Action Surge", value: "2", kind: "uses", rest: "short"}]);
+		});
+
+		it("Counts only the levels the character has", () => {
+			expect(getFeatureResources(BY_LEVEL, 1)).toEqual([]);
+			expect(getFeatureResources(BY_LEVEL, 2)).toEqual([{label: "Action Surge", value: "1", kind: "uses", rest: "short"}]);
+		});
 	});
 });

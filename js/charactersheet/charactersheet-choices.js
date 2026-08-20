@@ -505,9 +505,36 @@ export function getGrantedFeatCategories (feats) {
 }
 
 /**
+ * Every character's languages, which no entity grants.
+ *
+ * The 2024 rules put them in character creation rather than on a species or a background: you know
+ * Common and two more of your choice. Nothing in the data carries that, so nothing asked — a
+ * Human Sailor was offered no language at all, because neither the species nor the background has a
+ * `languageProficiencies` field to read. Curated, and the only rule here that is.
+ *
+ * The 2014 rules do put them on the species, where `getPendingChoices` already finds them.
+ *
+ * @return {?object} the choice, or `null` under the 2014 rules where the species answers it.
+ */
+export function getRulesLanguageChoice ({isClassic = false, count = 2} = {}) {
+	if (isClassic) return null;
+	return {
+		id: _nextId(),
+		type: CHOICE_TYPE_LANGUAGE,
+		sourceName: "Languages",
+		count,
+		from: Parser.LANGUAGES_STANDARD.filter(it => it !== "Common").map(_titleCase),
+		label: `Choose ${count} language${count > 1 ? "s" : ""} besides Common`,
+	};
+}
+
+/**
  * All pending choices for a set of picked entities, in creation-flow order.
- * `cls` skill choices come from `startingProficiencies`; class tools/languages are
- * rendered text in the data, not structured choices, so they are not queued.
+ *
+ * A class's are its starting proficiencies: the skills it offers, and the tools and languages it
+ * offers *structurally* — `toolProficiencies` beside the prose `tools`, which is the pair the data
+ * keeps. Reading only the prose is why a Rogue was never asked for its four skills and a Bard was
+ * never asked which three instruments.
  */
 export function getPendingChoices ({race = null, background = null, cls = null, toolNames = ALL_TOOL_NAMES} = {}) {
 	const out = [];
@@ -523,7 +550,11 @@ export function getPendingChoices ({race = null, background = null, cls = null, 
 
 	if (cls) {
 		const sourceName = `Class: ${cls.name}`;
-		out.push(...getSkillChoices({groups: cls.startingProficiencies?.skills, sourceName}));
+		const sp = cls.startingProficiencies || {};
+		out.push(...getSkillChoices({groups: sp.skills, sourceName}));
+		out.push(...getToolChoices({groups: sp.toolProficiencies, sourceName}));
+		out.push(...getLanguageChoices({groups: sp.languageProficiencies, sourceName}));
+		out.push(...getSkillToolLanguageChoices({groups: sp.skillToolLanguageProficiencies, sourceName, toolNames}));
 	}
 
 	if (background) {

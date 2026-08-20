@@ -129,3 +129,72 @@ export function getFeatureInitiativeParts (featureNames, {abilities = {}, pb = 0
 export function getFeatureInitiativeBonus (featureNames, ctx) {
 	return getFeatureInitiativeParts(featureNames, ctx).reduce((acc, it) => acc + it.value, 0);
 }
+
+/* -------------------------------------------- features with uses -------------------------------------------- */
+
+/** Every string in a feature's entries, however deeply the data nests them. */
+function _collectText (node, out = []) {
+	if (typeof node === "string") out.push(node);
+	else if (Array.isArray(node)) node.forEach(it => _collectText(it, out));
+	else if (node && typeof node === "object") ["entries", "items", "entry"].forEach(k => { if (node[k]) _collectText(node[k], out); });
+	return out;
+}
+
+/**
+ * How many times a feature can be used before a rest, read from what the book says.
+ *
+ * Not everything a character spends is a column in the class table. Magical Cunning, Arcane
+ * Recovery, Action Surge, Natural Recovery, Sorcerous Restoration and fifteen others are ordinary
+ * features whose limit lives in one sentence — "Once you use this feature, you can't do so again
+ * until you finish a Long Rest" — and because nothing read that sentence, none of them appeared as
+ * something a character could spend.
+ *
+ * The sentence is formulaic enough to read: it is the same phrasing in all twenty, and the handful
+ * that scale say so in the same breath ("Starting at level 17, you can use it twice before a
+ * rest"). Anything that does not match is left alone rather than guessed at.
+ *
+ * @param feature a loaded class or subclass feature (`{name, entries}`).
+ * @param level the character's level in the class that granted it.
+ * @return {?{label: string, value: string, kind: string, rest: string}}
+ */
+export function getFeatureUses (feature, level = 1) {
+	if (!feature?.name) return null;
+	const text = _collectText(feature.entries).join(" ");
+
+	const mRest = /can't do so again until you finish a \{@variantrule (Short|Long) Rest/.exec(text);
+	if (!mRest) return null;
+
+	// "a Short Rest or Long Rest" — the shorter one is the one that matters
+	const rest = /Short Rest/.test(text.slice(mRest.index, mRest.index + 120)) ? "short" : "long";
+
+	let uses = 1;
+	const mTwice = /Starting at level (\d+), you can use it twice/.exec(text);
+	if (mTwice && Number(level) >= Number(mTwice[1])) uses = 2;
+
+	return {label: feature.name, value: `${uses}`, kind: "uses", rest};
+}
+
+/**
+ * The use-limited features a character has, as resources.
+ *
+ * Deduplicated by name and keeping the most generous, because a feature that improves at a later
+ * level appears twice in the class data — Action Surge is granted at 2 and again at 17, and the
+ * second grant is the same feature with another use.
+ *
+ * @param featuresByLevel `[[feature, ...], ...]` as the loader returns them, index 0 = level 1.
+ * @param level the character's level in that class.
+ */
+export function getFeatureResources (featuresByLevel, level = 1) {
+	const byName = new Map();
+
+	(featuresByLevel || []).slice(0, Math.max(0, Number(level) || 0)).forEach(atLevel => {
+		[atLevel].flat().filter(Boolean).forEach(feature => {
+			const res = getFeatureUses(feature, level);
+			if (!res) return;
+			const prev = byName.get(res.label);
+			if (!prev || Number(res.value) > Number(prev.value)) byName.set(res.label, res);
+		});
+	});
+
+	return [...byName.values()];
+}

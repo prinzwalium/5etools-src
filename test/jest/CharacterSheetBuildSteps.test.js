@@ -1,6 +1,9 @@
 import {describe, expect, it} from "@jest/globals";
+// The language step reads `Parser.LANGUAGES_STANDARD`, as every module that names a language does
+import "../../js/parser.js";
 import {
 	STEP_ASI,
+	STEP_LANGUAGE,
 	STEP_EXPERTISE,
 	STEP_HP,
 	STEP_MASTERY,
@@ -146,8 +149,16 @@ describe("Outstanding decisions: the pools and the rest", () => {
 		expect(decisions.filter(it => it.kind === STEP_ORIGIN_FEAT).map(it => it.detail)).toEqual(["Human"]);
 	});
 
-	it("Has nothing to say about a character with nothing picked", () => {
-		expect(getOutstandingDecisions({state: baseState({hpMax: 8})})).toEqual([]);
+	// Except the languages, which under the 2024 rules no species or background grants — they are a
+	// rule of character creation, so every character is owed them from the first moment
+	it("Has nothing to say about a character with nothing picked, beyond its languages", () => {
+		const decisions = getOutstandingDecisions({state: baseState({hpMax: 8})});
+		expect(decisions.map(it => it.kind)).toEqual([STEP_LANGUAGE]);
+		expect(decisions[0].count).toBe(2);
+	});
+
+	it("Leaves languages to the species under the 2014 rules, where they live", () => {
+		expect(getOutstandingDecisions({state: baseState({hpMax: 8}), isClassic: true})).toEqual([]);
 	});
 
 	it("Copes with no arguments at all", () => {
