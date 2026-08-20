@@ -1,31 +1,6 @@
 import * as fs from "fs";
 import "../../js/parser.js";
-import {
-	checkFeatPrerequisites,
-	getAsiCount,
-	getPrimaryAbilities,
-	getClassResources,
-	getExpertiseSkillCount,
-	getGrantedSpellUids,
-	getDynamicSpellGrants,
-	parseSpellFilter,
-	isSpellMatchingFilter,
-	getSpellGrantGroups,
-	getPreparedSpellCount,
-	getCantripsKnown,
-	getCasterLevelContribution,
-	getHitDieAverage,
-	getLevelUpHp,
-	getMulticlassRequirementsDisplay,
-	getFeatProgressionCounts,
-	getOptionalFeatureCounts,
-	getPactSlots,
-	getPreparedSpellsDisplay,
-	getSingleClassSlots,
-	getSpellcastingMeta,
-	getSpellsKnown,
-	isMulticlassRequirementMet,
-} from "../../js/charactersheet/charactersheet-levelengine.js";
+import {HP_MODE_AVERAGE, HP_MODE_MAX, HP_MODE_ROLLED, checkFeatPrerequisites, getAsiCount, getCantripsKnown, getCasterLevelContribution, getClassResources, getDynamicSpellGrants, getExpertiseSkillCount, getFeatProgressionCounts, getGrantedSpellUids, getHitDieAverage, getHitPointMaximum, getLevelUpHp, getMulticlassRequirementsDisplay, getOptionalFeatureCounts, getPactSlots, getPreparedSpellCount, getPreparedSpellsDisplay, getPrimaryAbilities, getSingleClassSlots, getSpellGrantGroups, getSpellcastingMeta, getSpellsKnown, isMulticlassRequirementMet, isSpellMatchingFilter, parseSpellFilter} from "../../js/charactersheet/charactersheet-levelengine.js";
 
 const loadClassFile = name => JSON.parse(fs.readFileSync(`./data/class/class-${name}.json`, "utf8"));
 
@@ -583,5 +558,48 @@ describe("Leveling engine: the ability a class leans on", () => {
 	it("Says nothing when the class does not", () => {
 		expect(getPrimaryAbilities({})).toEqual([]);
 		expect(getPrimaryAbilities(null)).toEqual([]);
+	});
+});
+
+/*
+ * How a table decides hit points is a table's decision — maximum dice, the fixed average, or roll
+ * and live with it — and the *bonuses* are the same either way. Keeping them in one function is the
+ * point: Constitution is per level, so is Tough, and a total typed into a box is a fossil the
+ * moment either changes.
+ */
+describe("Leveling engine: the hit point maximum, three ways", () => {
+	const FIGHTER_5 = [{name: "Fighter", level: 5, hdFaces: 10}];
+
+	it("Should take the average: maximum at 1st level, the die's average after", () => {
+		// 10 + 4×6 = 34, and +2 Constitution across five levels
+		expect(getHitPointMaximum({classes: FIGHTER_5, conMod: 2, mode: HP_MODE_AVERAGE}).total).toBe(44);
+	});
+
+	it("Should take every die at its maximum", () => {
+		// 5×10 = 50, and +2 Constitution across five levels
+		expect(getHitPointMaximum({classes: FIGHTER_5, conMod: 2, mode: HP_MODE_MAX}).total).toBe(60);
+	});
+
+	it("Should take the dice as they came up", () => {
+		const hp = getHitPointMaximum({classes: FIGHTER_5, conMod: 2, mode: HP_MODE_ROLLED, rolled: 31});
+		expect(hp.total).toBe(41);
+		expect(hp.explanation).toMatch(/31 rolled/);
+	});
+
+	// The bug this exists to stop: a per-level feature counted in one mode and forgotten in the others
+	it("Should add a per-level feature bonus in every mode", () => {
+		const opts = {classes: FIGHTER_5, conMod: 2, perLevelBonus: 2};
+		expect(getHitPointMaximum({...opts, mode: HP_MODE_AVERAGE}).total).toBe(54);
+		expect(getHitPointMaximum({...opts, mode: HP_MODE_MAX}).total).toBe(70);
+		expect(getHitPointMaximum({...opts, mode: HP_MODE_ROLLED, rolled: 31}).total).toBe(51);
+	});
+
+	it("Should count each class's own dice when multiclassed", () => {
+		const classes = [{name: "Rogue", level: 4, hdFaces: 8}, {name: "Warlock", level: 3, hdFaces: 8}];
+		expect(getHitPointMaximum({classes, conMod: 0, mode: HP_MODE_MAX}).total).toBe(56);
+	});
+
+	it("Should never go below one hit point", () => {
+		expect(getHitPointMaximum({classes: [{name: "Wizard", level: 1, hdFaces: 6}], conMod: -5, mode: HP_MODE_AVERAGE}).total).toBe(1);
 	});
 });

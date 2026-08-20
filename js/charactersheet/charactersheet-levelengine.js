@@ -703,6 +703,72 @@ export function getExpectedHp ({classes = [], conMod = 0} = {}) {
 	return {total, parts};
 }
 
+/* -------------------------------------------- how a maximum is arrived at -------------------------------------------- */
+
+/** The fixed number the rules offer: maximum at 1st level, the die's average after. */
+export const HP_MODE_AVERAGE = "average";
+/** Every die at its maximum — the generous table's house rule, and the one nobody has to track. */
+export const HP_MODE_MAX = "max";
+/** The dice as they actually came up, typed in. */
+export const HP_MODE_ROLLED = "rolled";
+
+/**
+ * A character's hit point maximum, by whichever of the three ways the table decided it.
+ *
+ * One function rather than three, because the *bonuses* are the same in all three cases and that is
+ * where the mistakes were: Constitution is per level, and so is anything else that raises hit points
+ * per level — Tough, a Dwarf's Dwarven Toughness. Typing a total into a box works right up until
+ * Constitution changes, or a level is added, or Tough is taken, and then the number is a fossil
+ * nobody can recompute. Here it is derived from what it is made of, and says so.
+ *
+ * @param opts.mode one of `HP_MODE_*`.
+ * @param opts.rolled the dice total, for `HP_MODE_ROLLED`.
+ * @param opts.perLevelBonus hit points a feature adds per level (`getHpBonusPerLevel`).
+ * @return {{total: number, parts: Array, explanation: string}}
+ */
+export function getHitPointMaximum ({classes = [], conMod = 0, perLevelBonus = 0, mode = HP_MODE_AVERAGE, rolled = null} = {}) {
+	const levels = (classes || []).reduce((acc, c) => acc + (Math.max(0, Number(c.level) || 0)), 0);
+	const perLevel = conMod + perLevelBonus;
+
+	const fmt = n => `${n >= 0 ? "+" : "\u2212"}${Math.abs(n)}`;
+	const bonusParts = [];
+	if (conMod) bonusParts.push({label: `Constitution ${fmt(conMod)} \u00d7 ${levels} level${levels === 1 ? "" : "s"}`, value: conMod * levels});
+	if (perLevelBonus) bonusParts.push({label: `Features ${fmt(perLevelBonus)} \u00d7 ${levels} level${levels === 1 ? "" : "s"}`, value: perLevelBonus * levels});
+
+	if (mode === HP_MODE_ROLLED) {
+		const dice = Math.max(0, Number(rolled) || 0);
+		const total = Math.max(1, dice + perLevel * levels);
+		return {
+			total,
+			parts: [{label: "Rolled", value: dice, isRaw: true}, ...bonusParts],
+			explanation: `${dice} rolled${bonusParts.length ? `, ${bonusParts.map(it => it.label).join(", ")}` : ""} = ${total}.`,
+		};
+	}
+
+	if (mode === HP_MODE_MAX) {
+		const dieParts = (classes || [])
+			.filter(c => Number(c.hdFaces) && Number(c.level))
+			.map(c => ({label: `${c.name} ${c.level} \u00d7 d${c.hdFaces} max`, value: Number(c.hdFaces) * Number(c.level), isRaw: true}));
+		const dice = dieParts.reduce((acc, it) => acc + it.value, 0);
+		const total = Math.max(1, dice + perLevel * levels);
+		return {
+			total,
+			parts: [...dieParts, ...bonusParts],
+			explanation: `${dice} from maximum dice${bonusParts.length ? `, ${bonusParts.map(it => it.label).join(", ")}` : ""} = ${total}.`,
+		};
+	}
+
+	// The average, which is what `getExpectedHp` has always computed — Constitution included, so the
+	// per-level feature bonus is the only thing left to add
+	const expected = getExpectedHp({classes, conMod});
+	const total = Math.max(1, expected.total + perLevelBonus * levels);
+	return {
+		total,
+		parts: [...expected.parts, ...(perLevelBonus ? [{label: `Features ${fmt(perLevelBonus)} \u00d7 ${levels}`, value: perLevelBonus * levels}] : [])],
+		explanation: `Maximum at 1st level, the die's average after${perLevelBonus ? `, plus features` : ""} = ${total}.`,
+	};
+}
+
 export function getLevelUpHp ({faces, conMod = 0, numLevels = 1, fnRoll = null}) {
 	const perLevel = [];
 	for (let i = 0; i < numLevels; ++i) {
