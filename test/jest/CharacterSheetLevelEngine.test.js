@@ -376,7 +376,13 @@ describe("Leveling engine: dynamic spell grants", () => {
 });
 
 describe("Leveling engine: class resources (table columns)", () => {
-	it("Should read dice/number/bonus columns and skip spell columns", () => {
+	/*
+	 * A class table's columns are three different things wearing one shape, and each is read
+	 * differently: something spent (Rages), something the character simply has (Sneak Attack 2d6),
+	 * and a count of choices made elsewhere (Weapon Mastery, Invocations). Reading them as one put
+	 * Eldritch Invocations in the sheet's resource tracker as though a Warlock could spend them.
+	 */
+	it("Should tell a use from a value, and leave counts of choices out", () => {
 		const cls = {
 			classTableGroups: [
 				{colLabels: ["Rages", "Rage Damage", "Weapon Mastery"],
@@ -393,10 +399,27 @@ describe("Leveling engine: class resources (table columns)", () => {
 			],
 		};
 		expect(getClassResources(cls, 2)).toEqual([
-			{label: "Rages", value: "3"},
-			{label: "Rage Damage", value: "+2"},
-			{label: "Weapon Mastery", value: "3"},
-			{label: "Sneak Attack", value: "2d6"},
+			{label: "Rages", value: "3", kind: "uses", rest: "long"},
+			{label: "Rage Damage", value: "+2", kind: "value", rest: null},
+			{label: "Sneak Attack", value: "2d6", kind: "value", rest: null},
+		]);
+	});
+
+	it("Should not offer Eldritch Invocations as something to spend", () => {
+		const cls = {
+			classTableGroups: [
+				{colLabels: ["{@filter Invocations|optionalfeatures|feature type=ei}", "Spell Slots"], rows: [["2", "2"]]},
+			],
+		};
+		expect(getClassResources(cls, 1)).toEqual([]);
+	});
+
+	// Which rest gives it back is curated, because the class tables do not carry it
+	it("Should say which rest returns a use", () => {
+		const cls = {classTableGroups: [{colLabels: ["Second Wind", "Sorcery Points"], rows: [["2", "4"]]}]};
+		expect(getClassResources(cls, 1)).toEqual([
+			{label: "Second Wind", value: "2", kind: "uses", rest: "short"},
+			{label: "Sorcery Points", value: "4", kind: "uses", rest: "long"},
 		]);
 	});
 

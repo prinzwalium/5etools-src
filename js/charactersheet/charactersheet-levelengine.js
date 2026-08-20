@@ -293,7 +293,41 @@ export function getExpertiseSkillCount (cls, level) {
 		.reduce((acc, lvlFeatures) => acc + (lvlFeatures || []).filter(f => f.name === "Expertise").length, 0) * 2;
 }
 
-const _RESOURCE_SKIP_LABEL = /cantrip|spells known|prepared spells|spell slots|slot level|^\d+(st|nd|rd|th)$/i;
+/*
+ * A class table's columns are three different things wearing one shape, and reading them as one was
+ * wrong in both directions: Eldritch Invocations appeared as something a Warlock could *spend*, and
+ * a Rogue's Sneak Attack appeared as nothing at all.
+ *
+ * - **Uses** are spent and given back: Rages, Channel Divinity, Second Wind, Ki, Sorcery Points.
+ * - **Values** are a number the character *has*: Sneak Attack 2d6, Martial Arts d6, Rage Damage +2,
+ *   Unarmored Movement +10 ft. They are read off the sheet, never ticked off it.
+ * - **Counts of choices** — Invocations, Infusions, Weapon Mastery, anything "Known" — are answered
+ *   in the builder and belong to the pickers that ask them, not to the resource list.
+ *
+ * The shape of the cell decides the first two: a plain integer is a use, a die or a bonus is a
+ * value. The third has to be named, because "Invocations: 5" and "Rages: 5" are the same cell.
+ */
+const _RESOURCE_SKIP_LABEL = /cantrip|spells known|prepared spells|spells prepared|spell slots|slot level|known$|^\d+(st|nd|rd|th)$/i;
+
+/** Something spent and given back by a rest. */
+export const RESOURCE_KIND_USES = "uses";
+/** A number the character has — Sneak Attack 2d6, Rage Damage +2. Read, never ticked. */
+export const RESOURCE_KIND_VALUE = "value";
+
+/** Columns that count choices rather than uses, and are answered elsewhere. */
+const _RESOURCE_CHOICE_LABEL = /^(invocations|infusions|infused items|weapon mastery|magic items|plans|psi limit|die size|number)$/i;
+
+/**
+ * Which rest gives a resource back.
+ *
+ * Curated, because the class tables do not carry it — the rule lives in the feature's prose. Only
+ * the unambiguous ones; anything unlisted is assumed to return on a long rest, which is both the
+ * commoner case and the safer guess to be wrong about.
+ */
+const _RESOURCE_SHORT_REST = new Set([
+	"second wind", "action surge", "channel divinity", "ki points", "focus points",
+	"superiority dice", "bardic inspiration", "wild shape", "arcane recovery",
+]);
 
 /** Format a class-table cell (string / number / `{type:"dice"|"bonus"|"bonusSpeed"}`) to display text, or null. */
 function _fmtResourceCell (cell) {
@@ -462,11 +496,17 @@ function _flattenSpellEntries (spells) {
 }
 
 /**
- * Per-level class resources read straight from the class/subclass table columns — e.g. Rages,
- * Rage Damage, Weapon Mastery count, Sneak Attack dice, Martial Arts die, Ki/Focus/Sorcery Points,
- * Channel Divinity, Wild Shape, Bardic Die, Invocations. Spell-slot/known/prepared columns are
- * skipped (handled by the spell panel). Data-driven, so it needs no per-class rules.
- * @return {Array<{label: string, value: string}>}
+ * Per-level class resources read straight from the class/subclass table columns.
+ *
+ * Each carries what kind of thing it is (see `_RESOURCE_SKIP_LABEL` above): `"uses"` for something
+ * spent and given back — Rages, Channel Divinity, Ki — and `"value"` for a number the character
+ * simply has, like Sneak Attack 2d6 or Rage Damage +2. Spell-slot and known/prepared columns are
+ * left to the spell panel, and columns that count *choices* are left to the pickers that ask them.
+ *
+ * `rest` says which rest returns a use, and is the one curated part: the class tables do not carry
+ * it. Data-driven otherwise, so it needs no per-class rules.
+ *
+ * @return {Array<{label: string, value: string, kind: string, rest: string|null}>}
  */
 export function getClassResources (clsOrSc, level) {
 	level = _clampLevel(level);
@@ -477,9 +517,19 @@ export function getClassResources (clsOrSc, level) {
 		if (!row) continue;
 		group.colLabels.forEach((rawLabel, i) => {
 			const label = _stripTags(rawLabel).trim();
-			if (!label || _RESOURCE_SKIP_LABEL.test(label)) return;
+			if (!label || _RESOURCE_SKIP_LABEL.test(label) || _RESOURCE_CHOICE_LABEL.test(label)) return;
+
 			const value = _fmtResourceCell(row[i]);
-			if (value != null) out.push({label, value});
+			if (value == null) return;
+
+			// A plain whole number is something you spend; a die, a bonus or a distance is not
+			const isUses = /^\d+$/.test(value);
+			out.push({
+				label,
+				value,
+				kind: isUses ? RESOURCE_KIND_USES : RESOURCE_KIND_VALUE,
+				rest: isUses ? (_RESOURCE_SHORT_REST.has(label.toLowerCase()) ? "short" : "long") : null,
+			});
 		});
 	}
 	return out;

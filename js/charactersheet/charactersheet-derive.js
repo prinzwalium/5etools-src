@@ -8,7 +8,7 @@ import {
 	PROF_STATE_EXPERTISE,
 	PROF_STATE_PROFICIENT,
 } from "./charactersheet-consts.js";
-import {getChosenFeatureEffects} from "./charactersheet-features.js";
+import {getChosenFeatureEffects, getChosenFeatureNames, getFeatureInitiativeParts} from "./charactersheet-features.js";
 import {PG_OPT_FEATURES, getItemCitation} from "./charactersheet-citations.js";
 import {getExpectedHp} from "./charactersheet-levelengine.js";
 import {getCarryMultiplier} from "./charactersheet-appearance.js";
@@ -53,7 +53,65 @@ export function formatBreakdown (parts, total, {isTotalValue = false} = {}) {
 function _fmtSigned (n) { return `${n >= 0 ? "+" : "\u2212"}${Math.abs(n)}`; }
 
 /**
- * Where an ability score came from: its base value plus every recorded increase.
+ * What worn gear does to an ability score.
+ *
+ * Two shapes, both the data's own (`ability` on an item):
+ *  - `{static: {str: 21}}` — a Belt of Giant Strength, a Headband of Intellect, an Amulet of Health.
+ *    The score *becomes* that number, and the item does nothing at all for somebody already at or
+ *    above it, which is why it is a floor rather than an assignment.
+ *  - `{str: 2}` — a flat increase: a Belt of Dwarvenkind, the Ioun Stones. Capped at 20, the rule
+ *    every one of them prints. (A handful in the books name a higher cap in their prose; the data
+ *    does not carry it, and 20 is the honest default rather than a guess per item.)
+ *
+ * Only while equipped, and only while attuned if the item asks for it — a belt in your pack makes
+ * nobody stronger, and every item in this family requires attunement.
+ */
+export function getItemAbilityEffects (state, abv) {
+	const adds = [];
+	const sets = [];
+	(state?.inventory || [])
+		.filter(it => it?.equipped && (!it.requiresAttunement || it.attuned))
+		.forEach(it => {
+			const ability = it.ability;
+			if (!ability || typeof ability !== "object") return;
+
+			const setTo = Number(ability.static?.[abv]) || 0;
+			if (setTo) sets.push({kind: "set", value: setTo, name: it.name, item: it});
+
+			const add = Number(ability[abv]) || 0;
+			if (add) adds.push({kind: "add", value: add, name: it.name, item: it});
+		});
+
+	// Increases first, then the floors — so a Belt of Giant Strength still does nothing to somebody
+	// an Ioun Stone has already carried past it, whichever order the two are worn in
+	return [...adds, ...sets];
+}
+
+/** The cap on a flat ability increase from an item, and the one every such item prints. */
+const _ITEM_ABILITY_MAX = 20;
+
+/** One gear effect applied to a running score. The single rule both the score and its parts fold. */
+function _applyItemAbilityEffect (score, effect) {
+	return effect.kind === "set"
+		? Math.max(score, effect.value)
+		: Math.min(_ITEM_ABILITY_MAX, score + effect.value);
+}
+
+/**
+ * An ability score as it actually is: what the character built, then what they are wearing.
+ *
+ * Everything that reads a score goes through here rather than `state.abil_*` — a Headband of
+ * Intellect that raised the number on the sheet but not the Arcana check under it would be worse
+ * than no headband. The *base* is still what the builder edits and what point buy counts; this is
+ * the number the rules use.
+ */
+export function getAbilityScore (state, abv) {
+	const base = Number(state?.[`abil_${abv}`]) || 10;
+	return getItemAbilityEffects(state, abv).reduce(_applyItemAbilityEffect, base);
+}
+
+/**
+ * Where an ability score came from: its base value, every recorded increase, and what is worn.
  * Increases are recorded in `abilityBonusLog` as they are applied, since scores are stored as
  * final values; anything applied before that log existed simply folds into "base".
  */
@@ -61,10 +119,27 @@ export function getAbilityScoreParts (state, abv) {
 	const score = Number(state[`abil_${abv}`]) || 10;
 	const log = (state.abilityBonusLog || []).filter(it => (it.bonuses || {})[abv]);
 	const applied = log.reduce((acc, it) => acc + (Number(it.bonuses[abv]) || 0), 0);
-	return [
+
+	const parts = [
 		{label: "Base", value: score - applied, isRaw: true},
 		...log.map(it => ({label: it.source, value: Number(it.bonuses[abv]) || 0})),
 	];
+
+	// Each gear part is written as the difference it actually makes, so the breakdown still adds up
+	// to the score above it — a "sets to 21" that contributed nothing shows as nothing
+	let running = score;
+	getItemAbilityEffects(state, abv).forEach(effect => {
+		const next = _applyItemAbilityEffect(running, effect);
+		if (next === running) return;
+		parts.push({
+			label: effect.kind === "set" ? `${effect.name} (sets to ${effect.value})` : effect.name,
+			value: next - running,
+			cite: getItemCitation(effect.item),
+		});
+		running = next;
+	});
+
+	return parts;
 }
 
 /** Total character level: the sum of class levels when structured class data exists, else the manual level field. */
@@ -80,7 +155,7 @@ export function getProfBonus (state) {
 }
 
 export function getAbilityModifier (state, abv) {
-	return Parser.getAbilityModNumber(Number(state[`abil_${abv}`]) || 10);
+	return Parser.getAbilityModNumber(getAbilityScore(state, abv));
 }
 
 /**
@@ -130,7 +205,12 @@ export function getConcentrationSaveDc (damage) {
 	return Math.max(CONCENTRATION_MIN_DC, Math.floor((Number(damage) || 0) / 2));
 }
 
-export function deriveCharacterSheet (state) {
+/**
+ * @param [opts.featureNames] Features the character has *gained* by levelling, which need the class
+ * files and so cannot be read from state alone. Passing them is what lets a Swashbuckler's Rakish
+ * Audacity reach Initiative; without them only chosen features (Fighting Styles, feats) are counted.
+ */
+export function deriveCharacterSheet (state, {featureNames = []} = {}) {
 	const totalLevel = getTotalLevel(state);
 	const pb = getProfBonus(state);
 	const magic = getEquippedMagicBonuses(state);
@@ -141,7 +221,7 @@ export function deriveCharacterSheet (state) {
 	CHAR_SHEET_ABILITIES.forEach(([abv]) => {
 		const mod = getAbilityModifier(state, abv);
 		abilities[abv] = {
-			score: Number(state[`abil_${abv}`]) || 10,
+			score: getAbilityScore(state, abv),
 			mod,
 			// An ability *check* is a d20 test, so exhaustion applies to it \u2014 but not to the modifier
 			// the rest of the sheet is built from (a save DC is not rolled, and is unaffected)
@@ -206,6 +286,13 @@ export function deriveCharacterSheet (state) {
 		: null;
 
 	const initMisc = Number(state.initMisc) || 0;
+	// Features that add to Initiative — a Swashbuckler's Charisma, a Bard's half proficiency. Each is
+	// its own part, because "Misc +4" explains nothing and this is the number people ask about
+	const initFeatureParts = getFeatureInitiativeParts(
+		[...featureNames, ...getChosenFeatureNames(state)],
+		{abilities: Object.fromEntries(CHAR_SHEET_ABILITIES.map(([abv]) => [abv, abilities[abv].mod])), pb},
+	);
+	const initFeatures = initFeatureParts.reduce((acc, it) => acc + it.value, 0);
 
 	return {
 		totalLevel,
@@ -219,9 +306,10 @@ export function deriveCharacterSheet (state) {
 			...skills.perception.parts,
 		),
 		// Initiative is a Dexterity check, so exhaustion drags it down too
-		initiative: abilities.dex.mod + initMisc + exhaustion,
+		initiative: abilities.dex.mod + initFeatures + initMisc + exhaustion,
 		initiativeParts: _mkParts(
 			{label: "Dexterity", value: abilities.dex.mod, isKeep: true, cite: "abilityModifier"},
+			...initFeatureParts,
 			{label: "Misc", value: initMisc},
 			partExhaustion,
 		),
@@ -438,7 +526,8 @@ export function getEncumbrance (state) {
 
 	return {
 		totalWeightLb: Math.round(totalWeightLb * 100) / 100,
-		capacityLb: (Number(state.abil_str) || 10) * 15 * carryMult,
+		// The effective score: a Belt of Giant Strength is mostly bought for what it lets you carry
+		capacityLb: getAbilityScore(state, "str") * 15 * carryMult,
 		isPowerfulBuild: carryMult > 1,
 	};
 }

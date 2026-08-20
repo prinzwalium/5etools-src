@@ -1,7 +1,7 @@
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_CONDITIONS, CHAR_SHEET_SKILLS} from "./charactersheet/charactersheet-consts.js";
 import {deriveCharacterSheet, formatBreakdown, getWeaponAttack} from "./charactersheet/charactersheet-derive.js";
 import {getInventoryItemMeta} from "./charactersheet/charactersheet-equipment.js";
-import {getChosenFeatureEffects, getFeatureInitiativeBonus} from "./charactersheet/charactersheet-features.js";
+import {getChosenFeatureEffects} from "./charactersheet/charactersheet-features.js";
 import {pGetUserItemSearchFiltered} from "./charactersheet/charactersheet-sources.js";
 import {CharacterSheetClassData} from "./charactersheet/charactersheet-classdata.js";
 import {CharacterClassPanel} from "./charactersheet/charactersheet-classpanel.js";
@@ -274,7 +274,7 @@ class CharacterSheetPage extends CharacterPageBase {
 	}
 
 	_renderDerived () {
-		const derived = deriveCharacterSheet(this._comp._getState());
+		const derived = deriveCharacterSheet(this._comp._getState(), {featureNames: this._featureNames || []});
 
 		document.getElementById("cs-pb").textContent = CharacterPageBase.fmtBonus(derived.pb);
 
@@ -302,15 +302,13 @@ class CharacterSheetPage extends CharacterPageBase {
 			eleHpMax.title = `Expected Max HP: ${formatBreakdown(exp.parts, exp.total, {isTotalValue: true})}${ptDiff}`;
 		}
 
-		const abilMods = Object.fromEntries(CHAR_SHEET_ABILITIES.map(([abv]) => [abv, derived.abilities[abv].mod]));
-		const initiative = derived.initiative + getFeatureInitiativeBonus(this._featureNames, {abilities: abilMods, pb: derived.pb});
+		// Rakish Audacity and Jack of All Trades are folded in by `deriveCharacterSheet` now, given the
+		// gained feature names it cannot read from state — each named in the breakdown rather than
+		// summed into one anonymous "Features" line
+		const initiative = derived.initiative;
 		const eleInit = document.getElementById("cs-initiative-roll");
 		eleInit.innerHTML = Renderer.get().render(`{@initiative ${initiative}|${CharacterPageBase.fmtBonus(initiative)}}`);
-		// Feature-driven initiative (Rakish Audacity, Jack of All Trades) is added on top of the derived parts
-		const initParts = [...derived.initiativeParts];
-		const featureInit = initiative - derived.initiative;
-		if (featureInit) initParts.push({label: "Features", value: featureInit});
-		CharacterPageBase.setBreakdownTitle(eleInit, "Initiative", initParts, initiative, {citeKind: "initiative"});
+		CharacterPageBase.setBreakdownTitle(eleInit, "Initiative", derived.initiativeParts, initiative, {citeKind: "initiative"});
 
 		const eleDc = document.getElementById("cs-spell-dc");
 		const eleAtk = document.getElementById("cs-spell-atk");

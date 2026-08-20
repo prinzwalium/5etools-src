@@ -169,6 +169,29 @@ export class CharacterSheetClassData {
 		})();
 	}
 
+	static _pAllActions = null;
+
+	/**
+	 * The general actions — Dash, Dodge, Hide, Ready, Two-Weapon Fighting.
+	 *
+	 * From the book's own file, because the two editions differ in ways nobody should be keeping in
+	 * their head: 2024 split Search into Study and Influence, and moved Grapple and Shove onto the
+	 * Unarmed Strike. Brew is included, so a table that has written its own action gets it too.
+	 */
+	static pGetAllActions () {
+		return this._pAllActions ||= (async () => {
+			const page = UrlUtil.PG_ACTIONS;
+			return [
+				...(await DataLoader.pCacheAndGetAllSite(page)),
+				...(await DataLoader.pCacheAndGetAllPrerelease(page)),
+				...(await DataLoader.pCacheAndGetAllBrew(page)),
+			].filter(it => {
+				const hash = UrlUtil.URL_TO_HASH_BUILDER[page](it);
+				return !ExcludeUtil.isExcluded(hash, "action", it.source);
+			});
+		})();
+	}
+
 	static _pAllFeats = null;
 
 	/** All feats (site + prerelease + brew), blocklist-filtered and sorted. */

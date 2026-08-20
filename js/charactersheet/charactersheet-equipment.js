@@ -56,6 +56,9 @@ export function getInventoryItemMeta (ent) {
 	const bonusSavingThrow = parseItemBonus(ent.bonusSavingThrow);
 	if (bonusSavingThrow) out.bonusSavingThrow = bonusSavingThrow;
 	if (ent.reqAttune) out.requiresAttunement = true;
+	// What the item does to an ability score, in the data's own shape: `{static: {str: 21}}` for a
+	// Belt of Giant Strength, `{con: 2}` for a Belt of Dwarvenkind. Read by `getAbilityScore`
+	if (ent.ability && typeof ent.ability === "object") out.ability = ent.ability;
 	// Wands, staves, rings of spell storing, ... — enough to make the character a spell user
 	if (ent.attachedSpells) out.grantsSpells = true;
 	// What the item defends against while worn, kept in the data's own shape so one reader serves

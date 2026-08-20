@@ -96,20 +96,36 @@ export function getChosenFeatureEffects (state) {
 }
 
 /**
- * Total Initiative bonus from the character's features.
+ * What each feature adds to Initiative, as its own breakdown part.
+ *
+ * One part per feature rather than one total, because Initiative is the number people most often
+ * ask to have explained, and "Misc +4" answers nothing. A part with no value is dropped: a
+ * Swashbuckler with Charisma 10 gains nothing from Rakish Audacity, and saying "+0" is noise.
+ *
  * @param featureNames the character's feature names (gained + chosen)
  * @param ctx `{abilities: {abv: mod}, pb}`
+ * @return {Array<{label: string, value: number}>}
  */
-export function getFeatureInitiativeBonus (featureNames, {abilities = {}, pb = 0} = {}) {
-	let bonus = 0;
+export function getFeatureInitiativeParts (featureNames, {abilities = {}, pb = 0} = {}) {
+	const out = [];
 	const seen = new Set();
 	(featureNames || []).forEach(name => {
 		if (seen.has(name)) return;
 		seen.add(name);
 		const eff = FEATURE_EFFECTS[name];
 		if (!eff) return;
-		if (eff.initiativeAbility) bonus += Number(abilities[eff.initiativeAbility]) || 0;
-		if (eff.initiativeHalfProf) bonus += Math.floor(pb / 2);
+
+		if (eff.initiativeAbility) out.push({label: name, value: Number(abilities[eff.initiativeAbility]) || 0});
+		if (eff.initiativeHalfProf) out.push({label: name, value: Math.floor(pb / 2)});
 	});
-	return bonus;
+	return out.filter(it => it.value);
+}
+
+/**
+ * Total Initiative bonus from the character's features.
+ * @param featureNames the character's feature names (gained + chosen)
+ * @param ctx `{abilities: {abv: mod}, pb}`
+ */
+export function getFeatureInitiativeBonus (featureNames, ctx) {
+	return getFeatureInitiativeParts(featureNames, ctx).reduce((acc, it) => acc + it.value, 0);
 }
