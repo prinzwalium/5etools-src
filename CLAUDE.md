@@ -80,6 +80,9 @@ only `walk` cost thirty-two species the movement that defines them. A creature t
 `reprintedAs`; `filterReprinted` (in `sources`) drops one when its reprint is also on offer, applied
 *after* the source filter so a 2014-only filter keeps the 2014 printing. A `{uid, tag}` reprint into
 a different kind of thing never matches, which is what keeps a dragonmark subrace pickable.
+It is applied to the **feat** picker only (`_filterReprints`). A class is reprinted too — the 2014
+Fighter names the 2024 one — and hiding it would take every 2014 class off the menu; upstream draws
+the same line, deselecting reprints on its feat/species/background pages and not on its class page.
 
 ### Feats
 

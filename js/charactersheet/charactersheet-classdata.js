@@ -23,13 +23,23 @@ export class CharacterSheetClassData {
 
 	static setSourceFilter (fn) { this._fnSourceFilter = fn || null; }
 
-	/**
-	 * What a picker may offer: the character's allowed sources, minus anything a later printing in
-	 * that same set supersedes. Order matters — see `filterReprinted`.
-	 */
 	static _filterBySource (arr) {
-		const allowed = this._fnSourceFilter ? arr.filter(it => this._fnSourceFilter(it.source)) : arr;
-		return filterReprinted(allowed);
+		if (!this._fnSourceFilter) return arr;
+		return arr.filter(it => this._fnSourceFilter(it.source));
+	}
+
+	/**
+	 * A picker's list with earlier printings dropped, applied *after* the source filter so a
+	 * 2014-only filter keeps the 2014 printing.
+	 *
+	 * Deliberately not applied to everything. A **class** is reprinted too — the 2014 Fighter names
+	 * the 2024 one — and hiding it would take every 2014 class off the menu, which is a choice a
+	 * player makes rather than a duplicate to tidy away. Upstream draws the same line: its feat,
+	 * species and background pages deselect reprints by default and its class page does not, because
+	 * picking a class from thirteen names is not a list anybody is lost in.
+	 */
+	static _filterReprints (arr) {
+		return filterReprinted(arr);
 	}
 
 	static _pAllClasses = null;
@@ -202,7 +212,7 @@ export class CharacterSheetClassData {
 
 	/** All feats (site + prerelease + brew), blocklist-filtered and sorted. */
 	static async pGetAllFeats () {
-		return this._filterBySource(await this.pGetAllFeatsUnfiltered());
+		return this._filterReprints(this._filterBySource(await this.pGetAllFeatsUnfiltered()));
 	}
 
 	static pGetAllFeatsUnfiltered () {
