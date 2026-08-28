@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import "../../js/parser.js";
-import {HP_MODE_AVERAGE, HP_MODE_MAX, HP_MODE_ROLLED, checkFeatPrerequisites, getAsiCount, getCantripsKnown, getCasterLevelContribution, getClassResources, getDynamicSpellGrants, getExpertiseSkillCount, getFeatProgressionCounts, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getHitDieAverage, getHitPointMaximum, getLevelUpHp, getMulticlassRequirementsDisplay, getOptionalFeatureCounts, getPactSlots, getPreparedSpellCount, getPreparedSpellsDisplay, getPrimaryAbilities, getSingleClassSlots, getSpellGrantGroups, getSpellcastingMeta, getSpellsKnown, isMulticlassRequirementMet, isSpellMatchingFilter, parseSpellFilter} from "../../js/charactersheet/charactersheet-levelengine.js";
+import {HP_MODE_AVERAGE, HP_MODE_MAX, HP_MODE_ROLLED, checkFeatPrerequisites, getAsiCount, getCantripsKnown, getCasterLevelContribution, getClassResources, getDynamicSpellGrants, getExpertiseSkillCount, getFeatProgressionCounts, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getHitDieAverage, getHitPointMaximum, getLevelUpHp, getMulticlassRequirementsDisplay, getOptionalFeatureCounts, getPactSlots, getPreparedSpellCount, getPreparedSpellsDisplay, getPrimaryAbilities, getResourceCostLabel, matchResourceLabel, getSingleClassSlots, getSpellGrantGroups, getSlotLevelUnlockLevel, getSpellbookSize, getSpellcastingMeta, getSpellsKnown, isMulticlassRequirementMet, isSpellMatchingFilter, parseSpellFilter} from "../../js/charactersheet/charactersheet-levelengine.js";
 
 const loadClassFile = name => JSON.parse(fs.readFileSync(`./data/class/class-${name}.json`, "utf8"));
 
@@ -727,5 +727,165 @@ describe("innate spell grants", () => {
 	it("Says nothing for an entity with no innate grants", () => {
 		expect(getInnateSpellGrants({}, 5)).toEqual([]);
 		expect(getInnateSpellGrants(null, 5)).toEqual([]);
+	});
+});
+
+/*
+ * A patron's expanded spells, and everything else keyed by *slot* level rather than class level.
+ * All twelve Warlock patrons state their list as `s1`-`s5`, and the 2024 Bard's Magical Secrets as
+ * `s6`-`s9`, because that is the rule: the list grows as the slot does. A reader that understood
+ * only class levels skipped every one, so a patron contributed nothing at all.
+ */
+describe("spells keyed by slot level", () => {
+	// Pact slots: 1st at level 1, 2nd at 3, 3rd at 5 — the shape that decides when a patron's
+	// spells arrive
+	const WARLOCK = {
+		name: "Warlock",
+		casterProgression: "pact",
+		classTableGroups: [{
+			colLabels: ["Spell Slots", "Slot Level"],
+			rows: [[1, "{@filter 1st|spells|level=1}"], [2, "{@filter 1st|spells|level=1}"], [2, "{@filter 2nd|spells|level=2}"], [2, "{@filter 2nd|spells|level=2}"], [2, "{@filter 3rd|spells|level=3}"]],
+		}],
+	};
+	const ARCHFEY = {
+		name: "Archfey",
+		additionalSpells: [{expanded: {s1: ["faerie fire", "sleep"], s2: ["calm emotions"], s3: ["blink"]}}],
+	};
+
+	const uidsAt = level => getDynamicSpellGrants(ARCHFEY, level, {slotSource: WARLOCK})
+		.filter(it => it.type === "expanded")
+		.flatMap(it => it.from || []);
+
+	it("Reads the class level at which a slot arrives", () => {
+		expect(getSlotLevelUnlockLevel(WARLOCK, 1)).toBe(1);
+		expect(getSlotLevelUnlockLevel(WARLOCK, 2)).toBe(3);
+		expect(getSlotLevelUnlockLevel(WARLOCK, 3)).toBe(5);
+	});
+
+	it("Says nothing for a slot the class never reaches", () => {
+		expect(getSlotLevelUnlockLevel(WARLOCK, 9)).toBeNull();
+	});
+
+	it("Adds a patron's spells as the slot grows", () => {
+		expect(uidsAt(1).sort()).toEqual(["faerie fire", "sleep"]);
+		expect(uidsAt(3).sort()).toEqual(["calm emotions", "faerie fire", "sleep"]);
+		expect(uidsAt(5)).toContain("blink");
+	});
+
+	it("Holds back a list whose slot has not arrived", () => {
+		expect(uidsAt(2)).not.toContain("calm emotions");
+	});
+
+	it("Widens the learnable list rather than granting the spells", () => {
+		// An expanded spell is one the character may learn. A Genie warlock is not walking around
+		// always prepared to cast Wish
+		expect(getGrantedSpellUids(ARCHFEY, 20)).toEqual([]);
+		expect(getGrantedSpellUids({additionalSpells: [{expanded: {9: ["wish"]}}]}, 9)).toEqual([]);
+		expect(getDynamicSpellGrants(ARCHFEY, 5, {slotSource: WARLOCK}).every(it => it.type === "expanded")).toBe(true);
+	});
+
+	it("Reads a full caster's slot table the same way", () => {
+		const bard = {name: "Bard", casterProgression: "full", classTableGroups: [{rowsSpellProgression: [
+			[2], [3], [4, 2], [4, 3], [4, 3, 2],
+		]}]};
+		expect(getSlotLevelUnlockLevel(bard, 1)).toBe(1);
+		expect(getSlotLevelUnlockLevel(bard, 2)).toBe(3);
+		expect(getSlotLevelUnlockLevel(bard, 3)).toBe(5);
+	});
+});
+
+/*
+ * The Wizard's spellbook. `spellsKnownProgressionFixed` is what each level *adds* — six at 1st and
+ * two per level after — and it is not the prepared count, which is a different number doing a
+ * different job. Only the prepared one was read, so the book had no size.
+ */
+describe("the spellbook", () => {
+	const WIZARD = {
+		name: "Wizard",
+		spellsKnownProgressionFixed: [6, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+		spellsKnownProgressionFixedAllowLowerLevel: true,
+		preparedSpellsProgression: [4, 5, 6, 7, 9, 10, 11, 12, 14, 15],
+	};
+
+	it("Is the running total, not the level's own gain", () => {
+		expect(getSpellbookSize(WIZARD, 1)).toBe(6);
+		expect(getSpellbookSize(WIZARD, 2)).toBe(8);
+		expect(getSpellbookSize(WIZARD, 9)).toBe(22);
+		expect(getSpellbookSize(WIZARD, 20)).toBe(44);
+	});
+
+	it("Is a different limit from what may be prepared", () => {
+		expect(getSpellbookSize(WIZARD, 5)).toBe(14);
+		expect(getPreparedSpellCount(WIZARD, 5)).toBe(9);
+	});
+
+	it("Says nothing for a class with no book", () => {
+		expect(getSpellbookSize({name: "Cleric", preparedSpellsProgression: [4]}, 5)).toBeNull();
+		expect(getSpellbookSize(null, 5)).toBeNull();
+	});
+});
+
+/*
+ * What a feature costs. `consumes` is on 137 features and was read by nothing; what stood in its
+ * place was a nine-name map that knew Flurry of Blows and no subclass at all.
+ */
+describe("resource costs", () => {
+	it("Matches a feature's shorthand to the table's own column", () => {
+		const labels = ["Ki Points", "Rages", "Sorcery Points", "Psionic Energy Dice", "Channel Divinity"];
+		expect(matchResourceLabel("Ki", labels)).toBe("Ki Points");
+		expect(matchResourceLabel("Sorcery Point", labels)).toBe("Sorcery Points");
+		expect(matchResourceLabel("Psionic Energy Die", labels)).toBe("Psionic Energy Dice");
+		expect(matchResourceLabel("Channel Divinity", labels)).toBe("Channel Divinity");
+	});
+
+	it("Finds nothing when the character holds no such pool", () => {
+		expect(matchResourceLabel("Ki", ["Rages"])).toBeNull();
+		expect(matchResourceLabel(null, ["Rages"])).toBeNull();
+	});
+
+	it("Says a pool cost in units of the pool", () => {
+		expect(getResourceCostLabel({resource: "Ki", amount: 1})).toBe("1 Ki Point");
+		expect(getResourceCostLabel({resource: "Ki", amount: 2})).toBe("2 Ki Points");
+		expect(getResourceCostLabel({resource: "Psionic Energy Die", amount: 2})).toBe("2 Psionic Energy Dice");
+	});
+
+	it("Says a self-limiting feature's cost in uses of itself", () => {
+		expect(getResourceCostLabel({resource: "Channel Divinity", amount: 1})).toBe("1 use of Channel Divinity");
+		expect(getResourceCostLabel({resource: "Wild Shape", amount: 2})).toBe("2 uses of Wild Shape");
+	});
+
+	it("Says a range as a range", () => {
+		expect(getResourceCostLabel({resource: "Sorcery Point", amount: 1, amountMin: 1, amountMax: 5}))
+			.toBe("1–5 Sorcery Points");
+	});
+});
+
+/*
+ * The Psi Warrior and the Soulknife have a subclass table headed "Die Size" and "Number", neither
+ * of which names the pool — so both columns were skipped and fifteen features spent a resource the
+ * character did not have. The name is in the features that spend it.
+ */
+describe("a pool the table does not name", () => {
+	const PSI_WARRIOR = {
+		name: "Psi Warrior",
+		subclassTableGroups: [{
+			colLabels: ["Die Size", "Number"],
+			rows: [["{@dice D6}", 4], ["{@dice D6}", 4], ["{@dice D8}", 6]],
+		}],
+		subclassFeatures: [[{name: "Psionic Strike", consumes: {name: "Psionic Energy Die"}}]],
+	};
+
+	it("Names it from the features that spend it", () => {
+		const res = getClassResources(PSI_WARRIOR, 3);
+		expect(res).toContainEqual({label: "Psionic Energy Dice", value: "6", kind: "uses", rest: "long"});
+	});
+
+	it("Still leaves the unnamed columns out of the list", () => {
+		expect(getClassResources(PSI_WARRIOR, 3).map(it => it.label)).toEqual(["Psionic Energy Dice"]);
+	});
+
+	it("Leaves an ordinary table alone", () => {
+		const monk = {classTableGroups: [{colLabels: ["Ki Points"], rows: [[2], [3]]}]};
+		expect(getClassResources(monk, 2)).toEqual([{label: "Ki Points", value: "3", kind: "uses", rest: "short"}]);
 	});
 });

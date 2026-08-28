@@ -19,7 +19,14 @@ export const AVAIL_BLOCKED = "blocked";
 /** Conditions under which a creature takes no actions, bonus actions or reactions at all. */
 export const CONDITIONS_NO_ACTIONS = ["Incapacitated", "Paralyzed", "Petrified", "Stunned", "Unconscious"];
 
-/** A feature's name as the economy knows it → the class-table resource that limits its uses. */
+/**
+ * A feature's name as the economy knows it → the class-table resource that limits its uses.
+ *
+ * Only the ones the data cannot say. A feature that spends *another* feature's pool says so in its
+ * own `consumes`, and that arrives on the entry as `cost`; what is left here is the handful whose
+ * limit is a column of the same name — Rage is limited by Rages — which no `consumes` states
+ * because there is nothing to state.
+ */
 const _FEATURE_TO_RESOURCE = {
 	"Rage": "Rages",
 	"Second Wind": "Second Wind",
@@ -27,9 +34,6 @@ const _FEATURE_TO_RESOURCE = {
 	"Channel Divinity": "Channel Divinity",
 	"Wild Shape": "Wild Shape",
 	"Bardic Inspiration": "Bardic Inspiration",
-	"Flurry of Blows": "Ki Points",
-	"Patient Defense": "Ki Points",
-	"Step of the Wind": "Ki Points",
 };
 
 /**
@@ -129,6 +133,22 @@ export function getEntryAvailability (item, ctx) {
 		}
 
 		case "feature": {
+			// What the feature itself says it spends, and how much of it — a Way of Mercy monk's Hand
+			// of Healing costs one Focus Point, Hand of Ultimate Mercy costs five, and a pool with
+			// four left can pay for one and not the other
+			if (item.cost?.label) {
+				const pool = ctx.resources?.[item.cost.label];
+				const need = Math.max(1, Number(item.cost.amount) || 1);
+				if (pool && pool.total && pool.total - pool.used < need) {
+					const left = Math.max(0, pool.total - pool.used);
+					return {
+						status: AVAIL_BLOCKED,
+						reason: left ? `Needs ${need} ${item.cost.label}, ${left} left` : `No ${item.cost.label.toLowerCase()} left`,
+					};
+				}
+				return {status: AVAIL_OK, reason: null};
+			}
+
 			const label = _FEATURE_TO_RESOURCE[item.label];
 			const res = label ? ctx.resources?.[label] : null;
 			if (res && res.total && res.used >= res.total) {

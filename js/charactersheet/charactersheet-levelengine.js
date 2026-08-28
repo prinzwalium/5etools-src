@@ -362,16 +362,77 @@ export function getWeaponMasteryCount (cls, level) {
 }
 
 /**
+ * How many spells a class's book holds at `level`, from `spellsKnownProgressionFixed`.
+ *
+ * The Wizard, and only the Wizard: `[6, 2, 2, …]` is what each level *adds* — six at 1st and two
+ * per level after — so the book is the running total, twenty-two spells at 9th. It is not the
+ * prepared count and never was; a Wizard prepares from the book, and the two limits are different
+ * numbers doing different jobs. Only the prepared one was read, so the book had no size at all and
+ * the two spells a level brings were never asked for.
+ *
+ * `spellsKnownProgressionFixedAllowLowerLevel` says a pick may be of any level the class can cast
+ * rather than only the newest — true for the Wizard, and the reason this is a plain count rather
+ * than a per-spell-level allowance.
+ *
+ * @return {?number} null for a class with no book.
+ */
+export function getSpellbookSize (cls, level) {
+	const byLevel = cls?.spellsKnownProgressionFixed;
+	if (!Array.isArray(byLevel) || !byLevel.length) return null;
+
+	return byLevel
+		.slice(0, _clampLevel(level))
+		.reduce((acc, n) => acc + (Number(n) || 0), 0);
+}
+
+/**
+ * The class level at which a class first has a spell slot of `slotLevel`.
+ *
+ * `additionalSpells` keys some of its lists by *slot* level rather than class level — `s1` to `s5`
+ * on all twelve Warlock patrons, `s6` to `s9` on the 2024 Bard's Magical Secrets — because that is
+ * how the books state the rule: the patron's spells arrive as the pact slot grows, not on a
+ * schedule of their own. A reader that only understood class levels skipped every one of them, so
+ * a patron contributed nothing at all to what a Warlock could learn.
+ *
+ * Answered from the class's own slot table, so it stays right for a pact caster (whose slots climb
+ * one level at a time) and a full caster alike.
+ *
+ * @return {?number} the class level, or null if the class never gets a slot that high.
+ */
+export function getSlotLevelUnlockLevel (cls, slotLevel) {
+	const want = Number(slotLevel);
+	if (!want) return null;
+
+	for (let lvl = 1; lvl <= 20; ++lvl) {
+		const pact = getPactSlots(cls, lvl);
+		if (pact?.count && pact.level >= want) return lvl;
+
+		const slots = getSingleClassSlots(cls, lvl);
+		if (slots && (Number(slots[want - 1]) || 0) > 0) return lvl;
+	}
+	return null;
+}
+
+/** `"s6"` → 6, for the slot-level keys; null for anything else. */
+const _getSlotLevelKey = lk => {
+	const m = /^s(\d+)$/.exec(String(lk));
+	return m ? Number(m[1]) : null;
+};
+
+/**
  * Spell uids ("cure wounds|phb") a class/subclass grants automatically via `additionalSpells`
- * (domain/patron/circle spells, always-prepared or expanded lists) up to `level`. Only the
- * numeric class-level keys and plain uid entries are returned; dynamic `{choose}`/`{all}` filter
- * entries and spell-slot-keyed (`s6`) grants are skipped.
+ * (a domain's always-prepared list, a circle's) up to `level`. Only the numeric class-level keys
+ * and plain uid entries are returned; dynamic `{choose}`/`{all}` filter entries are skipped.
+ *
+ * The `expanded` bucket is deliberately **not** read here. An expanded spell is one the class may
+ * *learn*, not one it is given — a Genie warlock does not walk around with Wish always prepared —
+ * so it belongs to the learnable pool, which is {@link getDynamicSpellGrants}' business.
  */
 export function getGrantedSpellUids (clsOrSc, level) {
 	level = _clampLevel(level);
 	const out = [];
 	(clsOrSc?.additionalSpells || []).forEach(grp => {
-		["prepared", "known", "expanded", "innate"].forEach(bucket => {
+		["prepared", "known", "innate"].forEach(bucket => {
 			const byLevel = grp[bucket];
 			if (!byLevel || typeof byLevel !== "object") return;
 			Object.entries(byLevel).forEach(([lk, spells]) => {
@@ -534,7 +595,9 @@ export function getInnateSpellCastingNote (grant) {
  */
 function _getResourceNoun (name, amount) {
 	const full = ({"Ki": "Ki Point"})[name] || name || "resource";
-	return amount === 1 || /s$/.test(full) ? full : `${full}s`;
+	if (amount === 1 || /s$/.test(full)) return full;
+	// "Psionic Energy Die" → "Psionic Energy Dice"; everything else the books name takes a plain s
+	return /\bdie$/i.test(full) ? full.replace(/die$/i, "Dice") : `${full}s`;
 }
 
 /**
@@ -574,14 +637,21 @@ export function isSpellMatchingFilter (spell, filter) {
  * the learnable pool rather than granting spells outright.
  *
  * `choose` grants (found in the prepared/known/innate buckets) are picks: `count` spells matching
- * `filter`, or chosen from an explicit `from` uid list. `all` grants appear only in the `expanded`
- * bucket, where they mean "these spells become available to learn" (e.g. a Bard's Magical Secrets) —
- * they are reported as `type: "expanded"` and must never be auto-added.
+ * `filter`, or chosen from an explicit `from` uid list. The whole `expanded` bucket means "these
+ * spells become available to learn" — a patron's list, a Bard's Magical Secrets — so everything in
+ * it is reported as `type: "expanded"` and must never be auto-added, whether it is stated as a
+ * filter (`{all}`) or as plain uids.
  *
+ * **Slot-level keys.** `s1`–`s9` key a list by the *spell slot* that unlocks it rather than by
+ * class level, which is how every Warlock patron and the 2024 Bard state their lists. They are
+ * resolved against `slotSource`'s slot table — a subclass has none of its own, so the parent class
+ * is passed in — and skipped only if that class never reaches the slot.
+ *
+ * @param [opts.slotSource] the class whose slot table resolves `s1`–`s9` keys; defaults to `clsOrSc`.
  * @return {Array<{id: string, type: "choose"|"expanded", bucket: string, atLevel: number, count: number,
  *                 filter: object|null, from: string[]|null}>}
  */
-export function getDynamicSpellGrants (clsOrSc, level) {
+export function getDynamicSpellGrants (clsOrSc, level, {slotSource = null} = {}) {
 	level = _clampLevel(level);
 	const out = [];
 	(clsOrSc?.additionalSpells || []).forEach((grp, ixGrp) => {
@@ -589,32 +659,45 @@ export function getDynamicSpellGrants (clsOrSc, level) {
 			const byLevel = grp[bucket];
 			if (!byLevel || typeof byLevel !== "object") return;
 			Object.entries(byLevel).forEach(([lk, spells]) => {
-				// `_` means "always", used by feats and other level-less sources; `s6`-style
-				// spell-slot keys are not class levels and are skipped.
-				const atLevel = lk === "_" ? 0 : Number(lk);
-				if (isNaN(atLevel) || atLevel > level) return;
+				// `_` means "always", used by feats and other level-less sources
+				const slotLevel = _getSlotLevelKey(lk);
+				const atLevel = slotLevel != null
+					? getSlotLevelUnlockLevel(slotSource || clsOrSc, slotLevel)
+					: (lk === "_" ? 0 : Number(lk));
+				if (atLevel == null || isNaN(atLevel) || atLevel > level) return;
+
+				const base = ixSp => ({
+					id: `${ixGrp}:${bucket}:${lk}:${ixSp}`,
+					bucket,
+					atLevel,
+					// Alternative grant groups are distinguished by name (Magic Initiate's
+					// "Bard Spells" / "Cleric Spells" / ...): the player picks one group.
+					groupIndex: ixGrp,
+					groupName: grp.name || null,
+				});
+
+				// Plain uids in the `expanded` bucket are a list of spells this class may now learn.
+				// Reading them as grants is what had a Genie warlock always prepared to cast Wish
+				const uids = _flattenSpellEntries(spells)
+					.filter(sp => typeof sp === "string")
+					.map(sp => sp.split("#")[0].toLowerCase());
+				if (bucket === "expanded" && uids.length) {
+					out.push({...base("uids"), type: "expanded", count: 0, filter: null, from: uids});
+				}
+
 				_flattenSpellEntries(spells).forEach((sp, ixSp) => {
 					if (!sp || typeof sp !== "object") return;
-					const base = {
-						id: `${ixGrp}:${bucket}:${lk}:${ixSp}`,
-						bucket,
-						atLevel,
-						// Alternative grant groups are distinguished by name (Magic Initiate's
-						// "Bard Spells" / "Cleric Spells" / ...): the player picks one group.
-						groupIndex: ixGrp,
-						groupName: grp.name || null,
-					};
 					if (sp.choose != null) {
 						const isList = typeof sp.choose === "object";
 						out.push({
-							...base,
+							...base(ixSp),
 							type: "choose",
 							count: Number(sp.count ?? (isList ? sp.choose.count : null)) || 1,
 							filter: isList ? null : parseSpellFilter(sp.choose),
 							from: isList ? (sp.choose.from || []).map(uid => String(uid).split("#")[0].toLowerCase()) : null,
 						});
 					} else if (sp.all != null) {
-						out.push({...base, type: "expanded", count: 0, filter: parseSpellFilter(sp.all), from: null});
+						out.push({...base(ixSp), type: "expanded", count: 0, filter: parseSpellFilter(sp.all), from: null});
 					}
 				});
 			});
@@ -682,8 +765,106 @@ export function getClassResources (clsOrSc, level) {
 				rest: isUses ? (_RESOURCE_SHORT_REST.has(label.toLowerCase()) ? "short" : "long") : null,
 			});
 		});
+
+		const pool = _getUnnamedDicePool(clsOrSc, group, row);
+		if (pool) out.push(pool);
 	}
 	return out;
+}
+
+/**
+ * A pool of dice whose table columns do not name it.
+ *
+ * The 2024 Psi Warrior and Soulknife have a two-column subclass table headed "Die Size" and
+ * "Number" — the size of a Psionic Energy Die and how many you have — and neither heading is the
+ * resource's name, so both columns were being skipped as choice counters and the character ended up
+ * with fifteen features that spend a pool they do not have. The name is not missing from the data,
+ * only from the table: the features that spend it say what it is called, in `consumes`.
+ *
+ * Recognised by the shape of the group rather than by which subclass it is, because that is what
+ * the two have in common.
+ */
+function _getUnnamedDicePool (clsOrSc, group, row) {
+	const labels = (group.colLabels || []).map(it => _stripTags(it).trim().toLowerCase());
+	const ixNumber = labels.indexOf("number");
+	if (ixNumber < 0 || labels.indexOf("die size") < 0) return null;
+
+	const value = _fmtResourceCell(row[ixNumber]);
+	if (value == null || !/^\d+$/.test(value)) return null;
+
+	const name = _getConsumedResourceNames(clsOrSc)[0];
+	if (!name) return null;
+
+	return {label: _getResourceNoun(name, 2), value, kind: RESOURCE_KIND_USES, rest: "long"};
+}
+
+/** The distinct resources an entity's own features spend, in the order the data lists them. */
+function _getConsumedResourceNames (clsOrSc) {
+	const out = [];
+	const walk = node => {
+		if (Array.isArray(node)) return node.forEach(walk);
+		if (!node || typeof node !== "object") return;
+		const name = node.consumes?.name;
+		if (name && !out.includes(name)) out.push(name);
+	};
+	walk(clsOrSc?.classFeatures);
+	walk(clsOrSc?.subclassFeatures);
+	return out;
+}
+
+/**
+ * One comparable key for a resource, whichever way it is spelled.
+ *
+ * A feature's `consumes` writes the resource in the singular shorthand the sentence needs — "Ki",
+ * "Sorcery Point", "Psionic Energy Die" — and the class table writes the column heading — "Ki
+ * Points", "Sorcery Points", "Psionic Energy Dice". They are the same pool, and a naive string
+ * match finds none of them. Both sides go through this rather than either side being curated.
+ */
+function _getResourceKey (name) {
+	return String(name || "")
+		.toLowerCase()
+		.replace(/\bdice\b/g, "die")
+		.replace(/\bpoints?\b/g, "")
+		.replace(/s\b/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+/**
+ * The label under which a character actually holds the resource a feature names, or null when they
+ * hold no such pool — a Psi Warrior from Tasha's, whose dice are stated in prose rather than in a
+ * table, has no column to match.
+ *
+ * @param name a `consumes.name`, e.g. "Ki".
+ * @param labels the labels the character's resources are keyed by, e.g. ["Ki Points", "Rages"].
+ */
+export function matchResourceLabel (name, labels) {
+	if (!name) return null;
+	const want = _getResourceKey(name);
+	return (labels || []).find(label => _getResourceKey(label) === want) || null;
+}
+
+/**
+ * What a feature costs, in words.
+ *
+ * Two shapes, because the book uses two: a pool of countable things is spent in units of itself
+ * ("2 Ki Points", "1 Psionic Energy Die"), while a feature that is its own limit is spent in *uses*
+ * of itself ("one use of Channel Divinity"). Which one applies is visible in the name.
+ *
+ * @param cost a `getFeatureCost` result.
+ */
+export function getResourceCostLabel (cost) {
+	if (!cost?.resource) return null;
+
+	// On the noun rather than the raw name, so "Ki" is recognised as the pool of Ki Points it is
+	const isPool = /\b(point|die)$/i.test(_getResourceNoun(cost.resource, 1));
+	const amount = cost.amountMax != null
+		? `${cost.amountMin}–${cost.amountMax}`
+		: `${cost.amount}`;
+	const isPlural = cost.amountMax != null || cost.amount !== 1;
+
+	if (!isPool) return `${amount} use${isPlural ? "s" : ""} of ${cost.resource}`;
+	return `${amount} ${_getResourceNoun(cost.resource, isPlural ? 2 : 1)}`;
 }
 
 /**

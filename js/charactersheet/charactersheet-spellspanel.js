@@ -1,5 +1,5 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
-import {getCantripsKnown, getDynamicSpellGrants, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getPreparedSpellCount, getSpellcastingMeta, getSpellsKnown, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
+import {getCantripsKnown, getDynamicSpellGrants, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getPreparedSpellCount, getSpellbookSize, getSpellcastingMeta, getSpellsKnown, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, getAbilityModifier, hasSpellcasting} from "./charactersheet-derive.js";
 import {getSpellSummary, normaliseCastTime} from "./charactersheet-actions.js";
 
@@ -123,7 +123,9 @@ export class CharacterSpellsPanel {
 				if (!ent) return;
 				// Mystic Arcanum and its like are picks at a fixed spell level, expressed in the same
 				// shape so this one chooser resolves both
-				[...getDynamicSpellGrants(ent, entry.level), ...getFixedSpellsKnownGrants(ent, entry.level)].forEach(grant => {
+				// The class's slot table answers a subclass's `s1`-`s5` keys: a patron's expanded list
+				// arrives as the pact slot grows, and the subclass has no table of its own
+				[...getDynamicSpellGrants(ent, entry.level, {slotSource: cls}), ...getFixedSpellsKnownGrants(ent, entry.level)].forEach(grant => {
 					out.push({
 						...grant,
 						grantKey: `${entry.id}:${entName}:${grant.id}`,
@@ -134,6 +136,25 @@ export class CharacterSpellsPanel {
 			});
 		});
 		return out;
+	}
+
+	/**
+	 * The spells a class's subclass has *widened its list with* — the `expanded` bucket.
+	 *
+	 * Expanded is not granted: these are spells the character may now learn, which is why they are
+	 * merged into the browser rather than into the always-prepared list. Twelve Warlock patrons put
+	 * their entire list here, and every one of them was unreachable.
+	 */
+	async _pGetExpandedSpells ({entry, cls, sc}) {
+		const grants = [cls, sc]
+			.filter(Boolean)
+			.flatMap(ent => getDynamicSpellGrants(ent, entry.level, {slotSource: cls}))
+			.filter(grant => grant.type === "expanded");
+		if (!grants.length) return [];
+
+		const out = [];
+		for (const grant of grants) out.push(...await this._pGetSpellsForGrant(grant));
+		return out.filter(Boolean);
 	}
 
 	/** Spell entities matching a dynamic grant's filter (or its explicit `from` list). */
@@ -280,8 +301,16 @@ export class CharacterSpellsPanel {
 		const cantripEnt = [cls, sc].find(it => it?.cantripProgression);
 		const hasCantrips = !!(cantripEnt && getCantripsKnown(cantripEnt, entry.level));
 
-		const spells = (await CharacterSheetClassData.pGetSpellsForClass(className))
-			.filter(sp => (sp.level === 0 ? hasCantrips : sp.level <= Math.max(maxLevel, 1)));
+		const spells = [
+			...await CharacterSheetClassData.pGetSpellsForClass(className),
+			// What the subclass adds to the list: a patron's expanded spells, a Bard's Magical
+			// Secrets. They are not on the class's own list and were unreachable from here, which
+			// is the whole point of an Archfey warlock
+			...await this._pGetExpandedSpells({entry, cls, sc}),
+		]
+			.filter((sp, ix, all) => all.findIndex(it => it.name === sp.name && it.source === sp.source) === ix)
+			.filter(sp => (sp.level === 0 ? hasCantrips : sp.level <= Math.max(maxLevel, 1)))
+			.sort((a, b) => (a.level - b.level) || a.name.localeCompare(b.name));
 		if (!spells.length) return JqueryUtil.doToast({type: "warning", content: `No learnable ${className} spells found at this level.`});
 
 		const knownKeys = new Set(this._comp._state.spellsKnown
@@ -431,6 +460,11 @@ export class CharacterSpellsPanel {
 				const maxPrep = getPreparedSpellCount(preparedEnt, entry.level, mod);
 				if (maxPrep != null) out.push({text: `Spells prepared: ${cntLeveled}/${maxPrep}`, isOver: cntLeveled > maxPrep});
 			}
+
+			// A Wizard's book is its own limit, and a different one: it is what may be prepared *from*,
+			// and it grows by two a level whether or not any of them are prepared today
+			const book = getSpellbookSize(cls, entry.level);
+			if (book != null) out.push({text: `Spellbook: ${cntLeveled}/${book}`, isOver: cntLeveled > book});
 		});
 		return out;
 	}

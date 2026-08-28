@@ -131,3 +131,34 @@ describe("Action economy: what anyone can do", () => {
 		expect(jump.sub).toMatch(/Str score in feet/);
 	});
 });
+
+/*
+ * A feature reaches the turn helper by what the book says about it, not only by being on a list of
+ * twenty names somebody wrote down.
+ */
+describe("Action economy: features that say when they happen", () => {
+	it("Takes the feature's own bucket over the curated map", () => {
+		const econ = buildActionEconomy({
+			attacks: [], spells: [],
+			features: [{name: "Hand of Harm", bucket: "bonus", cost: {resource: "Ki", label: "Ki Points", amount: 1}, sub: "Costs 1 Ki Point"}],
+		});
+		expect(econ.bonus.map(it => it.label)).toEqual(["Hand of Harm"]);
+		expect(econ.bonus[0].sub).toBe("Costs 1 Ki Point");
+		expect(econ.bonus[0].cost).toEqual({resource: "Ki", label: "Ki Points", amount: 1});
+	});
+
+	it("Falls back to the curated map where the book does not say", () => {
+		const econ = buildActionEconomy({attacks: [], spells: [], features: [{name: "Rage", bucket: null}]});
+		expect(econ.bonus.map(it => it.label)).toEqual(["Rage"]);
+	});
+
+	it("Leaves out a feature that is neither", () => {
+		const econ = buildActionEconomy({attacks: [], spells: [], features: [{name: "Psionic Strike", bucket: null}]});
+		expect([...econ.action, ...econ.bonus, ...econ.reaction]).toEqual([]);
+	});
+
+	it("Still accepts a plain name", () => {
+		const econ = buildActionEconomy({attacks: [], spells: [], features: ["Action Surge"]});
+		expect(econ.action.map(it => it.label)).toEqual(["Action Surge"]);
+	});
+});

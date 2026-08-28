@@ -128,8 +128,17 @@ export function buildActionEconomy ({attacks = [], unarmed = null, spells = [], 
 		const tag = typeof f === "string" ? null : f?.tag;
 		if (!name || seen.has(name)) return;
 		seen.add(name);
-		const econ = FEATURE_ACTION_ECONOMY[name];
-		if (econ && out[econ]) out[econ].push({label: name, kind: "feature", tag});
+
+		// The book's own "as a Bonus Action" first, the curated map second. The map was written when
+		// nothing read the features themselves, and it knows twenty names; the phrasing is in
+		// fifty-six of the features that spend a resource, including every subclass one
+		const econ = (typeof f === "object" && f?.bucket) || FEATURE_ACTION_ECONOMY[name];
+		if (!econ || !out[econ]) return;
+
+		// What it costs, so the panel can say so and the availability check can see whether the
+		// character can still pay it
+		const cost = typeof f === "object" ? f?.cost || null : null;
+		out[econ].push({label: name, kind: "feature", tag, cost, sub: (typeof f === "object" ? f?.sub : null) || null});
 	});
 
 	return out;

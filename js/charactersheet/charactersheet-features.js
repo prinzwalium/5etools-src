@@ -301,3 +301,54 @@ export function annotateVariantFeatures (timeline, taken = []) {
 export function filterActiveFeatures (annotated) {
 	return (annotated || []).filter(it => (it.isVariant ? it.isVariantTaken : !it.replacedBy));
 }
+
+/* -------------------------------------------- what a feature costs -------------------------------------------- */
+
+/**
+ * What using a feature spends, from its own `consumes`.
+ *
+ * A hundred and thirty-seven features carry this — `{name: "Channel Divinity"}`,
+ * `{name: "Ki", amount: 2}`, and one `{name: "Sorcery Point", amountMin: 1, amountMax: 5}` (Bastion
+ * of Law) — and none of it was read. What stood in its place was a nine-line map from a feature's
+ * name to the resource it spent, which covered Flurry of Blows and Patient Defense and nothing a
+ * subclass added: a Way of Mercy monk's Hand of Harm, a Twilight cleric's Channel Divinity, a Psi
+ * Warrior's whole subclass. The data says all of it.
+ *
+ * `amount` absent means one. A range means the player chooses how much to put in, so the low end is
+ * what it takes to use at all.
+ *
+ * @return {?{resource: string, amount: number, amountMin: ?number, amountMax: ?number}}
+ */
+export function getFeatureCost (feature) {
+	const consumes = feature?.consumes;
+	if (!consumes || typeof consumes !== "object" || !consumes.name) return null;
+
+	const min = Number(consumes.amountMin);
+	const max = Number(consumes.amountMax);
+	if (!isNaN(min) && !isNaN(max)) return {resource: consumes.name, amount: min, amountMin: min, amountMax: max};
+
+	const n = Number(consumes.amount);
+	return {resource: consumes.name, amount: isNaN(n) || !n ? 1 : n, amountMin: null, amountMax: null};
+}
+
+/**
+ * When a feature is used, if the book says so in the one phrase that always states it.
+ *
+ * "As a Bonus Action, you can spend 1 Focus Point…" — fifty-six of the features that spend
+ * something say which part of the turn they take, which is fifty-six more than the curated map in
+ * `charactersheet-actions.js` knew. The other eighty-one do not say, because they are riders on
+ * something else (Psionic Strike happens on a hit) or sub-options of a parent feature that already
+ * said it — so they are left alone rather than guessed into the Action column.
+ *
+ * @return {?("action"|"bonus"|"reaction")}
+ */
+export function getFeatureActionBucket (feature) {
+	const text = _collectText(feature?.entries).join(" ");
+	const m = /\bas an? (bonus action|reaction|magic action|action)\b/i.exec(text);
+	if (!m) return null;
+	switch (m[1].toLowerCase()) {
+		case "bonus action": return "bonus";
+		case "reaction": return "reaction";
+		default: return "action";
+	}
+}

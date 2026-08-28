@@ -1,4 +1,4 @@
-import {annotateVariantFeatures, filterActiveFeatures, getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getFeatureResources, getFeatureUses, getHpBonusPerLevel, getVariantParentName, getVariantReplacedNames} from "../../js/charactersheet/charactersheet-features.js";
+import {annotateVariantFeatures, filterActiveFeatures, getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getFeatureActionBucket, getFeatureCost, getFeatureResources, getFeatureUses, getHpBonusPerLevel, getVariantParentName, getVariantReplacedNames} from "../../js/charactersheet/charactersheet-features.js";
 
 describe("Feature effects: initiative", () => {
 	const ctx = {abilities: {cha: 3, dex: 2}, pb: 3};
@@ -298,5 +298,60 @@ describe("optional class features", () => {
 			expect(getFeatureResources(BY_LEVEL, 4, {featureVariants: [{name: "Quickened Healing", source: "TCE"}]}))
 				.toEqual([{label: "Quickened Healing", value: "1", kind: "uses", rest: "long"}]);
 		});
+	});
+});
+
+/*
+ * What using a feature spends. `consumes` is structured, on 137 features, and was read by nothing —
+ * so the sheet knew Flurry of Blows cost Ki because a nine-line map said so, and knew nothing at
+ * all about a Way of Mercy monk, a Twilight cleric or a Psi Warrior.
+ */
+describe("what a feature costs", () => {
+	it("Reads a bare name as one of it", () => {
+		expect(getFeatureCost({name: "Turn Undead", consumes: {name: "Channel Divinity"}}))
+			.toEqual({resource: "Channel Divinity", amount: 1, amountMin: null, amountMax: null});
+	});
+
+	it("Reads a stated amount", () => {
+		expect(getFeatureCost({name: "Hand of Ultimate Mercy", consumes: {name: "Ki", amount: 5}}))
+			.toMatchObject({resource: "Ki", amount: 5});
+	});
+
+	it("Reads a range as its low end, because that is what it takes to use at all", () => {
+		expect(getFeatureCost({name: "Bastion of Law", consumes: {name: "Sorcery Point", amountMin: 1, amountMax: 5}}))
+			.toEqual({resource: "Sorcery Point", amount: 1, amountMin: 1, amountMax: 5});
+	});
+
+	it("Says nothing for a feature that spends nothing", () => {
+		expect(getFeatureCost({name: "Evasion"})).toBeNull();
+		expect(getFeatureCost(null)).toBeNull();
+	});
+});
+
+/*
+ * When a feature is taken, from the one phrase that states it. Fifty-six of the features that spend
+ * something say so; the rest are riders on another action, and guessing them into the Action column
+ * would put Psionic Strike there, which is not a thing you take a turn to do.
+ */
+describe("when a feature is taken", () => {
+	const of = entries => getFeatureActionBucket({name: "x", entries});
+
+	it("Reads a bonus action", () => {
+		expect(of(["As a Bonus Action, you can spend 1 Focus Point to take the Dash action."])).toBe("bonus");
+	});
+
+	it("Reads a reaction", () => {
+		expect(of(["As a Reaction, you can reduce the damage taken."])).toBe("reaction");
+	});
+
+	it("Reads an action, and the 2024 Magic action as one", () => {
+		expect(of(["As an Action, you present your holy symbol."])).toBe("action");
+		expect(of(["As a Magic action, you expend a use of Channel Divinity."])).toBe("action");
+	});
+
+	it("Says nothing where the book does not, rather than guessing", () => {
+		expect(of(["When you hit a creature with an attack roll, you can expend one Psionic Energy Die."])).toBeNull();
+		expect(of([])).toBeNull();
+		expect(getFeatureActionBucket(null)).toBeNull();
 	});
 });

@@ -176,3 +176,42 @@ describe("Availability: annotating a whole economy", () => {
 		expect(annotated.reaction).toEqual([]);
 	});
 });
+
+/*
+ * A feature that spends a pool says so in its own `consumes`, and how much. Both matter: a Focus
+ * pool with four left can pay for Hand of Healing and not for Hand of Ultimate Mercy, and the old
+ * check — is the pool empty? — called both of them fine.
+ */
+describe("Availability: what a feature costs", () => {
+	const cost = (label, amount) => ({resource: label, label, amount});
+
+	it("Blocks a feature the pool cannot pay for, even with some left", () => {
+		const ctx = getCtx({resources: {"Focus Points": {total: 6, used: 2}}});
+		expect(getEntryAvailability({kind: "feature", label: "Hand of Ultimate Mercy", cost: cost("Focus Points", 5)}, ctx))
+			.toEqual({status: AVAIL_BLOCKED, reason: "Needs 5 Focus Points, 4 left"});
+	});
+
+	it("Allows one the pool can pay for", () => {
+		const ctx = getCtx({resources: {"Focus Points": {total: 6, used: 2}}});
+		expect(getEntryAvailability({kind: "feature", label: "Hand of Healing", cost: cost("Focus Points", 1)}, ctx).status)
+			.toBe(AVAIL_OK);
+	});
+
+	it("Says the pool is empty when it is", () => {
+		const ctx = getCtx({resources: {"Channel Divinity": {total: 2, used: 2}}});
+		expect(getEntryAvailability({kind: "feature", label: "Turn Undead", cost: cost("Channel Divinity", 1)}, ctx))
+			.toEqual({status: AVAIL_BLOCKED, reason: "No channel divinity left"});
+	});
+
+	it("Leaves a cost alone when the character holds no such pool", () => {
+		// A Psi Warrior from Tasha's states its dice in prose, so there is no column to check against;
+		// reporting it blocked would be a guess in the wrong direction
+		const entry = {kind: "feature", label: "Psionic Strike", cost: {resource: "Psionic Energy Die", label: null, amount: 1}};
+		expect(getEntryAvailability(entry, getCtx()).status).toBe(AVAIL_OK);
+	});
+
+	it("Still falls back to a feature that is its own limit", () => {
+		const ctx = getCtx({resources: {Rages: {total: 3, used: 3}}});
+		expect(getEntryAvailability({kind: "feature", label: "Rage"}, ctx).status).toBe(AVAIL_BLOCKED);
+	});
+});

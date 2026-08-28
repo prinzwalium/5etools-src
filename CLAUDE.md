@@ -297,6 +297,31 @@ Key fields (all read by `charactersheet-levelengine.js` unless noted):
   reader (`getInnateSpellGrants` + `getInnateSpellCastingNote`). `resource` is
   keyed by **cost** and the group's `resourceName` says what is spent: a Way of
   Shadow monk casts Darkness for 2 Ki Points, never out of a slot.
+  The **`expanded` bucket is not a grant** — it is what the character may now
+  *learn* — so it is reported as `type: "expanded"` by `getDynamicSpellGrants`
+  and merged into the spell browser, never into the always-prepared list.
+  Its keys are often **`s1`–`s9`: a spell *slot* level, not a class level** (all
+  twelve Warlock patrons, the 2024 Bard's Magical Secrets), resolved against the
+  parent class's slot table by `getSlotLevelUnlockLevel` — a subclass has none of
+  its own, hence `getDynamicSpellGrants(sc, level, {slotSource: cls})`.
+- **`spellsKnownProgressionFixed`** — the Wizard's **spellbook**, `[6, 2, 2, …]`
+  being what each level *adds*, so the book is the running total
+  (`getSpellbookSize`). Not the prepared count: a Wizard prepares *from* the
+  book, and the two are different numbers.
+- **`consumes`** — what using a feature spends, on 137 features:
+  `{name}` / `{name, amount}` / `{name, amountMin, amountMax}` (Bastion of Law,
+  1–5 Sorcery Points). Read by `getFeatureCost`; the name is the book's shorthand
+  ("Ki") and the class table's column is the full one ("Ki Points"), so
+  `matchResourceLabel` normalises both sides rather than either being curated.
+  This is what grades a feature in the turn helper — the old curated
+  feature→resource map knew nine names and no subclass at all. The 2024 Psi
+  Warrior/Soulknife table heads its columns "Die Size"/"Number" and never names
+  the pool, so `getClassResources` names it from the `consumes` of the features
+  that spend it.
+- **When a feature is taken** is prose, but formulaic: "As a Bonus Action, you
+  can spend 1 Focus Point…". `getFeatureActionBucket` reads it for the 56
+  features that say so and returns null for the rest rather than guessing a
+  rider (Psionic Strike happens on a hit) into the Action column.
 - **`spellsKnownProgressionFixedByLevel`** — the Warlock's **Mystic Arcanum**,
   and only that: one 6th-level spell at 11, a 7th at 13, an 8th at 15, a 9th at
   17, each cast at its own level once per long rest. Outside `spellsKnownProgression`

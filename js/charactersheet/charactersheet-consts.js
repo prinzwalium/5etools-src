@@ -49,6 +49,7 @@ export const EXPENDABLE_RESOURCES = {
 	"Wild Shape": "short",
 	"Sorcery Points": "long",
 	"Superiority Dice": "short",
+	"Psionic Energy Dice": "long",
 	"Second Wind": "short",
 	"Action Surge": "short",
 	"Indomitable": "long",

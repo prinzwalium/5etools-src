@@ -2,7 +2,8 @@ import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CharacterClassPanel} from "./charactersheet-classpanel.js";
 import {getUnarmedStrike} from "./charactersheet-derive.js";
 import {buildActionEconomy} from "./charactersheet-actions.js";
-import {getClassResources, getSpellcastingMeta} from "./charactersheet-levelengine.js";
+import {getClassResources, getResourceCostLabel, getSpellcastingMeta, matchResourceLabel} from "./charactersheet-levelengine.js";
+import {getFeatureActionBucket, getFeatureCost} from "./charactersheet-features.js";
 import {EXPENDABLE_RESOURCES} from "./charactersheet-consts.js";
 import {AVAIL_BLOCKED, AVAIL_WARN, annotateEconomy, getItemEntries, getTurnState} from "./charactersheet-availability.js";
 
@@ -31,13 +32,31 @@ export class CharacterActionsPanel {
 		this._pRender();
 	}
 
-	/** Character features `{name, tag}` for the structured classes, up to each class's level. */
-	async _pGetFeatures () {
+	/**
+	 * Character features for the structured classes, up to each class's level, with what each one
+	 * costs and when it is taken.
+	 *
+	 * Both read from the feature itself. `consumes` says the cost, and the sentence that opens most
+	 * of them says the timing — which is how a Way of Mercy monk's Hand of Harm and a Twilight
+	 * cleric's Channel Divinity reach this panel at all, neither being in the curated map.
+	 *
+	 * @param resourceLabels the labels the character actually holds a pool under, so a cost can be
+	 *   matched to one; a feature naming a pool this character has no table for keeps its cost as
+	 *   text and is never reported as blocked.
+	 */
+	async _pGetFeatures (resourceLabels = []) {
 		const feats = await CharacterSheetClassData.pGetCharacterFeatures(this._comp._state.classes);
-		return feats.map(({name, feature, isSubclassFeature}) => ({
-			name,
-			tag: isSubclassFeature ? CharacterClassPanel._getSubclassFeatureTag(feature) : CharacterClassPanel._getClassFeatureTag(feature),
-		}));
+		return feats.map(({name, feature, isSubclassFeature}) => {
+			const rawCost = getFeatureCost(feature);
+			const label = rawCost ? matchResourceLabel(rawCost.resource, resourceLabels) : null;
+			return {
+				name,
+				tag: isSubclassFeature ? CharacterClassPanel._getSubclassFeatureTag(feature) : CharacterClassPanel._getClassFeatureTag(feature),
+				bucket: getFeatureActionBucket(feature),
+				cost: rawCost ? {...rawCost, label} : null,
+				sub: rawCost ? `Costs ${getResourceCostLabel(rawCost)}` : null,
+			};
+		});
 	}
 
 	/** Spell slots and the expendable class resources, from the same data the other panels read. */
@@ -80,11 +99,14 @@ export class CharacterActionsPanel {
 
 	async _pRender () {
 		const token = ++this._renderToken;
-		const [features, limits, concentrationNames] = await Promise.all([
-			this._pGetFeatures(),
+		// The limits first: a feature's cost is only a cost if the character holds that pool, and
+		// which pools they hold is what `_pGetLimits` works out
+		const [limits, concentrationNames] = await Promise.all([
 			this._pGetLimits(),
 			this._pGetConcentrationNames(),
 		]);
+		if (token !== this._renderToken) return;
+		const features = await this._pGetFeatures(Object.keys(limits.resources));
 		if (token !== this._renderToken) return;
 
 		const state = this._comp._getState();
