@@ -17,7 +17,8 @@ import {
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SKILLS, EXPENDABLE_RESOURCES, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {pPickAbilities, pResolveFeat} from "./charactersheet-featgrant.js";
 import {getStateSourcePredicate} from "./charactersheet-sources.js";
-import {getVariantParentName, getVariantReplacedNames} from "./charactersheet-features.js";
+import {getChosenFeatureNames, getTakenFeats, getVariantParentName, getVariantReplacedNames} from "./charactersheet-features.js";
+import {PROF_KIND_ARMOR, PROF_KIND_WEAPON} from "./charactersheet-proficiencies.js";
 
 /**
  * The "Class & Leveling" sheet panel: renders the derived feature timeline, subclass and
@@ -103,6 +104,28 @@ export class CharacterClassPanel {
 			this._optionalFeatureData = new Map();
 		}
 		if (token !== this._renderToken) return;
+
+		// A feat's category, for the two prerequisites that ask about one (the dragonmark rules).
+		// Cached here rather than looked up per check, which would make the check async
+		this._featCategoryData = new Map();
+		try {
+			(await CharacterSheetClassData.pGetAllFeatsUnfiltered()).forEach(it => {
+				if (!it.category) return;
+				this._featCategoryData.set(`${it.name}|${it.source}`.toLowerCase(), it.category);
+				if (!this._featCategoryData.has(String(it.name).toLowerCase())) this._featCategoryData.set(String(it.name).toLowerCase(), it.category);
+			});
+		} catch (e) {
+			this._featCategoryData = new Map();
+		}
+		if (token !== this._renderToken) return;
+
+		// The features the character has gained by levelling — "Fighting Style" and "Pact Magic" are
+		// both prerequisites, and both arrive this way rather than by being chosen
+		this._featureNames = loaded.flatMap(({entry, cls, sc}) => (cls
+			? CharacterSheetClassData.getActiveFeatureTimeline(cls, {subclass: sc, level: entry.level, featureVariants: entry.featureVariants})
+				.map(it => CharacterSheetClassData.getFeatureNameMeta(it.feature).name)
+				.filter(Boolean)
+			: []));
 
 		this._loaded = loaded;
 		this._wrp.innerHTML = "";
@@ -706,7 +729,8 @@ export class CharacterClassPanel {
 			placeholder: "Select...",
 		});
 		if (feat == null) return;
-		const bonuses = await pResolveFeat(this._comp, feat);
+		// The class that granted the feat is the one its optional features hang from
+		const bonuses = await pResolveFeat(this._comp, feat, {entryId: entry.id});
 		if (bonuses == null) return;
 		this._comp.addFeatureFeat({entryId: entry.id, featureKey, category: grant.category, name: feat.name, source: feat.source, bonuses});
 	}
@@ -793,8 +817,22 @@ export class CharacterClassPanel {
 			String(speciesName).replace(/\(.*?\)/g, " ").split(/[\s-]+/).forEach(w => { if (w) raceNames.push(w); });
 		}
 
-		const featNames = [];
-		(state.classes || []).forEach(cls => (cls.asiFeatChoices || []).forEach(ch => { if (ch.type === "feat") featNames.push(ch.name); }));
+		// Every feat, not only the ASI-slot ones: a background's origin feat and a DM's grant count
+		// towards a prerequisite exactly as much
+		const taken = getTakenFeats(state);
+
+		// The categories of what is held, for the dragonmark rules — `featCategory` wants one,
+		// `exclusiveFeatCategory` forbids a second
+		const featCategories = taken
+			.map(it => this._featCategoryData?.get(`${it.name}|${it.source}`.toLowerCase()) ??
+				this._featCategoryData?.get(String(it.name).toLowerCase()))
+			.filter(Boolean);
+
+		const proficiencies = {armor: [], weapon: []};
+		(state.proficiencies || []).forEach(it => {
+			if (it?.kind === PROF_KIND_ARMOR) proficiencies.armor.push(it.name);
+			else if (it?.kind === PROF_KIND_WEAPON) proficiencies.weapon.push(it.name);
+		});
 
 		return {
 			abilityScores,
@@ -802,7 +840,12 @@ export class CharacterClassPanel {
 			classes: (state.classes || []).map(c => ({name: c.name, level: c.level})),
 			raceNames,
 			backgroundName: state.refBackground?.name || state.backgroundText,
-			featNames,
+			featNames: taken.map(it => it.name),
+			featCategories,
+			proficiencies,
+			// The class features the character has gained, plus the ones it chose — "Fighting Style"
+			// is a prerequisite that a Fighter meets by levelling and a feat-taker by choosing
+			featureNames: [...(this._featureNames || []), ...getChosenFeatureNames(state)],
 			isSpellcaster: !!state.spellAbility || (state.spellsKnown || []).length > 0,
 		};
 	}
@@ -833,7 +876,7 @@ export class CharacterClassPanel {
 			}
 		}
 
-		const bonuses = await pResolveFeat(this._comp, feat);
+		const bonuses = await pResolveFeat(this._comp, feat, {entryId: entry.id});
 		if (bonuses == null) return;
 		this._comp.addAsiFeatChoice(entry.id, {type: "feat", name: feat.name, source: feat.source, bonuses});
 	}

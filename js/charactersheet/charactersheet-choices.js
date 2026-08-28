@@ -20,6 +20,7 @@ export const ARTISANS_TOOLS = [
 export const OTHER_TOOLS = ["Disguise kit", "Forgery kit", "Herbalism kit", "Navigator's tools", "Poisoner's kit", "Thieves' tools", "Vehicles (land)", "Vehicles (water)"];
 
 export const CHOICE_TYPE_SKILL = "skill";
+export const CHOICE_TYPE_WEAPON = "weapon";
 export const CHOICE_TYPE_LANGUAGE = "language";
 export const CHOICE_TYPE_TOOL = "tool";
 /** One pick that may be spent on a skill, a tool *or* a language — see `getSkillToolLanguageChoices`. */
@@ -565,6 +566,51 @@ export function getPendingChoices ({race = null, background = null, cls = null, 
 		out.push(...getToolChoices({groups: background.toolProficiencies, sourceName}));
 		out.push(...getSkillToolLanguageChoices({groups: background.skillToolLanguageProficiencies, sourceName, toolNames}));
 	}
+
+	return out;
+}
+
+/* -------------------------------------------- weapon proficiency choices -------------------------------------------- */
+
+/**
+ * Weapon proficiencies a feat asks the player to pick.
+ *
+ * One feat writes its choice this way — Weapon Master's "choose four martial or mundane weapons",
+ * as `{choose: {fromFilter: "type=martial weapon;mundane weapon|miscellaneous=mundane", count: 4}}`.
+ * Nothing read `fromFilter`, so the four picks were silently dropped.
+ *
+ * The filter is not evaluated as a filter: it names weapon *categories*, and every base weapon
+ * carries its own `weaponCategory`, so what comes back is the categories to offer. "Mundane" is not
+ * a category but the exclusion of magic items, which asking for base weapons already achieves.
+ *
+ * @return {Array<{count: number, categories: ?Array<string>, label: string}>}
+ */
+export function getWeaponChoices ({groups, sourceName}) {
+	const out = [];
+
+	(groups || []).forEach(grp => {
+		const choose = grp?.choose;
+		if (!choose) return;
+
+		const count = Number(choose.count) || 1;
+		const types = String(choose.fromFilter || "")
+			.split("|")
+			.map(part => part.split("="))
+			.filter(([k]) => k?.trim().toLowerCase() === "type")
+			.flatMap(([, v]) => String(v).split(";"))
+			.map(it => it.trim().toLowerCase().replace(/ weapons?$/, ""));
+
+		const categories = types.filter(it => it === "martial" || it === "simple");
+
+		out.push({
+			id: _nextId(),
+			type: CHOICE_TYPE_WEAPON,
+			sourceName,
+			count,
+			categories: categories.length ? categories : null,
+			label: `Choose ${count} weapon${count > 1 ? "s" : ""}`,
+		});
+	});
 
 	return out;
 }

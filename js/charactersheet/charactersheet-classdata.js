@@ -322,6 +322,27 @@ export class CharacterSheetClassData {
 	}
 
 	/**
+	 * Base weapons — the types, not the thousands of magic variants — optionally narrowed to a
+	 * weapon category ("martial", "simple").
+	 *
+	 * Read from the item data by `weaponCategory`, which every base weapon carries, rather than by
+	 * parsing the `fromFilter` string a feat writes its choice as. The filter says two things
+	 * ("martial or mundane weapons", "mundane only") and the item says both of them itself.
+	 */
+	static async pGetBaseWeapons ({categories = null} = {}) {
+		const all = await Renderer.item.pBuildList();
+		const wanted = categories ? new Set(categories.map(it => String(it).toLowerCase())) : null;
+		const seen = new Set();
+		return all
+			.filter(it => it.weapon && it._isBaseItem)
+			.filter(it => !wanted || wanted.has(String(it.weaponCategory).toLowerCase()))
+			.filter(it => !this._fnSourceFilter || this._fnSourceFilter(it.source))
+			.filter(it => { const k = it.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+			.map(it => ({name: it.name, source: it.source, weaponCategory: it.weaponCategory}))
+			.sort((a, b) => SortUtil.ascSortLower(a.name, b.name));
+	}
+
+	/**
 	 * All features a character has from its structured classes/subclasses, up to each class's level.
 	 * @return {Promise<Array<{name: string, feature: object, isSubclassFeature: boolean}>>}
 	 */

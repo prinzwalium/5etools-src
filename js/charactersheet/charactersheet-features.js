@@ -57,6 +57,30 @@ export function getChosenFeatureNames (state) {
 }
 
 /**
+ * Every feat the character has actually taken, from all four places one can land: an ASI slot, a
+ * feature that granted one (a Fighting Style, an Epic Boon), a background's origin feat, and one a
+ * DM handed over.
+ *
+ * Reading only the ASI slots — which is what the feat prerequisite check did — misses three of the
+ * four, so a background's Magic Initiate did not satisfy a feat that required it.
+ *
+ * @return {Array<{name: string, source: ?string}>}
+ */
+export function getTakenFeats (state) {
+	const out = [];
+	const add = it => { if (it?.name) out.push({name: it.name, source: it.source || null}); };
+
+	(state?.classes || []).forEach(cls => {
+		(cls.asiFeatChoices || []).forEach(it => { if (it?.type === "feat") add(it); });
+	});
+	(state?.featureFeats || []).forEach(add);
+	(state?.originFeats || []).forEach(add);
+	(state?.manualFeats || []).forEach(add);
+
+	return out.filter((it, ix, all) => all.findIndex(o => o.name === it.name && o.source === it.source) === ix);
+}
+
+/**
  * Hit points a character's features add *per level*.
  *
  * Only the unambiguous ones, and only those that scale with level — a flat one-off increase is not

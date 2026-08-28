@@ -1,4 +1,4 @@
-import {annotateVariantFeatures, filterActiveFeatures, getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getFeatureActionBucket, getFeatureCost, getFeatureResources, getFeatureUses, getHpBonusPerLevel, getVariantParentName, getVariantReplacedNames} from "../../js/charactersheet/charactersheet-features.js";
+import {annotateVariantFeatures, filterActiveFeatures, getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getFeatureActionBucket, getFeatureCost, getFeatureResources, getFeatureUses, getHpBonusPerLevel, getTakenFeats, getVariantParentName, getVariantReplacedNames} from "../../js/charactersheet/charactersheet-features.js";
 
 describe("Feature effects: initiative", () => {
 	const ctx = {abilities: {cha: 3, dex: 2}, pb: 3};
@@ -353,5 +353,44 @@ describe("when a feature is taken", () => {
 		expect(of(["When you hit a creature with an attack roll, you can expend one Psionic Energy Die."])).toBeNull();
 		expect(of([])).toBeNull();
 		expect(getFeatureActionBucket(null)).toBeNull();
+	});
+});
+
+/*
+ * Every feat the character has taken. A feat can land in four places, and the prerequisite check
+ * read only one of them — so a background's Magic Initiate did not satisfy a feat that wanted it.
+ */
+describe("the feats a character has taken", () => {
+	const STATE = {
+		classes: [
+			{id: "a", asiFeatChoices: [{type: "feat", name: "Alert", source: "XPHB"}, {type: "asi", bonuses: {str: 2}}]},
+			{id: "b", asiFeatChoices: [{type: "feat", name: "Tough", source: "XPHB"}]},
+		],
+		featureFeats: [{name: "Archery", source: "XPHB"}],
+		originFeats: [{name: "Magic Initiate", source: "XPHB"}],
+		manualFeats: [{name: "Lucky", source: "XPHB"}],
+	};
+
+	it("Collects all four places one can land", () => {
+		expect(getTakenFeats(STATE).map(it => it.name).sort())
+			.toEqual(["Alert", "Archery", "Lucky", "Magic Initiate", "Tough"]);
+	});
+
+	it("Keeps the source, which is what tells two printings apart", () => {
+		expect(getTakenFeats(STATE)).toContainEqual({name: "Alert", source: "XPHB"});
+	});
+
+	it("Leaves an ability increase out of it", () => {
+		expect(getTakenFeats(STATE).some(it => it.name == null)).toBe(false);
+	});
+
+	it("Lists one taken twice only once", () => {
+		const twice = {originFeats: [{name: "Skilled", source: "XPHB"}], manualFeats: [{name: "Skilled", source: "XPHB"}]};
+		expect(getTakenFeats(twice)).toHaveLength(1);
+	});
+
+	it("Copes with an empty character", () => {
+		expect(getTakenFeats({})).toEqual([]);
+		expect(getTakenFeats(null)).toEqual([]);
 	});
 });

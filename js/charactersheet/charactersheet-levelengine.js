@@ -205,11 +205,18 @@ export function getSpellcastingMeta (classEntries) {
 
 /**
  * Cumulative optional-feature picks (Fighting Styles, Invocations, Maneuvers, ...) available at `level`.
- * Reads `optionalfeatureProgression`, whose `progression` is either a 20-entry array of cumulative
- * counts or a `{level: cumulativeCount}` object.
+ *
+ * Reads `optionalfeatureProgression`, whose `progression` is a 20-entry array of cumulative counts,
+ * a `{level: cumulativeCount}` object, or — on the four **feats** written this way (Martial Adept,
+ * Metamagic Adept, Eldritch Adept, Fighting Initiate) — `{"*": n}`, meaning "n of them, whatever
+ * your level". A feat has no levels to index, and `Number("*")` is NaN, so a reader that only
+ * compared level keys returned nothing at all for every one of them.
+ *
+ * @param [level] the character's level in the class; irrelevant to a `"*"` progression, so a feat
+ *   can be read without one.
  * @return {Array<{name: string, featureTypes: Array<string>, count: number}>}
  */
-export function getOptionalFeatureCounts (clsOrSc, level) {
+export function getOptionalFeatureCounts (clsOrSc, level = 1) {
 	level = _clampLevel(level);
 	return (clsOrSc?.optionalfeatureProgression || [])
 		.map(({name, featureType, progression}) => {
@@ -217,7 +224,7 @@ export function getOptionalFeatureCounts (clsOrSc, level) {
 			if (Array.isArray(progression)) count = Number(progression[level - 1]) || 0;
 			else {
 				Object.entries(progression || {}).forEach(([lvl, cnt]) => {
-					if (Number(lvl) <= level) count = Math.max(count, Number(cnt) || 0);
+					if (lvl === "*" || Number(lvl) <= level) count = Math.max(count, Number(cnt) || 0);
 				});
 			}
 			return {name, featureTypes: featureType || [], count};
@@ -900,9 +907,19 @@ export function getMulticlassRequirementsDisplay (requirements) {
 
 // Prerequisite keys the sheet can meaningfully verify from character state; anything else
 // (campaign, alignment, item, free-text "other", ...) is treated as unverifiable and never blocks.
-const _FEAT_PREREQ_CHECKABLE = new Set(["level", "ability", "race", "feat", "background", "spellcasting", "spellcasting2020", "spellcastingFeature", "psionics"]);
+const _FEAT_PREREQ_CHECKABLE = new Set([
+	"level", "ability", "race", "feat", "background", "spellcasting", "spellcasting2020",
+	"spellcastingFeature", "psionics", "proficiency", "feature", "featCategory", "exclusiveFeatCategory",
+]);
 
 const _normName = str => String(str || "").toLowerCase().trim();
+
+/**
+ * A proficiency name as the prerequisite spells it. Both sides use the same small vocabulary —
+ * light, medium, heavy, shield, simple, martial — but a class writes "shield" and a species
+ * "shields", and the store title-cases everything for display.
+ */
+const _normProf = str => _normName(str).replace(/s$/, "").replace(/ armou?r$/, "").replace(/ weapon$/, "");
 
 /**
  * Evaluate one prerequisite entry against the character.
@@ -958,6 +975,58 @@ function _evalFeatPrereqEntry (entry, ctx) {
 			}
 			case "psionics": {
 				if (!ctx.isSpellcaster) { hasUnknown = true; } // no structured psionics tracking
+				break;
+			}
+
+			/*
+			 * "Proficiency with medium armor" (Heavily Armored), "with a martial weapon" (Fighting
+			 * Initiate). Uncheckable until the sheet held structured armor and weapon proficiencies;
+			 * it does now, so the twelve feats written this way stop reporting "unknown".
+			 * `weaponGroup` is the same question in the 2024 spelling.
+			 */
+			case "proficiency": {
+				const held = {
+					armor: new Set((ctx.proficiencies?.armor || []).map(_normProf)),
+					weapon: new Set((ctx.proficiencies?.weapon || []).map(_normProf)),
+				};
+				const isMet = (val || []).some(req => Object.entries(req).every(([kind, name]) => {
+					const set = kind === "armor" ? held.armor : held.weapon;
+					return set.has(_normProf(name));
+				}));
+				if (!isMet) return "unmet";
+				break;
+			}
+
+			/*
+			 * A class feature by name: "Fighting Style" on every 2024 Fighting Style feat, and
+			 * "Spellcasting" or "Pact Magic" on Spellfire Adept. The alternatives are an OR.
+			 */
+			case "feature": {
+				const held = new Set((ctx.featureNames || []).map(_normName));
+				if (!(val || []).some(name => held.has(_normName(name)))) return "unmet";
+				break;
+			}
+
+			/*
+			 * The dragonmark rules, and only those. `featCategory` requires a feat of that category —
+			 * Potent Dragonmark wants a Dragonmark you already have — while `exclusiveFeatCategory`
+			 * forbids a second one: "Can't Have Another Dragonmark Feat".
+			 */
+			case "featCategory": {
+				const held = ctx.featCategories || [];
+				const isMet = (val || []).some(it => {
+					const category = typeof it === "string" ? it : it?.category;
+					const count = typeof it === "string" ? 1 : (Number(it?.count) || 1);
+					return held.filter(c => _normName(c) === _normName(category)).length >= count;
+				});
+				if (!isMet) return "unmet";
+				break;
+			}
+
+			case "exclusiveFeatCategory": {
+				const held = ctx.featCategories || [];
+				const isBlocked = (val || []).some(category => held.some(c => _normName(c) === _normName(category)));
+				if (isBlocked) return "unmet";
 				break;
 			}
 			default: hasUnknown = true;

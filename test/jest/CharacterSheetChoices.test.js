@@ -1,6 +1,7 @@
 import "../../js/parser.js";
 import {
 	getResistChoices,
+	getWeaponChoices,
 	CHOICE_TYPE_ABILITY,
 	CHOICE_TYPE_EXPERTISE,
 	CHOICE_TYPE_LANGUAGE,
@@ -368,5 +369,44 @@ describe("Choice signatures", () => {
 
 	it("Copes with nothing at all", () => {
 		expect(getChoiceSignature(null)).toBe("||");
+	});
+});
+
+/*
+ * Weapon Master, and only Weapon Master, writes its four picks as a `fromFilter` string. Nothing
+ * read it, so the feat granted nothing at all.
+ */
+describe("weapon proficiency choices", () => {
+	const WEAPON_MASTER = [{choose: {fromFilter: "type=martial weapon;mundane weapon|miscellaneous=mundane", count: 4}}];
+
+	it("Reads how many, and which categories to offer", () => {
+		const [choice] = getWeaponChoices({groups: WEAPON_MASTER, sourceName: "Weapon Master"});
+		expect(choice.count).toBe(4);
+		expect(choice.categories).toEqual(["martial"]);
+		expect(choice.sourceName).toBe("Weapon Master");
+	});
+
+	it("Keeps only what names a weapon category", () => {
+		// "mundane weapon" is the exclusion of magic items, not a category — asking for base weapons
+		// already achieves it
+		const [choice] = getWeaponChoices({groups: WEAPON_MASTER, sourceName: "x"});
+		expect(choice.categories).not.toContain("mundane");
+	});
+
+	it("Offers everything when the filter names no category", () => {
+		const [choice] = getWeaponChoices({groups: [{choose: {fromFilter: "miscellaneous=mundane", count: 2}}], sourceName: "x"});
+		expect(choice.categories).toBeNull();
+		expect(choice.count).toBe(2);
+	});
+
+	it("Defaults to one where the filter does not say", () => {
+		const [choice] = getWeaponChoices({groups: [{choose: {fromFilter: "type=simple weapon"}}], sourceName: "x"});
+		expect(choice.count).toBe(1);
+		expect(choice.categories).toEqual(["simple"]);
+	});
+
+	it("Says nothing for a fixed grant, which is applied rather than asked", () => {
+		expect(getWeaponChoices({groups: [{martial: true}], sourceName: "x"})).toEqual([]);
+		expect(getWeaponChoices({groups: null, sourceName: "x"})).toEqual([]);
 	});
 });

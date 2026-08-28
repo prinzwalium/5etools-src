@@ -443,8 +443,22 @@ describe("Leveling engine: multiclass requirements", () => {
 });
 
 describe("Leveling engine: feat prerequisites", () => {
-	const ctx = ({abilityScores = {}, totalLevel = 1, classes = [], raceNames = [], backgroundName = null, featNames = [], isSpellcaster = false} = {}) =>
-		({abilityScores, totalLevel, classes, raceNames, backgroundName, featNames, isSpellcaster});
+	const ctx = ({
+		abilityScores = {}, totalLevel = 1, classes = [], raceNames = [], backgroundName = null,
+		featNames = [], featCategories = [], featureNames = [],
+		proficiencies = {armor: [], weapon: []}, isSpellcaster = false,
+	} = {}) => ({
+		abilityScores,
+		totalLevel,
+		classes,
+		raceNames,
+		backgroundName,
+		featNames,
+		featCategories,
+		featureNames,
+		proficiencies,
+		isSpellcaster,
+	});
 
 	it("Should pass when there are no prerequisites", () => {
 		expect(checkFeatPrerequisites(undefined, ctx()).status).toBe("met");
@@ -505,7 +519,60 @@ describe("Leveling engine: feat prerequisites", () => {
 		expect(checkFeatPrerequisites([{campaign: ["Ravenloft"]}], ctx()).status).toBe("unknown");
 		expect(checkFeatPrerequisites([{other: "No other dragonmark"}], ctx()).status).toBe("unknown");
 		// A satisfiable checkable clause plus an unknown one → unknown (don't falsely block)
-		expect(checkFeatPrerequisites([{ability: [{str: 13}], proficiency: [{weapon: "martial"}]}], ctx({abilityScores: {str: 15}})).status).toBe("unknown");
+		expect(checkFeatPrerequisites([{ability: [{str: 13}], campaign: ["Eberron"]}], ctx({abilityScores: {str: 15}})).status).toBe("unknown");
+	});
+
+	/*
+	 * Three prerequisites that used to report "unknown" for want of anything to check them against.
+	 * Twelve feats ask for a proficiency, eleven for a class feature, and fourteen for a feat
+	 * category — the dragonmark rules, which are the only place either category key is used.
+	 */
+	describe("the ones that were unverifiable", () => {
+		it("Checks a proficiency the character now structurally has", () => {
+			const pre = [{proficiency: [{armor: "medium"}]}];
+			expect(checkFeatPrerequisites(pre, ctx({proficiencies: {armor: ["Medium"], weapon: []}})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({proficiencies: {armor: ["Light"], weapon: []}})).status).toBe("unmet");
+		});
+
+		it("Reads the two spellings of a weapon proficiency alike", () => {
+			const held = ctx({proficiencies: {armor: [], weapon: ["Martial"]}});
+			expect(checkFeatPrerequisites([{proficiency: [{weapon: "martial"}]}], held).status).toBe("met");
+			expect(checkFeatPrerequisites([{proficiency: [{weaponGroup: "martial"}]}], held).status).toBe("met");
+		});
+
+		it("Copes with the plural and the spelled-out forms", () => {
+			// A class writes "shield", a species "shields", and the store title-cases both
+			expect(checkFeatPrerequisites([{proficiency: [{armor: "shield"}]}], ctx({proficiencies: {armor: ["Shields"], weapon: []}})).status).toBe("met");
+			expect(checkFeatPrerequisites([{proficiency: [{armor: "heavy"}]}], ctx({proficiencies: {armor: ["Heavy Armor"], weapon: []}})).status).toBe("met");
+		});
+
+		it("Checks a class feature by name, taking any of the alternatives", () => {
+			const pre = [{feature: ["Spellcasting", "Pact Magic"]}];
+			expect(checkFeatPrerequisites(pre, ctx({featureNames: ["Pact Magic", "Eldritch Invocations"]})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featureNames: ["Second Wind"]})).status).toBe("unmet");
+			expect(checkFeatPrerequisites([{feature: ["Fighting Style"]}], ctx({featureNames: ["Fighting Style"]})).status).toBe("met");
+		});
+
+		it("Requires a feat of the named category", () => {
+			const pre = [{featCategory: ["D"]}];
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["D"]})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["O"]})).status).toBe("unmet");
+			expect(checkFeatPrerequisites(pre, ctx()).status).toBe("unmet");
+		});
+
+		it("Counts them when the requirement says how many", () => {
+			const pre = [{featCategory: [{category: "EB", count: 2}]}];
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["EB", "EB"]})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["EB"]})).status).toBe("unmet");
+		});
+
+		it("Forbids a second feat of an exclusive category", () => {
+			// One dragonmark, and only one
+			const pre = [{exclusiveFeatCategory: ["D"]}];
+			expect(checkFeatPrerequisites(pre, ctx()).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["O"]})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["D"]})).status).toBe("unmet");
+		});
 	});
 });
 

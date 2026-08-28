@@ -64,6 +64,25 @@ Each page's controller keeps only its own DOM assembly + rendering.
 5. `Dockerfile` — an `ENTRYPOINT` (plus the `CMD` that setting one discards, and the `RUN` that
    installs it) for the deploy-time default books. Upstream's is two lines.
 
+### Feats
+
+`checkFeatPrerequisites` reads eleven of the fourteen prerequisite keys; the three
+it cannot are `campaign`, `other` and `otherSummary`, which are prose or a setting,
+and report `unknown` rather than blocking. Four are worth knowing about:
+**`proficiency`** (`{armor: "medium"}`, `{weapon: "martial"}`, `{weaponGroup: …}`) —
+both sides use the same small vocabulary, normalised rather than curated;
+**`feature`** — a class feature by name ("Fighting Style", "Pact Magic");
+**`featCategory`** / **`exclusiveFeatCategory`** — the dragonmark rules, one
+requiring a feat of that category and the other forbidding a second.
+A feat can land in four places (an ASI slot, a feature grant, a background, a DM's
+gift), and `getTakenFeats` collects all of them — reading only the ASI slots meant a
+background's feat satisfied nothing. **`weaponProficiencies`** may be a
+`{choose: {fromFilter}}` (Weapon Master, alone): the filter names weapon
+*categories*, which `getWeaponChoices` reads and `pGetBaseWeapons` offers.
+`repeatableHidden` is a display flag on `repeatable`; `_versions` (Magic Initiate's
+per-class forms) are expanded into separate entities by `DataLoader`, so pickers get
+them for free.
+
 Exact snippets and resolution steps: `docs/CHARACTER_SHEET_MAINTENANCE.md`.
 The account-system contract (a *separate* repo): `docs/ACCOUNT_SYSTEM.md`.
 That system, and its feature plan: <https://github.com/PrinzWalium/5etools-online>.
@@ -338,7 +357,11 @@ Key fields (all read by `charactersheet-levelengine.js` unless noted):
   in `charactersheet-features.js`). `getActiveFeatureTimeline` is the filtered view;
   `getFeatureTimeline` keeps the untaken ones so the builder can offer them.
 - **`optionalfeatureProgression`** — counts of Invocations / Maneuvers etc. by
-  level (`getOptionalFeatureCounts`).
+  level (`getOptionalFeatureCounts`). A **feat** writes its progression `{"*": n}`
+  — "n of them, whatever your level" — and `Number("*")` is NaN, so a level-indexed
+  read returned nothing for all four feats built this way (Martial Adept, Metamagic
+  Adept, Eldritch Adept, Fighting Initiate). They hang off a class entry, because
+  that is where the model keeps optional features (`pResolveFeatOptionalFeatures`).
 - **`featProgression`** — feats the class table grants *by category*: the 2024
   **Fighting Style** (Fighter 1, Paladin 2, Ranger 2, Champion 7) is a feat of
   category `FS` now, not an optional feature, and every class gains an **Epic
