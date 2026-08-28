@@ -5,6 +5,7 @@ import {
 	STEP_ASI,
 	STEP_LANGUAGE,
 	STEP_EXPERTISE,
+	STEP_FIXED_SPELL,
 	STEP_HP,
 	STEP_MASTERY,
 	STEP_OPTIONAL_FEATURE,
@@ -234,5 +235,50 @@ describe("Outstanding decisions: a choice the character has outgrown", () => {
 	it("Goes quiet once every option is already held", () => {
 		const state = baseState({hpMax: 10, skill_perception: 1, skill_stealth: 1});
 		expect(kindsOf(getOutstandingDecisions({state, speciesEnt: HALF_ELF}))).not.toContain(STEP_ORIGIN_CHOICE);
+	});
+});
+
+/*
+ * The Warlock's Mystic Arcanum is a spell known at a fixed level, outside `spellsKnownProgression`
+ * and outside any slot the class has. Because nothing counted it, an 11th-level Warlock was never
+ * told it was owed four spells.
+ */
+describe("Outstanding decisions: a spell known at a fixed level", () => {
+	const WARLOCK = {
+		name: "Warlock",
+		source: "XPHB",
+		spellsKnownProgressionFixedByLevel: {"11": {"6": 1}, "13": {"7": 1}},
+		cantripProgression: [2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4],
+		classFeatures: [],
+	};
+	WARLOCK.classFeatures[10] = [{name: "Mystic Arcanum (6th Level)"}];
+
+	const entry = {id: "w", name: "Warlock", level: 11};
+	const state = extra => ({level: 11, classes: [entry], spellsKnown: [], ...extra});
+
+	it("Asks for it once the level has arrived", () => {
+		const [pick] = getOutstandingDecisions({state: state(), loaded: [{entry, cls: WARLOCK}]})
+			.filter(it => it.kind === STEP_FIXED_SPELL);
+		expect(pick.label).toBe("Mystic Arcanum (6th Level)");
+		expect(pick.detail).toContain("level 6");
+	});
+
+	it("Does not ask before it", () => {
+		const low = {...entry, level: 10};
+		const decisions = getOutstandingDecisions({state: {...state(), classes: [low]}, loaded: [{entry: low, cls: WARLOCK}]});
+		expect(kindsOf(decisions)).not.toContain(STEP_FIXED_SPELL);
+	});
+
+	it("Stops asking once it is answered", () => {
+		const answered = state({grantedSpellChoices: [{grantKey: "w:Warlock:fixed:11:6:0", name: "Eyebite", source: "XPHB"}]});
+		const decisions = getOutstandingDecisions({state: answered, loaded: [{entry, cls: WARLOCK}]});
+		expect(kindsOf(decisions)).not.toContain(STEP_FIXED_SPELL);
+	});
+
+	it("Asks separately for each level up the ladder", () => {
+		const high = {...entry, level: 13};
+		const picks = getOutstandingDecisions({state: {...state(), classes: [high]}, loaded: [{entry: high, cls: WARLOCK}]})
+			.filter(it => it.kind === STEP_FIXED_SPELL);
+		expect(picks).toHaveLength(2);
 	});
 });

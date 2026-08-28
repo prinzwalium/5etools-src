@@ -1,4 +1,4 @@
-import {getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getFeatureResources, getFeatureUses, getHpBonusPerLevel} from "../../js/charactersheet/charactersheet-features.js";
+import {annotateVariantFeatures, filterActiveFeatures, getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getFeatureResources, getFeatureUses, getHpBonusPerLevel, getVariantParentName, getVariantReplacedNames} from "../../js/charactersheet/charactersheet-features.js";
 
 describe("Feature effects: initiative", () => {
 	const ctx = {abilities: {cha: 3, dex: 2}, pb: 3};
@@ -156,6 +156,147 @@ describe("Features: uses read from what the book says", () => {
 		it("Counts only the levels the character has", () => {
 			expect(getFeatureResources(BY_LEVEL, 1)).toEqual([]);
 			expect(getFeatureResources(BY_LEVEL, 2)).toEqual([{label: "Action Surge", value: "1", kind: "uses", rest: "short"}]);
+		});
+	});
+});
+
+/*
+ * Tasha's optional class features. The data references them from `classFeatures` *beside* the
+ * features they replace, so a level-1 Ranger reads as Favored Enemy + Favored Foe + Natural
+ * Explorer + Deft Explorer — both halves of two either/or pairs — until something separates them.
+ */
+describe("optional class features", () => {
+	const FAVORED_ENEMY = {name: "Favored Enemy", source: "PHB", entries: ["You have significant experience studying one type of enemy."]};
+	const NATURAL_EXPLORER = {name: "Natural Explorer", source: "PHB", entries: ["You are a master of navigating the natural world."]};
+	const FAVORED_FOE = {
+		name: "Favored Foe",
+		source: "TCE",
+		isClassFeatureVariant: true,
+		entries: [
+			"{@i 1st-level ranger {@variantrule optional class features|tce|optional feature}, which replaces the Favored Enemy feature and works with the Foe Slayer feature}",
+			"When you hit a creature with an attack roll, you can mark the target as your favored enemy.",
+		],
+	};
+	const DEFT_EXPLORER = {
+		name: "Deft Explorer",
+		source: "TCE",
+		isClassFeatureVariant: true,
+		entries: [
+			"{@i 1st-level ranger {@variantrule optional class features|tce|optional feature}, which replaces the Natural Explorer feature}",
+			"You are an unsurpassed explorer and survivor.",
+		],
+	};
+	const DEFT_IMPROVEMENT = {
+		name: "Deft Explorer Improvement",
+		source: "TCE",
+		isClassFeatureVariant: true,
+		entries: ["You gain an additional benefit when you reach 6th level in this class."],
+	};
+	const STEADY_AIM = {
+		name: "Steady Aim",
+		source: "TCE",
+		isClassFeatureVariant: true,
+		entries: [
+			"{@i 3rd-level rogue {@variantrule optional class features|tce|optional feature}}",
+			"As a bonus action, you give yourself advantage on your next attack roll.",
+		],
+	};
+
+	const TIMELINE = [
+		{level: 1, feature: FAVORED_ENEMY, isSubclassFeature: false},
+		{level: 1, feature: FAVORED_FOE, isSubclassFeature: false},
+		{level: 1, feature: NATURAL_EXPLORER, isSubclassFeature: false},
+		{level: 1, feature: DEFT_EXPLORER, isSubclassFeature: false},
+		{level: 6, feature: DEFT_IMPROVEMENT, isSubclassFeature: false},
+	];
+
+	const names = list => list.map(it => it.feature.name);
+
+	describe("reading what one replaces", () => {
+		it("Reads the replaced feature out of the italic header", () => {
+			expect(getVariantReplacedNames(DEFT_EXPLORER)).toEqual(["Natural Explorer"]);
+		});
+
+		it("Stops at the feature name where the header runs on", () => {
+			// "...replaces the Favored Enemy feature and works with the Foe Slayer feature"
+			expect(getVariantReplacedNames(FAVORED_FOE)).toEqual(["Favored Enemy"]);
+		});
+
+		it("Says nothing for a variant that adds rather than swaps", () => {
+			expect(getVariantReplacedNames(STEADY_AIM)).toEqual([]);
+		});
+
+		it("Says nothing for an ordinary feature", () => {
+			expect(getVariantReplacedNames(NATURAL_EXPLORER)).toEqual([]);
+		});
+
+		it("Reads a subclass variant's header, which words itself differently", () => {
+			const primalCompanion = {
+				name: "Primal Companion",
+				source: "TCE",
+				isClassFeatureVariant: true,
+				entries: ["{@i 3rd-level Beast Master variant feature, which replaces the Ranger's Companion feature}", "You magically summon a primal beast."],
+			};
+			expect(getVariantReplacedNames(primalCompanion)).toEqual(["Ranger's Companion"]);
+		});
+	});
+
+	describe("what a character actually has", () => {
+		it("Grants none of them until the table allows them", () => {
+			expect(names(filterActiveFeatures(annotateVariantFeatures(TIMELINE, [])))).toEqual(["Favored Enemy", "Natural Explorer"]);
+		});
+
+		it("Swaps out what a taken variant replaces", () => {
+			const taken = [{name: "Deft Explorer", source: "TCE"}];
+			expect(names(filterActiveFeatures(annotateVariantFeatures(TIMELINE, taken)))).toEqual(["Favored Enemy", "Deft Explorer", "Deft Explorer Improvement"]);
+		});
+
+		it("Takes them one at a time, not as a set", () => {
+			const taken = [{name: "Favored Foe", source: "TCE"}];
+			expect(names(filterActiveFeatures(annotateVariantFeatures(TIMELINE, taken)))).toEqual(["Favored Foe", "Natural Explorer"]);
+		});
+
+		it("Names what replaced a superseded feature, for the card that has to say so", () => {
+			const annotated = annotateVariantFeatures(TIMELINE, [{name: "Favored Foe", source: "TCE"}]);
+			expect(annotated.find(it => it.feature.name === "Favored Enemy").replacedBy).toBe("Favored Foe");
+			expect(annotated.find(it => it.feature.name === "Natural Explorer").replacedBy).toBeNull();
+		});
+	});
+
+	describe("a variant that is the rest of another", () => {
+		it("Has no toggle of its own", () => {
+			expect(getVariantParentName(DEFT_IMPROVEMENT)).toBe("Deft Explorer");
+			expect(getVariantParentName(DEFT_EXPLORER)).toBeNull();
+			expect(getVariantParentName(NATURAL_EXPLORER)).toBeNull();
+		});
+
+		it("Follows its parent's", () => {
+			const withParent = annotateVariantFeatures(TIMELINE, [{name: "Deft Explorer", source: "TCE"}]);
+			expect(withParent.find(it => it.feature.name === "Deft Explorer Improvement").isVariantTaken).toBe(true);
+			const without = annotateVariantFeatures(TIMELINE, []);
+			expect(without.find(it => it.feature.name === "Deft Explorer Improvement").isVariantTaken).toBe(false);
+		});
+	});
+
+	describe("as resources", () => {
+		const QUICKENED_HEALING = {
+			name: "Quickened Healing",
+			source: "TCE",
+			isClassFeatureVariant: true,
+			entries: [
+				"{@i 4th-level monk {@variantrule optional class features|tce|optional feature}}",
+				"You regain hit points. Once you use this feature, you can't do so again until you finish a {@variantrule Long Rest|XPHB}.",
+			],
+		};
+		const BY_LEVEL = [[], [], [], [QUICKENED_HEALING]];
+
+		it("Does not offer one nobody took", () => {
+			expect(getFeatureResources(BY_LEVEL, 4)).toEqual([]);
+		});
+
+		it("Offers it once it is taken", () => {
+			expect(getFeatureResources(BY_LEVEL, 4, {featureVariants: [{name: "Quickened Healing", source: "TCE"}]}))
+				.toEqual([{label: "Quickened Healing", value: "1", kind: "uses", rest: "long"}]);
 		});
 	});
 });

@@ -292,6 +292,26 @@ Key fields (all read by `charactersheet-levelengine.js` unless noted):
   groups with buckets `prepared`/`known`/`expanded`/`innate`, each keyed by
   **class level** → list of uids (`"cure wounds|phb"`) or dynamic
   `{choose}`/`{all}` filters. `getGrantedSpellUids` reads the plain-uid ones.
+  The **`innate` bucket wraps its lists in a frequency** — `ritual`, `daily`,
+  `rest`, `resource` — which a plain-uid read cannot see into, so it has its own
+  reader (`getInnateSpellGrants` + `getInnateSpellCastingNote`). `resource` is
+  keyed by **cost** and the group's `resourceName` says what is spent: a Way of
+  Shadow monk casts Darkness for 2 Ki Points, never out of a slot.
+- **`spellsKnownProgressionFixedByLevel`** — the Warlock's **Mystic Arcanum**,
+  and only that: one 6th-level spell at 11, a 7th at 13, an 8th at 15, a 9th at
+  17, each cast at its own level once per long rest. Outside `spellsKnownProgression`
+  because a pact caster has no slot that could pay for one.
+  `getFixedSpellsKnownGrants` returns them in `getDynamicSpellGrants`' shape, so
+  the panel's existing chooser resolves them (`STEP_FIXED_SPELL` in buildsteps).
+- **`isClassFeatureVariant`** — Tasha's **optional class features**, referenced
+  from `classFeatures` *beside* the features they replace, so reading the list
+  naively grants both halves of an either/or (Favored Enemy **and** Favored Foe).
+  They are a permission the table gives: opted into per class entry
+  (`featureVariants`, `setFeatureVariantForClass`), and what one replaces is read
+  from its own italic header rather than curated
+  (`annotateVariantFeatures` / `filterActiveFeatures` / `getVariantReplacedNames`
+  in `charactersheet-features.js`). `getActiveFeatureTimeline` is the filtered view;
+  `getFeatureTimeline` keeps the untaken ones so the builder can offer them.
 - **`optionalfeatureProgression`** — counts of Invocations / Maneuvers etc. by
   level (`getOptionalFeatureCounts`).
 - **`featProgression`** — feats the class table grants *by category*: the 2024

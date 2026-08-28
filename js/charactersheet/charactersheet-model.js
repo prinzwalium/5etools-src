@@ -945,6 +945,7 @@ export class CharacterModel extends BaseComponent {
 			// Re-picking the same class (e.g. to refresh level) keeps its subclass/feature choices
 			subclass: isSameClass ? existing.subclass : null,
 			optionalFeatures: isSameClass ? (existing.optionalFeatures || []) : [],
+			featureVariants: isSameClass ? (existing.featureVariants || []) : [],
 			asiFeatChoices: isSameClass ? (existing.asiFeatChoices || []) : [],
 		}];
 	}
@@ -964,6 +965,7 @@ export class CharacterModel extends BaseComponent {
 				hdFaces: cls.hd?.faces ?? null,
 				subclass: null,
 				optionalFeatures: [],
+				featureVariants: [],
 				asiFeatChoices: [],
 			},
 		];
@@ -1005,6 +1007,19 @@ export class CharacterModel extends BaseComponent {
 		const entry = this._state.classes.find(it => it.id === id);
 		if (!entry?.optionalFeatures) return;
 		entry.optionalFeatures = entry.optionalFeatures.filter(it => !(it.name === name && it.source === source));
+		this._triggerCollectionUpdate("classes");
+	}
+
+	/**
+	 * Take, or give back, one of Tasha's optional class features. These are a permission the table
+	 * gives rather than something a level grants, so they default to off and what they replace stays
+	 * in force until one is taken.
+	 */
+	setFeatureVariantForClass (id, {name, source}, isTaken) {
+		const entry = this._state.classes.find(it => it.id === id);
+		if (!entry || !name) return;
+		const rest = (entry.featureVariants || []).filter(it => !(it.name === name && it.source === source));
+		entry.featureVariants = isTaken ? [...rest, {name, source}] : rest;
 		this._triggerCollectionUpdate("classes");
 	}
 

@@ -17,6 +17,7 @@ import {
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SKILLS, EXPENDABLE_RESOURCES, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {pPickAbilities, pResolveFeat} from "./charactersheet-featgrant.js";
 import {getStateSourcePredicate} from "./charactersheet-sources.js";
+import {getVariantParentName, getVariantReplacedNames} from "./charactersheet-features.js";
 
 /**
  * The "Class & Leveling" sheet panel: renders the derived feature timeline, subclass and
@@ -854,7 +855,7 @@ export class CharacterClassPanel {
 	}
 
 	_renderFeatureTimeline ({wrp, entry, cls, sc}) {
-		const timeline = CharacterSheetClassData.getFeatureTimeline(cls, {subclass: sc, level: entry.level});
+		const timeline = CharacterSheetClassData.getFeatureTimeline(cls, {subclass: sc, level: entry.level, featureVariants: entry.featureVariants});
 		if (!timeline.length) return;
 
 		const ctx = this._getSectionChoosers({entry, cls, sc});
@@ -882,6 +883,10 @@ export class CharacterClassPanel {
 			if (!card) return;
 			const body = card.querySelector(".cs__feat-body");
 			let unmet = false;
+
+			// Tasha's optional features are offered, not granted; the feature one replaces is struck
+			// through until it is taken back
+			if (meta.isVariant) this._renderVariantToggle(this._makeChoiceBox(body), {entry, meta});
 
 			if (!isSubclassFeature && feature.gainSubclassFeature && ctx.gainLevel != null) {
 				this._renderSubclassChooser(this._makeChoiceBox(body), {entry, cls});
@@ -941,8 +946,41 @@ export class CharacterClassPanel {
 		wrp.appendChild(outer);
 	}
 
+	/**
+	 * The opt-in for one of Tasha's optional class features, inside its own card. A variant that is
+	 * merely the rest of one already taken ("Deft Explorer Improvement") carries no toggle of its
+	 * own — it follows its parent — so it says so instead.
+	 */
+	_renderVariantToggle (box, {entry, meta}) {
+		const {feature} = meta;
+		const replaced = getVariantReplacedNames(feature);
+
+		if (getVariantParentName(feature)) {
+			box.innerHTML = `<div class="ve-small ve-muted">Part of ${getVariantParentName(feature).qq()}.</div>`;
+			return;
+		}
+
+		const label = document.createElement("label");
+		label.className = "ve-flex-v-center ve-small";
+
+		const cb = document.createElement("input");
+		cb.type = "checkbox";
+		cb.className = "mr-2";
+		cb.checked = !!meta.isVariantTaken;
+		cb.addEventListener("change", () => this._comp.setFeatureVariantForClass(entry.id, {name: feature.name, source: feature.source}, cb.checked));
+
+		const txt = document.createElement("span");
+		txt.innerHTML = replaced.length
+			? `Use this optional feature <span class="ve-muted">(replaces ${replaced.join(", ").qq()})</span>`
+			: `Use this optional feature`;
+
+		label.appendChild(cb);
+		label.appendChild(txt);
+		box.appendChild(label);
+	}
+
 	/** One expandable feature card: level badge, name (hover link), subclass badge, and rendered rules text. */
-	_getFeatureCard ({level, feature, isSubclassFeature}) {
+	_getFeatureCard ({level, feature, isSubclassFeature, isVariant, isVariantTaken, replacedBy}) {
 		const {name} = CharacterSheetClassData.getFeatureNameMeta(feature);
 		if (!name) return null;
 
@@ -951,7 +989,7 @@ export class CharacterClassPanel {
 			: CharacterClassPanel._getClassFeatureTag(feature);
 
 		const card = document.createElement("details");
-		card.className = "cs__feat-card";
+		card.className = `cs__feat-card${isVariant && !isVariantTaken ? " cs__feat-card--unused" : ""}${replacedBy ? " cs__feat-card--replaced" : ""}`;
 
 		const summary = document.createElement("summary");
 		const nameHtml = tag ? Renderer.get().render(tag) : name.qq();
@@ -959,6 +997,8 @@ export class CharacterClassPanel {
 			<span class="cs__feat-lvl">L${level}</span>
 			<span class="cs__feat-name">${nameHtml}</span>
 			${isSubclassFeature ? `<span class="cs__feat-badge">Subclass</span>` : ""}
+			${isVariant ? `<span class="cs__feat-badge cs__feat-badge--variant" title="An optional class feature; taking it is up to your table">Optional</span>` : ""}
+			${replacedBy ? `<span class="cs__feat-badge cs__feat-badge--variant" title="Superseded by an optional feature you took">Replaced by ${replacedBy.qq()}</span>` : ""}
 		`;
 		card.appendChild(summary);
 

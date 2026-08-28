@@ -174,6 +174,9 @@ function _getFeatureNamesBetween (ent, levelFrom, levelTo, {isSubclass = false} 
 
 		// The generic "you gain a Subclass feature" markers say nothing a player wants read back
 		if (feature.gainSubclassFeature) return;
+		// Nor does one of Tasha's optional features, which the level offers rather than brings —
+		// listing it as gained would promise the level does something it does not
+		if (feature.isClassFeatureVariant) return;
 		if (typeof feature.classFeature === "string" || typeof feature.subclassFeature === "string") {
 			return readOne(feature.classFeature || feature.subclassFeature);
 		}

@@ -3,6 +3,7 @@ import {
 	getCantripsKnown,
 	getExpertiseSkillCount,
 	getFeatProgressionCounts,
+	getFixedSpellsKnownGrants,
 	getOptionalFeatureCounts,
 	getSpellsKnown,
 	getWeaponMasteryCount,
@@ -38,6 +39,8 @@ export const STEP_ORIGIN_FEAT = "originFeat";
 export const STEP_TRAIT_CHOICE = "traitChoice";
 export const STEP_SIZE = "size";
 export const STEP_SPELLS = "spells";
+/** A spell known at a fixed spell level rather than out of the progression — the Warlock's Mystic Arcanum. */
+export const STEP_FIXED_SPELL = "fixedSpell";
 export const STEP_HP = "hp";
 /** A class's starting proficiencies — the four skills a Rogue picks, the three instruments a Bard does. */
 export const STEP_CLASS_PROFICIENCY = "classProficiency";
@@ -244,6 +247,21 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 				});
 			}
 		}
+
+		// Mystic Arcanum: a pick at a fixed spell level, outside the known-spell count entirely, so
+		// an unanswered one is invisible to the check above
+		getFixedSpellsKnownGrants(cls, entry.level).forEach(grant => {
+			const grantKey = `${entry.id}:${cls.name}:${grant.id}`;
+			if ((st.grantedSpellChoices || []).some(it => it.grantKey === grantKey)) return;
+			out.push({
+				key: `${STEP_FIXED_SPELL}:${grantKey}`,
+				kind: STEP_FIXED_SPELL,
+				label: grant.groupName || "Fixed-level spell",
+				detail: `${entry.name} — one spell of level ${grant.spellLevel}`,
+				count: 1,
+				ctx: {entry, cls, grant, grantKey},
+			});
+		});
 	});
 
 	/* ---------- pools that span the classes ---------- */

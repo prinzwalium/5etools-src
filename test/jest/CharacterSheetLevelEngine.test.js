@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import "../../js/parser.js";
-import {HP_MODE_AVERAGE, HP_MODE_MAX, HP_MODE_ROLLED, checkFeatPrerequisites, getAsiCount, getCantripsKnown, getCasterLevelContribution, getClassResources, getDynamicSpellGrants, getExpertiseSkillCount, getFeatProgressionCounts, getGrantedSpellUids, getHitDieAverage, getHitPointMaximum, getLevelUpHp, getMulticlassRequirementsDisplay, getOptionalFeatureCounts, getPactSlots, getPreparedSpellCount, getPreparedSpellsDisplay, getPrimaryAbilities, getSingleClassSlots, getSpellGrantGroups, getSpellcastingMeta, getSpellsKnown, isMulticlassRequirementMet, isSpellMatchingFilter, parseSpellFilter} from "../../js/charactersheet/charactersheet-levelengine.js";
+import {HP_MODE_AVERAGE, HP_MODE_MAX, HP_MODE_ROLLED, checkFeatPrerequisites, getAsiCount, getCantripsKnown, getCasterLevelContribution, getClassResources, getDynamicSpellGrants, getExpertiseSkillCount, getFeatProgressionCounts, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getHitDieAverage, getHitPointMaximum, getLevelUpHp, getMulticlassRequirementsDisplay, getOptionalFeatureCounts, getPactSlots, getPreparedSpellCount, getPreparedSpellsDisplay, getPrimaryAbilities, getSingleClassSlots, getSpellGrantGroups, getSpellcastingMeta, getSpellsKnown, isMulticlassRequirementMet, isSpellMatchingFilter, parseSpellFilter} from "../../js/charactersheet/charactersheet-levelengine.js";
 
 const loadClassFile = name => JSON.parse(fs.readFileSync(`./data/class/class-${name}.json`, "utf8"));
 
@@ -601,5 +601,131 @@ describe("Leveling engine: the hit point maximum, three ways", () => {
 
 	it("Should never go below one hit point", () => {
 		expect(getHitPointMaximum({classes: [{name: "Wizard", level: 1, hdFaces: 6}], conMod: -5, mode: HP_MODE_AVERAGE}).total).toBe(1);
+	});
+});
+
+/*
+ * The Warlock's Mystic Arcanum. It sits in `spellsKnownProgressionFixedByLevel` rather than in the
+ * ordinary known-spell progression, because a pact caster's slots stop at 5th level and these four
+ * spells are cast at their own level, once per long rest. Nothing read the field, so a Warlock 11+
+ * had none of them.
+ */
+describe("fixed-level spells known", () => {
+	const WARLOCK = {
+		name: "Warlock",
+		spellsKnownProgressionFixedByLevel: {"11": {"6": 1}, "13": {"7": 1}, "15": {"8": 1}, "17": {"9": 1}},
+		classFeatures: [],
+	};
+	WARLOCK.classFeatures[10] = [{name: "Mystic Arcanum (6th Level)"}];
+	WARLOCK.classFeatures[12] = [{name: "Mystic Arcanum (7th Level)"}];
+
+	it("Grants nothing before 11th level", () => {
+		expect(getFixedSpellsKnownGrants(WARLOCK, 10)).toEqual([]);
+	});
+
+	it("Grants one 6th-level spell at 11", () => {
+		const grants = getFixedSpellsKnownGrants(WARLOCK, 11);
+		expect(grants).toHaveLength(1);
+		expect(grants[0]).toMatchObject({type: "choose", count: 1, spellLevel: 6, atLevel: 11});
+	});
+
+	it("Restricts the pick to that spell level and that class", () => {
+		const [grant] = getFixedSpellsKnownGrants(WARLOCK, 11);
+		expect(grant.filter).toEqual({levels: [6], classes: ["warlock"], schools: []});
+	});
+
+	it("Names the grant after the feature that gives it", () => {
+		expect(getFixedSpellsKnownGrants(WARLOCK, 11)[0].groupName).toBe("Mystic Arcanum (6th Level)");
+	});
+
+	it("Accumulates one per level up the ladder", () => {
+		expect(getFixedSpellsKnownGrants(WARLOCK, 20).map(it => it.spellLevel)).toEqual([6, 7, 8, 9]);
+	});
+
+	it("Ignores an ASI when naming, and copes with an unnamed level", () => {
+		const cls = {...WARLOCK, classFeatures: [...WARLOCK.classFeatures]};
+		cls.classFeatures[14] = [{name: "Ability Score Improvement"}];
+		expect(getFixedSpellsKnownGrants(cls, 15).find(it => it.spellLevel === 8).groupName).toBeNull();
+	});
+
+	it("Says nothing for a class without the field", () => {
+		expect(getFixedSpellsKnownGrants({name: "Fighter"}, 20)).toEqual([]);
+		expect(getFixedSpellsKnownGrants(null, 20)).toEqual([]);
+	});
+});
+
+/*
+ * `additionalSpells.innate` wraps its lists in a frequency — `ritual`, `daily`, `rest`, `resource` —
+ * and the plain-uid reader could only see strings, so everything inside a wrapper was dropped. That
+ * cost thirteen subclasses their innate spells; the `resource` ones were the worst, because those
+ * are cast with a class resource rather than a slot and the cost is the point.
+ */
+describe("innate spell grants", () => {
+	const WAY_OF_SHADOW = {
+		name: "Shadow",
+		additionalSpells: [{
+			known: {"3": ["minor illusion#c"]},
+			innate: {"3": {"resource": {"2": ["darkness", "darkvision", "pass without trace", "silence"]}}},
+			resourceName: "Ki",
+			ability: "wis",
+		}],
+	};
+
+	it("Finds the spells a plain-uid read cannot see", () => {
+		expect(getGrantedSpellUids(WAY_OF_SHADOW, 3)).toEqual(["minor illusion"]);
+		expect(getInnateSpellGrants(WAY_OF_SHADOW, 3).map(it => it.uid))
+			.toEqual(["darkness", "darkvision", "pass without trace", "silence"]);
+	});
+
+	it("Reads what casting one costs, and out of which pool", () => {
+		const [grant] = getInnateSpellGrants(WAY_OF_SHADOW, 3);
+		expect(grant).toMatchObject({frequency: "resource", amount: 2, resourceName: "Ki"});
+		expect(getInnateSpellCastingNote(grant)).toBe("costs 2 Ki Points");
+	});
+
+	it("Holds them back until the level that grants them", () => {
+		expect(getInnateSpellGrants(WAY_OF_SHADOW, 2)).toEqual([]);
+	});
+
+	it("Reads a ritual-only grant", () => {
+		const totem = {additionalSpells: [{innate: {"3": {"ritual": ["beast sense", "speak with animals"]}}}]};
+		const grants = getInnateSpellGrants(totem, 3);
+		expect(grants.map(it => it.uid)).toEqual(["beast sense", "speak with animals"]);
+		expect(getInnateSpellCastingNote(grants[0])).toBe("as a ritual only");
+	});
+
+	it("Reads a once-a-day grant", () => {
+		const psiWarrior = {additionalSpells: [{innate: {"18": {"daily": {"1": ["telekinesis"]}}}}]};
+		expect(getInnateSpellCastingNote(getInnateSpellGrants(psiWarrior, 18)[0])).toBe("one time per long rest");
+	});
+
+	it("Reads a grant counted by an ability modifier", () => {
+		const archfey = {additionalSpells: [{innate: {"_": {"daily": {"cha": ["misty step|xphb"]}}}}]};
+		const [grant] = getInnateSpellGrants(archfey, 1);
+		expect(grant).toMatchObject({uid: "misty step|xphb", atLevel: 0, amountAbility: "cha"});
+		expect(getInnateSpellCastingNote(grant)).toBe("a number of times equal to your Charisma modifier per long rest");
+	});
+
+	it("Reads a per-rest grant", () => {
+		const phantom = {additionalSpells: [{innate: {"9": {"rest": {"1": ["speak with dead|xphb"]}}}}]};
+		expect(getInnateSpellCastingNote(getInnateSpellGrants(phantom, 9)[0])).toBe("one time per short or long rest");
+	});
+
+	it("Leaves a plain list unqualified, as the grant it already was", () => {
+		const diviner = {additionalSpells: [{innate: {"10": ["see invisibility|xphb"]}}]};
+		const [grant] = getInnateSpellGrants(diviner, 10);
+		expect(grant.frequency).toBeNull();
+		expect(getInnateSpellCastingNote(grant)).toBeNull();
+	});
+
+	it("Leaves a {choose} entry to the dynamic reader", () => {
+		const moon = {additionalSpells: [{innate: {"3": [{choose: "level=0|class=druid", count: 1}]}}]};
+		expect(getInnateSpellGrants(moon, 3)).toEqual([]);
+		expect(getDynamicSpellGrants(moon, 3)).toHaveLength(1);
+	});
+
+	it("Says nothing for an entity with no innate grants", () => {
+		expect(getInnateSpellGrants({}, 5)).toEqual([]);
+		expect(getInnateSpellGrants(null, 5)).toEqual([]);
 	});
 });

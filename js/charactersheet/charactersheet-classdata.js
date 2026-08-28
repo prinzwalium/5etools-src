@@ -7,6 +7,7 @@
  * preserved). Everything here builds on that, rather than re-implementing uid parsing.
  */
 import {ALL_TOOL_NAMES} from "./charactersheet-choices.js";
+import {annotateVariantFeatures, filterActiveFeatures} from "./charactersheet-features.js";
 
 /** Artisan's tools, instrument, gaming set, tool — the item types a proficiency can name. */
 const _TOOL_TYPE_ABVS = new Set(["AT", "INS", "GS", "T"]);
@@ -332,7 +333,7 @@ export class CharacterSheetClassData {
 			const sc = entry.subclass
 				? await this.pGetSubclass({className: entry.name, classSource: entry.source, shortName: entry.subclass.shortName, source: entry.subclass.source}).catch(() => null)
 				: null;
-			this.getFeatureTimeline(cls, {subclass: sc, level: entry.level}).forEach(({feature, isSubclassFeature}) => {
+			this.getActiveFeatureTimeline(cls, {subclass: sc, level: entry.level, featureVariants: entry.featureVariants}).forEach(({feature, isSubclassFeature}) => {
 				const {name} = this.getFeatureNameMeta(feature);
 				if (name) out.push({name, feature, isSubclassFeature});
 			});
@@ -424,9 +425,16 @@ export class CharacterSheetClassData {
 	/**
 	 * The feature timeline for levels 1..`level`, in gain order, with subclass features (when a
 	 * subclass is provided) spliced in at their `gainSubclassFeature` markers.
-	 * @return {Array<{level: number, feature: object, isSubclassFeature: boolean}>}
+	 *
+	 * Tasha's optional features sit in this list beside the features they replace, so every entry is
+	 * annotated with `isVariant` / `isVariantTaken` / `replacedBy` against the class entry's
+	 * `featureVariants`. The builder wants the whole list, to offer the ones not taken; everything
+	 * else wants `getActiveFeatureTimeline`, which is this minus the options nobody took and the
+	 * features a taken option superseded.
+	 *
+	 * @return {Array<{level: number, feature: object, isSubclassFeature: boolean, isVariant: boolean, isVariantTaken: boolean, replacedBy: ?string}>}
 	 */
-	static getFeatureTimeline (cls, {subclass = null, level}) {
+	static getFeatureTimeline (cls, {subclass = null, level, featureVariants = []}) {
 		const out = [];
 
 		for (let lvl = 1; lvl <= level; ++lvl) {
@@ -440,6 +448,11 @@ export class CharacterSheetClassData {
 			});
 		}
 
-		return out;
+		return annotateVariantFeatures(out, featureVariants);
+	}
+
+	/** {@link getFeatureTimeline}, reduced to the features the character actually has. */
+	static getActiveFeatureTimeline (cls, opts) {
+		return filterActiveFeatures(this.getFeatureTimeline(cls, opts));
 	}
 }

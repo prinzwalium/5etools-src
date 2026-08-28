@@ -208,6 +208,28 @@
 		opacity: 0.85;
 	}
 
+	// Tasha's optional class features. A card is one of three things and has to look like which:
+	// offered but not taken, taken, or a base feature a taken option has superseded. Only the name
+	// is struck through — the rules text stays readable, because "what did it say?" is exactly the
+	// question somebody asks before deciding
+	.cs__feat-badge--variant {
+		border-style: dashed;
+		text-transform: none;
+		font-weight: normal;
+		opacity: 0.7;
+	}
+
+	.cs__feat-card--unused,
+	.cs__feat-card--replaced {
+		border-style: dashed;
+		background: none;
+	}
+
+	.cs__feat-card--replaced > summary .cs__feat-name {
+		text-decoration: line-through;
+		opacity: 0.6;
+	}
+
 	// A species' `traitTags`, one chip each. Quieter than a badge: these summarise, and one of them
 	// (Powerful Build) is emphasised in markup because it changes a number.
 	.cs__tag {

@@ -183,12 +183,15 @@ export function getFeatureUses (feature, level = 1) {
  *
  * @param featuresByLevel `[[feature, ...], ...]` as the loader returns them, index 0 = level 1.
  * @param level the character's level in that class.
+ * @param featureVariants the class entry's taken optional features; an untaken one is not a resource.
  */
-export function getFeatureResources (featuresByLevel, level = 1) {
+export function getFeatureResources (featuresByLevel, level = 1, {featureVariants = []} = {}) {
 	const byName = new Map();
+	const isTakenVariant = feature => annotateVariantFeatures([{feature}], featureVariants)[0].isVariantTaken;
 
 	(featuresByLevel || []).slice(0, Math.max(0, Number(level) || 0)).forEach(atLevel => {
 		[atLevel].flat().filter(Boolean).forEach(feature => {
+			if (isVariantClassFeature(feature) && !isTakenVariant(feature)) return;
 			const res = getFeatureUses(feature, level);
 			if (!res) return;
 			const prev = byName.get(res.label);
@@ -197,4 +200,104 @@ export function getFeatureResources (featuresByLevel, level = 1) {
 	});
 
 	return [...byName.values()];
+}
+
+/* -------------------------------------------- optional (variant) class features -------------------------------------------- */
+
+/**
+ * Tasha's optional class features are flagged `isClassFeatureVariant`, and the data references them
+ * from `classFeatures` *alongside the features they replace* — the level-1 Ranger list is Favored
+ * Enemy, Favored Foe, Natural Explorer, Deft Explorer, in that order. Nothing read the flag, so a
+ * Ranger was granted all four: both halves of two either/or pairs, and the replaced feature still
+ * counted. They are a permission the table gives, not a grant, so they are opted into per class
+ * entry and what they replace is then suppressed.
+ *
+ * The book states the replacement in the feature's own italic header —
+ * `{@i 8th-level cleric {@variantrule optional class features|tce|optional feature}, which replaces
+ * the Divine Strike feature}` — in the same phrasing in all seven cases, so it is read rather than
+ * curated.
+ */
+
+/** The italic "Nth-level <class> optional feature, which replaces ..." line, if the feature has one. */
+function _getVariantHeaderText (feature) {
+	return _collectText(feature?.entries)
+		.find(it => /^\{@i .*(?:optional class features\|tce|variant feature)/.test(it)) || null;
+}
+
+export function isVariantClassFeature (feature) {
+	return !!feature?.isClassFeatureVariant;
+}
+
+/**
+ * The names of the features this variant replaces — `["Natural Explorer"]` for Deft Explorer, and
+ * `[]` for the majority, which are additions rather than swaps ("Steady Aim", "Wild Companion", ...).
+ */
+export function getVariantReplacedNames (feature) {
+	if (!isVariantClassFeature(feature)) return [];
+	const header = _getVariantHeaderText(feature);
+	if (!header) return [];
+	// Non-greedy: Favored Foe's header runs on into "and works with the Foe Slayer feature"
+	const m = /which replaces the (.+?) feature/.exec(header);
+	return m ? [m[1]] : [];
+}
+
+/**
+ * The variant a variant depends on. "Deft Explorer Improvement" (levels 6 and 10) is not a feature
+ * anyone takes: it is the rest of Deft Explorer, arriving later, and it carries no header of its
+ * own. Taking it separately would be a choice the book does not offer, so it follows its parent.
+ */
+export function getVariantParentName (feature) {
+	if (!isVariantClassFeature(feature)) return null;
+	if (_getVariantHeaderText(feature)) return null;
+	const m = /^(.+) Improvement$/.exec(feature?.name || "");
+	return m ? m[1] : null;
+}
+
+/** Stable identity for a taken variant, matching how the class entry stores it. */
+export function isSameVariant (a, b) {
+	return !!a && !!b && a.name === b.name && a.source === b.source;
+}
+
+/**
+ * Split a class's feature timeline into what the character actually has and what the variant rules
+ * are still offering.
+ *
+ * @param timeline `[{level, feature, isSubclassFeature}, ...]` in gain order.
+ * @param taken the class entry's `featureVariants` — `[{name, source}, ...]`.
+ * @return each timeline entry annotated with `{isVariant, isVariantTaken, replacedBy}`.
+ *   `isVariantTaken` is false for an untaken option; `replacedBy` names the taken variant that
+ *   supersedes a base feature. Either one means the character does not have that feature.
+ */
+export function annotateVariantFeatures (timeline, taken = []) {
+	const takenList = (taken || []).filter(it => it?.name);
+
+	// A parent's toggle carries its "... Improvement" entries, which are stored under no name of
+	// their own; everything else matches on name, and on source when both sides carry one
+	const isTaken = feature => {
+		const parent = getVariantParentName(feature);
+		if (parent) return takenList.some(it => it.name === parent);
+		return takenList.some(it => it.name === feature?.name
+			&& (!it.source || !feature?.source || it.source === feature.source));
+	};
+
+	const replacedBy = new Map();
+	(timeline || []).forEach(({feature}) => {
+		if (!isVariantClassFeature(feature) || !isTaken(feature)) return;
+		getVariantReplacedNames(feature).forEach(replaced => replacedBy.set(replaced, feature.name));
+	});
+
+	return (timeline || []).map(meta => {
+		const isVariant = isVariantClassFeature(meta.feature);
+		return {
+			...meta,
+			isVariant,
+			isVariantTaken: isVariant ? isTaken(meta.feature) : false,
+			replacedBy: isVariant ? null : (replacedBy.get(meta.feature?.name) ?? null),
+		};
+	});
+}
+
+/** The annotated timeline reduced to what the character actually gained. */
+export function filterActiveFeatures (annotated) {
+	return (annotated || []).filter(it => (it.isVariant ? it.isVariantTaken : !it.replacedBy));
 }

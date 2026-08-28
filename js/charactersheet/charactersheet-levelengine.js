@@ -378,12 +378,163 @@ export function getGrantedSpellUids (clsOrSc, level) {
 				const lvl = Number(lk);
 				if (isNaN(lvl) || lvl > level) return;
 				(Array.isArray(spells) ? spells : [spells]).forEach(sp => {
-					if (typeof sp === "string") out.push(sp.toLowerCase());
+					// A "#c" suffix marks the grant as a cantrip; it is not part of the uid, and left
+					// on it reached the display as "Minor Illusion#C"
+					if (typeof sp === "string") out.push(sp.split("#")[0].toLowerCase());
 				});
 			});
 		});
 	});
 	return [...new Set(out)];
+}
+
+/**
+ * Spells a class knows *at a fixed spell level*, from `spellsKnownProgressionFixedByLevel`.
+ *
+ * This is the Warlock's Mystic Arcanum, and only the Warlock's:
+ * `{"11": {"6": 1}, "13": {"7": 1}, "15": {"8": 1}, "17": {"9": 1}}` — one 6th-level spell at 11,
+ * one 7th at 13, and so on. It sits outside `spellsKnownProgression` because a pact caster's slots
+ * stop at 5th level, so these are not spells a slot could ever pay for: each is cast once per long
+ * rest, at its own level. Nothing read the field, which left a Warlock 11+ with no Arcanum at all —
+ * the four spells that most define the back half of the class.
+ *
+ * Returned in the shape {@link getDynamicSpellGrants} uses, so the panel's existing chooser resolves
+ * them rather than growing a second one.
+ *
+ * @param cls a loaded class (dereferenced `classFeatures`), used only to name the grant.
+ * @return {Array<{id: string, type: "choose", bucket: string, atLevel: number, spellLevel: number,
+ *                 count: number, filter: object, from: null, groupIndex: number, groupName: ?string}>}
+ */
+export function getFixedSpellsKnownGrants (cls, level) {
+	level = _clampLevel(level);
+	const byLevel = cls?.spellsKnownProgressionFixedByLevel;
+	if (!byLevel || typeof byLevel !== "object") return [];
+
+	const out = [];
+	Object.entries(byLevel).forEach(([lk, bySpellLevel]) => {
+		const atLevel = Number(lk);
+		if (isNaN(atLevel) || atLevel > level || !bySpellLevel || typeof bySpellLevel !== "object") return;
+
+		Object.entries(bySpellLevel).forEach(([sk, count]) => {
+			const spellLevel = Number(sk);
+			const n = Number(count);
+			if (isNaN(spellLevel) || !n) return;
+			for (let i = 0; i < n; ++i) {
+				out.push({
+					id: `fixed:${atLevel}:${spellLevel}:${i}`,
+					type: "choose",
+					bucket: "known",
+					atLevel,
+					spellLevel,
+					count: 1,
+					filter: {levels: [spellLevel], classes: [String(cls?.name || "").toLowerCase()].filter(Boolean), schools: []},
+					from: null,
+					groupIndex: 0,
+					groupName: _getFixedSpellsGrantName(cls, atLevel),
+				});
+			}
+		});
+	});
+	return out.sort((a, b) => a.atLevel - b.atLevel || a.spellLevel - b.spellLevel);
+}
+
+/** What the book calls the feature behind a fixed-level grant ("Mystic Arcanum (6th Level)"). */
+function _getFixedSpellsGrantName (cls, atLevel) {
+	const atThatLevel = [(cls?.classFeatures || [])[atLevel - 1]].flat().filter(Boolean);
+	const named = atThatLevel
+		.map(f => f?.name)
+		.filter(name => name && name !== "Ability Score Improvement");
+	return named[0] || null;
+}
+
+/**
+ * Innate `additionalSpells` grants, with how the book says to cast each one.
+ *
+ * The `innate` bucket is the one that is not a plain list. Under a class level it holds a
+ * *frequency wrapper* — `ritual`, `daily`, `rest`, or `resource` — and everything inside one was
+ * being dropped, because {@link getGrantedSpellUids} only keeps strings and a wrapper is an object.
+ * That silently cost thirteen subclasses their innate spells outright: a Way of Shadow monk had no
+ * Darkness, a Totem Warrior no Speak with Animals, a Psi Warrior no Telekinesis.
+ *
+ * A `resource` wrapper is the interesting one, and the reason a plain uid would not have been
+ * enough: it is keyed by *cost*, and the group's `resourceName` says what is spent. Way of Shadow
+ * casts Darkness for 2 Ki Points, not out of a spell slot, so a sheet that lists it as a known
+ * spell would charge the wrong thing.
+ *
+ * @return {Array<{uid: string, atLevel: number, frequency: ?string, amount: number, amountAbility: ?string,
+ *                 isEach: boolean, resourceName: ?string}>}
+ */
+export function getInnateSpellGrants (clsOrSc, level) {
+	level = _clampLevel(level);
+	const out = [];
+
+	(clsOrSc?.additionalSpells || []).forEach(grp => {
+		const byLevel = grp.innate;
+		if (!byLevel || typeof byLevel !== "object") return;
+
+		Object.entries(byLevel).forEach(([lk, val]) => {
+			// `_` is "from the start", used where the grant is not tied to a class level
+			const atLevel = lk === "_" ? 0 : Number(lk);
+			if (isNaN(atLevel) || atLevel > level) return;
+
+			const push = (uids, meta) => {
+				[uids].flat().forEach(sp => {
+					if (typeof sp !== "string") return; // a `{choose}`, which is a dynamic grant's business
+					out.push({uid: sp.split("#")[0].toLowerCase(), atLevel, amount: 1, amountAbility: null, isEach: false, resourceName: null, ...meta});
+				});
+			};
+
+			// A bare list is simply granted — no frequency, no cost
+			if (Array.isArray(val)) return push(val, {frequency: null});
+			if (!val || typeof val !== "object") return;
+
+			Object.entries(val).forEach(([frequency, inner]) => {
+				if (frequency === "will" || frequency === "ritual") return push(inner, {frequency});
+
+				if (!inner || typeof inner !== "object") return;
+				Object.entries(inner).forEach(([k, uids]) => {
+					if (frequency === "resource") return push(uids, {frequency, amount: Number(k) || 1, resourceName: grp.resourceName || null});
+					// "1", "2" — a count; "1e" — that count for *each* spell; "cha" — an ability modifier
+					const isEach = /e$/.test(k);
+					const n = Number(isEach ? k.slice(0, -1) : k);
+					push(uids, {frequency, amount: isNaN(n) ? 1 : n, amountAbility: isNaN(n) ? k : null, isEach});
+				});
+			});
+		});
+	});
+
+	return out;
+}
+
+/**
+ * How an innate grant is cast, in the book's own terms — the note that goes beside the spell so it
+ * is not mistaken for one cast from a slot.
+ */
+export function getInnateSpellCastingNote (grant) {
+	if (!grant?.frequency) return null;
+
+	const times = grant.amountAbility
+		? `a number of times equal to your ${Parser.attAbvToFull(grant.amountAbility)} modifier`
+		: `${Parser.numberToText(grant.amount)} time${grant.amount === 1 ? "" : "s"}`;
+
+	switch (grant.frequency) {
+		case "ritual": return "as a ritual only";
+		case "will": return "at will";
+		case "resource": return `costs ${grant.amount} ${_getResourceNoun(grant.resourceName, grant.amount)}`;
+		case "rest": return `${times} per short or long rest${grant.isEach ? ", each" : ""}`;
+		case "daily": return `${times} per long rest${grant.isEach ? ", each" : ""}`;
+		default: return null;
+	}
+}
+
+/**
+ * A resource name as a countable noun. `additionalSpells` writes the name in shorthand — "Ki", not
+ * "Ki Points" — where the class table it is spent from writes it in full, so the one name the
+ * shorthand loses is restored here rather than reading a table this function cannot see.
+ */
+function _getResourceNoun (name, amount) {
+	const full = ({"Ki": "Ki Point"})[name] || name || "resource";
+	return amount === 1 || /s$/.test(full) ? full : `${full}s`;
 }
 
 /**

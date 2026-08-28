@@ -1,4 +1,4 @@
-import {getOutstandingDecisions, STEP_ASI, STEP_CLASS_FEAT, STEP_EXPERTISE, STEP_HP, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SIZE, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
+import {getOutstandingDecisions, STEP_ASI, STEP_CLASS_FEAT, STEP_EXPERTISE, STEP_FIXED_SPELL, STEP_HP, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SIZE, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {pPickList} from "./charactersheet-featgrant.js";
@@ -83,6 +83,15 @@ export class CharacterBuildWalk {
 
 			case STEP_SPELLS:
 				return this._page._spellsPanel._pOnBrowseClassSpells();
+
+			// The spells panel already offers this pick, filtered to the one spell level it allows
+			case STEP_FIXED_SPELL:
+				return this._page._spellsPanel._pOnChooseGrantedSpell({
+					...ctx.grant,
+					grantKey: ctx.grantKey,
+					sourceName: ctx.grant.groupName || ctx.entry.name,
+					className: ctx.cls.name,
+				});
 
 			case STEP_HP:
 				return this._pResolveHp();

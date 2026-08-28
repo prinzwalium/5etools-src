@@ -1,5 +1,5 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
-import {getCantripsKnown, getDynamicSpellGrants, getGrantedSpellUids, getPreparedSpellCount, getSpellcastingMeta, getSpellsKnown, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
+import {getCantripsKnown, getDynamicSpellGrants, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getPreparedSpellCount, getSpellcastingMeta, getSpellsKnown, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, getAbilityModifier, hasSpellcasting} from "./charactersheet-derive.js";
 import {getSpellSummary, normaliseCastTime} from "./charactersheet-actions.js";
 
@@ -81,24 +81,30 @@ export class CharacterSpellsPanel {
 		const byKey = await this._pEnsureSpellData();
 		const out = [];
 		const seen = new Set();
+		const add = (uid, {cls, castingNote = null}) => {
+			const [name, source] = uid.split("|");
+			const spEnt = byKey.get(`${name}|${(source || "phb").toLowerCase()}`) || this._spellByName.get(name);
+			const resolved = {
+				name: spEnt?.name || name.replace(/\b\w/g, c => c.toUpperCase()),
+				source: spEnt?.source || (source || "PHB").toUpperCase(),
+				level: spEnt?.level ?? 0,
+				className: cls?.name || null,
+				granted: true,
+				castingNote,
+			};
+			const key = `${resolved.name.toLowerCase()}|${resolved.source.toLowerCase()}`;
+			if (seen.has(key)) return;
+			seen.add(key);
+			out.push(resolved);
+		};
+
 		loaded.forEach(({entry, cls, sc}) => {
 			[cls, sc].forEach(ent => {
 				if (!ent) return;
-				getGrantedSpellUids(ent, entry.level).forEach(uid => {
-					const [name, source] = uid.split("|");
-					const spEnt = byKey.get(`${name}|${(source || "phb").toLowerCase()}`) || this._spellByName.get(name);
-					const resolved = {
-						name: spEnt?.name || name.replace(/\b\w/g, c => c.toUpperCase()),
-						source: spEnt?.source || (source || "PHB").toUpperCase(),
-						level: spEnt?.level ?? 0,
-						className: cls?.name || null,
-						granted: true,
-					};
-					const key = `${resolved.name.toLowerCase()}|${resolved.source.toLowerCase()}`;
-					if (seen.has(key)) return;
-					seen.add(key);
-					out.push(resolved);
-				});
+				getGrantedSpellUids(ent, entry.level).forEach(uid => add(uid, {cls}));
+				// The innate bucket's frequency wrappers, which the uid reader cannot see into. Each
+				// carries how it is cast, because a Way of Shadow monk's Darkness costs Ki, not a slot
+				getInnateSpellGrants(ent, entry.level).forEach(grant => add(grant.uid, {cls, castingNote: getInnateSpellCastingNote(grant)}));
 			});
 		});
 		return out;
@@ -115,11 +121,13 @@ export class CharacterSpellsPanel {
 		loaded.forEach(({entry, cls, sc}) => {
 			[[cls, cls?.name], [sc, sc?.name]].forEach(([ent, entName]) => {
 				if (!ent) return;
-				getDynamicSpellGrants(ent, entry.level).forEach(grant => {
+				// Mystic Arcanum and its like are picks at a fixed spell level, expressed in the same
+				// shape so this one chooser resolves both
+				[...getDynamicSpellGrants(ent, entry.level), ...getFixedSpellsKnownGrants(ent, entry.level)].forEach(grant => {
 					out.push({
 						...grant,
 						grantKey: `${entry.id}:${entName}:${grant.id}`,
-						sourceName: entName,
+						sourceName: grant.groupName || entName,
 						className: cls?.name || null,
 					});
 				});
@@ -197,7 +205,11 @@ export class CharacterSpellsPanel {
 			const lbl = document.createElement("span");
 			const remaining = grant.count - chosen.length;
 			lbl.className = remaining > 0 ? "ve-text-danger bold ve-mr-1" : "ve-muted ve-mr-1";
-			lbl.textContent = `${grant.sourceName} spell (${chosen.length}/${grant.count}): `;
+			// A fixed-level grant names its spell level, because the 2024 Warlock calls all four
+			// "Mystic Arcanum" and only the level tells them apart
+			lbl.textContent = grant.spellLevel != null
+				? `${grant.sourceName} (${Parser.getOrdinalForm(grant.spellLevel)}-level spell) (${chosen.length}/${grant.count}): `
+				: `${grant.sourceName} spell (${chosen.length}/${grant.count}): `;
 			row.appendChild(lbl);
 
 			chosen.forEach(sp => {
@@ -447,8 +459,13 @@ export class CharacterSpellsPanel {
 		if (token !== this._knownToken) return;
 
 		// Spells picked for a {choose} grant are granted too, so show them with the always-prepared list.
+		// A fixed-level pick is not always prepared, though: a Mystic Arcanum is cast once per long
+		// rest and never out of a slot, so it carries that note instead.
+		const noteByGrantKey = new Map(dynamicGrants
+			.filter(g => g.spellLevel != null)
+			.map(g => [g.grantKey, "once per long rest"]));
 		const chosenGranted = (this._comp._state.grantedSpellChoices || [])
-			.map(it => ({name: it.name, source: it.source, level: it.level, className: it.className, granted: true}));
+			.map(it => ({name: it.name, source: it.source, level: it.level, className: it.className, granted: true, castingNote: noteByGrantKey.get(it.grantKey) || null}));
 
 		// A granted spell already chosen manually shouldn't appear twice.
 		const knownKeys = new Set(known.map(it => `${it.name.toLowerCase()}|${(it.source || "").toLowerCase()}`));
@@ -528,7 +545,8 @@ export class CharacterSpellsPanel {
 		if (isGranted) {
 			const badge = document.createElement("span");
 			badge.className = "ve-muted ve-small ve-ml-auto ve-italic";
-			badge.textContent = "always prepared";
+			// An innate grant says how it is paid for; everything else is simply always prepared
+			badge.textContent = spell.castingNote || "always prepared";
 			row.appendChild(badge);
 			return row;
 		}
