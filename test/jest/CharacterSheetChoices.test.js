@@ -1,5 +1,6 @@
 import "../../js/parser.js";
 import {
+	getGrantedFeatChoice,
 	getResistChoices,
 	getWeaponChoices,
 	CHOICE_TYPE_ABILITY,
@@ -408,5 +409,40 @@ describe("weapon proficiency choices", () => {
 	it("Says nothing for a fixed grant, which is applied rather than asked", () => {
 		expect(getWeaponChoices({groups: [{martial: true}], sourceName: "x"})).toEqual([]);
 		expect(getWeaponChoices({groups: null, sourceName: "x"})).toEqual([]);
+	});
+});
+
+/*
+ * A background feature that offers a *choice* of feats. "You gain the Lucky, Magic Initiate, or
+ * Skilled feat (your choice)" is three entries in `feats`, which read naively granted all three —
+ * the Rewarded and Ruined backgrounds handed over three feats each where the book gives one.
+ */
+describe("a feature that offers a choice of feats", () => {
+	const REWARDED = [{"lucky|phb": true}, {"magic initiate|phb": true}, {"skilled|phb": true}];
+	const FROM_FEATURE = {feats: true};
+
+	it("Reads it as one pick, not three grants", () => {
+		expect(getGrantedFeats(REWARDED, {fromFeature: FROM_FEATURE})).toEqual([]);
+		const choice = getGrantedFeatChoice(REWARDED, {fromFeature: FROM_FEATURE});
+		expect(choice.count).toBe(1);
+		expect(choice.from.map(it => it.name)).toEqual(["lucky", "magic initiate", "skilled"]);
+	});
+
+	it("Leaves a feature naming one feat as the grant it is", () => {
+		const one = [{"tough|phb": true}];
+		expect(getGrantedFeats(one, {fromFeature: FROM_FEATURE}).map(it => it.name)).toEqual(["tough"]);
+		expect(getGrantedFeatChoice(one, {fromFeature: FROM_FEATURE})).toBeNull();
+	});
+
+	it("Leaves several feats alone when they are not from a feature", () => {
+		// Haunted One grants Survivor *and* a Dark Gift — two things, both given
+		const both = [{"survivor|rhw": true}, {anyFromCategory: {category: ["DG"]}}];
+		expect(getGrantedFeats(both).map(it => it.name)).toEqual(["survivor"]);
+		expect(getGrantedFeatChoice(both)).toBeNull();
+	});
+
+	it("Keeps the old behaviour when nothing says otherwise", () => {
+		expect(getGrantedFeats(REWARDED).map(it => it.name)).toEqual(["lucky", "magic initiate", "skilled"]);
+		expect(getGrantedFeatChoice(REWARDED)).toBeNull();
 	});
 });

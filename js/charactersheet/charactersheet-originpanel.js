@@ -6,6 +6,7 @@ import {
 	getFixedAbilityBonuses,
 	getGrantedFeatCategories,
 	getChoiceWithoutHeld,
+	getGrantedFeatChoice,
 	getGrantedFeats,
 	getHeldProficiencyNames,
 	getPendingChoices,
@@ -200,19 +201,29 @@ export class CharacterOriginPanel {
 		});
 
 		const takenFeats = new Set((this._comp._state.originFeats || []).map(it => `${it.name}|${it.source}`.toLowerCase()));
-		getGrantedFeats(ent.feats).forEach(feat => {
+		getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature}).forEach(feat => {
 			rows.push({
 				label: `${feat.displayName || feat.name} (origin feat)`,
 				isHave: takenFeats.has(`${feat.name}|${feat.source}`.toLowerCase()),
 			});
 		});
 
+		// A feature naming several feats offers one of them, so it is a choice to make rather than a
+		// list of grants — the Rewarded background's Lucky, Magic Initiate or Skilled
+		const featChoice = getGrantedFeatChoice(ent.feats, {fromFeature: ent.fromFeature});
+		if (featChoice) {
+			rows.push({
+				label: `${featChoice.from.map(it => it.displayName || it.name).join(", or ")} (origin feat)`,
+				isHave: featChoice.from.some(it => takenFeats.has(`${it.name}|${it.source}`.toLowerCase())),
+			});
+		}
+
 		// "An Origin feat of your choice" — the 2024 Human's Versatile. Ticked by *which* entity the
 		// feat was taken for, not by counting feats: counting made this panel and the Build Check
 		// disagree, one saying it was taken while the other still asked for it
 		const nFromHere = (this._comp._state.originFeats || []).filter(it => it.from === ent.name).length;
 		getGrantedFeatCategories(ent.feats).forEach((grant, ix) => {
-			rows.push({label: "Origin feat of your choice", isHave: nFromHere > ix + getGrantedFeats(ent.feats).length});
+			rows.push({label: "Origin feat of your choice", isHave: nFromHere > ix + getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature}).length});
 		});
 
 		if (!rows.length) return;
@@ -267,12 +278,12 @@ export class CharacterOriginPanel {
 			rows.push({text: "Ability score increases", btn: "Apply", pFn: () => this._page._pOfferAbilityBonuses(ent, ent.name)});
 		}
 
-		const missingFeats = getGrantedFeats(ent.feats).filter(it => !takenFeats.has(`${it.name}|${it.source}`.toLowerCase()));
+		const missingFeats = getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature}).filter(it => !takenFeats.has(`${it.name}|${it.source}`.toLowerCase()));
 		const nChoiceFeats = getGrantedFeatCategories(ent.feats).reduce((acc, it) => acc + it.count, 0);
 		// Counted against the feats taken *for this entity*, so the two entities cannot claim each
 		// other's
 		const nFromHere = (this._comp._state.originFeats || []).filter(it => it.from === ent.name).length;
-		const isOwedChoice = nChoiceFeats > Math.max(0, nFromHere - getGrantedFeats(ent.feats).length);
+		const isOwedChoice = nChoiceFeats > Math.max(0, nFromHere - getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature}).length);
 
 		if (missingFeats.length || isOwedChoice) {
 			const what = missingFeats.length

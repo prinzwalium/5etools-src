@@ -84,6 +84,19 @@ It is applied to the **feat** picker only (`_filterReprints`). A class is reprin
 Fighter names the 2024 one — and hiding it would take every 2014 class off the menu; upstream draws
 the same line, deselecting reprints on its feat/species/background pages and not on its class page.
 
+### Backgrounds
+
+Two things a background says that nothing was reading. **`additionalSpells`** — the ten Ravnica
+guild and five Strixhaven college backgrounds widen the *learnable* list (`expanded`, keyed `s0`–`s5`
+by the slot that unlocks it, `s0` being cantrips), and the background pick path resolved abilities,
+proficiencies and feats but never spells. **`fromFeature`** marks a grant as coming from the
+background's feature, and a feature naming more than one feat is offering a **menu**: "the Lucky,
+Magic Initiate, or Skilled feat (your choice)" was read as three grants, so Rewarded and Ruined
+handed over three feats each. `getGrantedFeats(feats, {fromFeature})` returns nothing in that case
+and `getGrantedFeatChoice` returns the menu; a background with no `fromFeature` that names two
+things (Haunted One: Survivor **and** a Dark Gift) is correctly left granting both.
+`_copy` (26 backgrounds) is resolved at load time and never reaches us.
+
 ### Feats
 
 `checkFeatPrerequisites` reads eleven of the fourteen prerequisite keys; the three

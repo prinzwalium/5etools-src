@@ -9,7 +9,7 @@ import {
 	getWeaponMasteryCount,
 } from "./charactersheet-levelengine.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
-import {getChoiceSignature, getChoiceWithoutHeld, getGrantedFeatCategories, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getRulesLanguageChoice} from "./charactersheet-choices.js";
+import {getChoiceSignature, getChoiceWithoutHeld, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getRulesLanguageChoice} from "./charactersheet-choices.js";
 import {getTraitChoices} from "./charactersheet-traitchoices.js";
 
 /**
@@ -82,7 +82,7 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 		// Origin feats, named and "one of your choice" alike
 		const taken = (st.originFeats || []);
 		const takenKeys = new Set(taken.map(it => `${it.name}|${it.source}`.toLowerCase()));
-		const named = getGrantedFeats(ent.feats);
+		const named = getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature});
 
 		named
 			.filter(it => !takenKeys.has(`${it.name}|${it.source}`.toLowerCase()))
@@ -94,6 +94,20 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 				count: 1,
 				ctx: {ent},
 			}));
+
+		// A feature that names several feats is offering one of them — "Lucky, Magic Initiate, or
+		// Skilled (your choice)" — which is a decision, not three grants
+		const featChoice = getGrantedFeatChoice(ent.feats, {fromFeature: ent.fromFeature});
+		if (featChoice && !taken.some(it => featChoice.from.some(f => f.name.toLowerCase() === String(it.name).toLowerCase()))) {
+			out.push({
+				key: `${STEP_ORIGIN_FEAT}:${ent.name}:pick`,
+				kind: STEP_ORIGIN_FEAT,
+				label: `Origin feat: ${featChoice.from.map(it => it.displayName || it.name).join(", or ")}`,
+				detail: ent.name,
+				count: 1,
+				ctx: {ent},
+			});
+		}
 
 		const nChoice = getGrantedFeatCategories(ent.feats).reduce((acc, it) => acc + it.count, 0);
 		const nFromHere = taken.filter(it => it.from === ent.name).length;

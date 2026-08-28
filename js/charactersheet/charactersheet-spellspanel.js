@@ -193,7 +193,12 @@ export class CharacterSpellsPanel {
 	 * their entire list here, and every one of them was unreachable.
 	 */
 	async _pGetExpandedSpells ({entry, cls, sc}) {
-		const grants = [cls, sc]
+		// A background widens the list too: the ten Ravnica guild backgrounds and the five Strixhaven
+		// colleges each add their own spells to whatever class you took, keyed by the slot that
+		// unlocks them. Nothing read a background's `additionalSpells` at all
+		const background = await this._pGetBackground();
+
+		const grants = [cls, sc, background]
 			.filter(Boolean)
 			.flatMap(ent => getDynamicSpellGrants(ent, entry.level, {slotSource: cls}))
 			.filter(grant => grant.type === "expanded");
@@ -202,6 +207,19 @@ export class CharacterSpellsPanel {
 		const out = [];
 		for (const grant of grants) out.push(...await this._pGetSpellsForGrant(grant));
 		return out.filter(Boolean);
+	}
+
+	/** The background the character has, loaded, or null. Cached like the species. */
+	async _pGetBackground () {
+		const ref = this._comp._state.refBackground;
+		if (!ref?.name || !ref?.source) return null;
+
+		const key = `${ref.name}|${ref.source}`;
+		if (this._backgroundKey !== key) {
+			this._backgroundKey = key;
+			this._backgroundEnt = await CharacterSheetClassData.pGetBackground({name: ref.name, source: ref.source}).catch(() => null);
+		}
+		return this._backgroundEnt;
 	}
 
 	/** Spell entities matching a dynamic grant's filter (or its explicit `from` list). */

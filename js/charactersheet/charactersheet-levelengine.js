@@ -407,8 +407,12 @@ export function getSpellbookSize (cls, level) {
  * @return {?number} the class level, or null if the class never gets a slot that high.
  */
 export function getSlotLevelUnlockLevel (cls, slotLevel) {
+	if (slotLevel == null || slotLevel === "") return null;
 	const want = Number(slotLevel);
-	if (!want) return null;
+	if (isNaN(want) || want < 0) return null;
+	// `s0` is the cantrip "slot", which every caster has from its first level — the Ravnica guild
+	// backgrounds open their lists with one
+	if (want === 0) return 1;
 
 	for (let lvl = 1; lvl <= 20; ++lvl) {
 		const pact = getPactSlots(cls, lvl);

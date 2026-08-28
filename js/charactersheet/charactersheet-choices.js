@@ -460,7 +460,25 @@ export function getResistChoices ({groups, sourceName}) {
 }
 
 /** Granted-feat entries (`feats` on 2024-style backgrounds/races) are `{"name|source": true}` maps. */
-export function getGrantedFeats (feats) {
+/**
+ * Whether a background's feature offers a *choice* of feats rather than granting them all.
+ *
+ * "You gain the Lucky, Magic Initiate, or Skilled feat (your choice)" is written as three entries
+ * in `feats`, which read naively grants all three — the Rewarded and Ruined backgrounds handed over
+ * three feats each where the book gives one.
+ *
+ * What separates them from a background that genuinely grants two things is `fromFeature`: it marks
+ * a grant as coming from the background's *feature*, and a feature naming more than one feat is
+ * offering a menu. Haunted One grants Survivor **and** a Dark Gift, has no `fromFeature`, and is
+ * correctly left alone.
+ */
+function _isFeatChoice (feats, fromFeature) {
+	if (!fromFeature?.feats) return false;
+	return _getNamedFeats(feats).length > 1;
+}
+
+/** The named feats in a `feats` array, before deciding whether they are grants or a menu. */
+function _getNamedFeats (feats) {
 	const out = [];
 	(feats || []).forEach(grp => {
 		Object.entries(grp).forEach(([uid, v]) => {
@@ -482,6 +500,26 @@ export function getGrantedFeats (feats) {
 		});
 	});
 	return out;
+}
+
+/**
+ * The feats an entity grants outright.
+ *
+ * @param [opts.fromFeature] the entity's `fromFeature`; without it a feature's *menu* of feats reads
+ *   as three separate grants.
+ */
+export function getGrantedFeats (feats, {fromFeature = null} = {}) {
+	if (_isFeatChoice(feats, fromFeature)) return [];
+	return _getNamedFeats(feats);
+}
+
+/**
+ * The one feat an entity's feature lets the player pick from a named few, or null.
+ * @return {?{count: number, from: Array<{name, source, subChoice, displayName}>}}
+ */
+export function getGrantedFeatChoice (feats, {fromFeature = null} = {}) {
+	if (!_isFeatChoice(feats, fromFeature)) return null;
+	return {count: 1, from: _getNamedFeats(feats)};
 }
 
 /**

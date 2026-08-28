@@ -5,7 +5,7 @@ import {getLevelUpHp} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, formatBreakdown, getConcentrationSaveDc} from "./charactersheet-derive.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CharacterWizard} from "./charactersheet-wizard.js";
-import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_SKILL_TOOL_LANGUAGE, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getChoiceWithoutHeld, getFixedAbilityBonuses, getFixedProficiencyNames, getGrantedFeatCategories, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getResistChoices, mergeHeldProficiencyNames} from "./charactersheet-choices.js";
+import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_SKILL_TOOL_LANGUAGE, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getChoiceWithoutHeld, getFixedAbilityBonuses, getFixedProficiencyNames, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getResistChoices, mergeHeldProficiencyNames} from "./charactersheet-choices.js";
 import {pPickAbilities, pPickList, pResolveEntitySpellGrants, pResolveFeat} from "./charactersheet-featgrant.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL, PROF_KINDS, groupProficienciesByKind} from "./charactersheet-proficiencies.js";
 import {DEFENSE_KINDS, DEFENSE_KIND_RESIST, DEFENSE_KIND_SENSE, getAllDefenses, groupDefensesByKind} from "./charactersheet-defenses.js";
@@ -19,6 +19,7 @@ import {getHpBonusPerLevel} from "./charactersheet-features.js";
 import {getLevelUpPreview} from "./charactersheet-levelpreview.js";
 import {formatHeight, getHeightAndWeightRange, getHeightAndWeightTable, rollHeightAndWeight} from "./charactersheet-appearance.js";
 import {deleteSyncMeta, getKeptBothName, getMissingAdapterMethods, getSyncBasePath, getSyncCapabilities, getSyncClientUrl, getSyncMeta, getSyncStatus, getUnsyncedRows, hasGmWriteSupport, hasSidekickControlSupport, isAdapterValid, isSameOrigin, isSyncConflict, planSync, setSyncMeta} from "./charactersheet-sync.js";
+import {CHARACTER_THEMES, THEME_SITE, getAllAccentClasses, getThemeApplication, isKnownTheme} from "./charactersheet-theme.js";
 
 /**
  * Shared foundation for the two character pages (the play-focused sheet and the build-focused
@@ -1103,7 +1104,11 @@ export class CharacterPageBase {
 		this._comp._addHookBase("level", () => this._renderTraitChoices());
 		this._comp._addHookAllBase(() => this._onStateChange());
 
+		this._comp._addHookBase("theme", () => this._applyCharacterTheme());
+
 		this._bindBreakdownPopovers();
+		this._buildThemePicker();
+		this._applyCharacterTheme();
 		this._bindPrintPrep();
 		this._bindConcentrationWatch();
 		this._bindDeathSaveWatch();
@@ -1117,6 +1122,66 @@ export class CharacterPageBase {
 		this._pOpenRequestedCharacter();
 
 		window.dispatchEvent(new Event("toolsLoaded"));
+	}
+
+	/* -------------------------------------------- Theme -------------------------------------------- */
+
+	/**
+	 * The character's own look, put on the page.
+	 *
+	 * Brightness rides the site's night mode, because the sheet's styling is built on it and there is
+	 * no half-lit state worth having; a character asking for one *overrides* the browser-wide setting
+	 * for as long as it is open, and `site` asks for nothing so the setting is left alone. The accent
+	 * is a class on the body, which only the sheet's own rules read.
+	 */
+	_applyCharacterTheme () {
+		const {isNight, accentClass} = getThemeApplication(this._comp._state.theme);
+
+		getAllAccentClasses().forEach(cls => document.body.classList.remove(cls));
+		if (accentClass) document.body.classList.add(accentClass);
+
+		// `setTemporaryTheme` is the site's own "override without saving it", which is exactly what a
+		// per-character theme is: the browser's own setting stays where the player put it, and passing
+		// null puts it back
+		const switcher = globalThis.styleSwitcher;
+		if (!switcher?.setTemporaryTheme) return;
+		switcher.setTemporaryTheme(isNight == null ? null : (isNight ? "night" : "day"));
+	}
+
+	/** The toolbar's theme chooser, built rather than templated so all three pages get it alike. */
+	_buildThemePicker () {
+		const toolbar = document.querySelector(".cs__toolbar");
+		if (!toolbar || document.getElementById("cs-theme-select")) return;
+
+		const sel = document.createElement("select");
+		sel.id = "cs-theme-select";
+		sel.className = "ve-form-control ve-input-xs cs__theme-select no-print";
+		sel.title = "The look this character is read in — saved with the character, not the browser";
+		sel.style.width = "auto";
+		sel.style.display = "inline-block";
+		CHARACTER_THEMES.forEach(it => {
+			const opt = document.createElement("option");
+			opt.value = it.key;
+			opt.textContent = it.name;
+			opt.title = it.desc;
+			sel.appendChild(opt);
+		});
+		sel.addEventListener("change", () => { this._comp._state.theme = sel.value; });
+
+		this._selTheme = sel;
+		// Beside the character switcher, because it belongs to the character rather than the page
+		const anchor = document.getElementById("cs-char-select");
+		if (anchor?.parentElement === toolbar) anchor.after(sel);
+		else toolbar.appendChild(sel);
+
+		this._syncThemePicker();
+		this._comp._addHookBase("theme", () => this._syncThemePicker());
+	}
+
+	_syncThemePicker () {
+		if (!this._selTheme) return;
+		const key = this._comp._state.theme;
+		this._selTheme.value = isKnownTheme(key) ? key : THEME_SITE;
 	}
 
 	/**
@@ -1573,6 +1638,12 @@ export class CharacterPageBase {
 	_setLoading (isLoading) {
 		this._isLoading = isLoading;
 		this._comp.setJournalPaused(isLoading);
+		// A finished load is a whole new state, which no per-prop hook sees — so the character that
+		// just arrived puts its own look on the page here rather than keeping the last one's
+		if (!isLoading) {
+			this._applyCharacterTheme();
+			this._syncThemePicker();
+		}
 	}
 
 	/**
@@ -2069,16 +2140,21 @@ export class CharacterPageBase {
 	 * step surfaces. Skills apply to the sheet; tools/languages have no structured store, so they
 	 * become proficiency notes. Ability-score choices are handled separately by `_pOfferAbilityBonuses`.
 	 */
-	async _pResolveProficiencyChoices ({ent, kind}) {
+	async _pResolveProficiencyChoices ({ent, kind, only = null}) {
 		const toolNames = await CharacterSheetClassData.pGetToolProficiencyNames();
-		const choices = getPendingChoices({[kind]: ent, toolNames}).filter(c => c.type !== CHOICE_TYPE_ABILITY);
+		const choices = getPendingChoices({[kind]: ent, toolNames})
+			.filter(c => c.type !== CHOICE_TYPE_ABILITY)
+			// The guide answers one at a time, so a class's four skills and its tools stay separate
+			// questions rather than one visit re-asking everything the entity offers
+			.filter(c => !only || getChoiceSignature(c) === only);
 		if (!choices.length) return;
 
 		// What is already held comes out of every list, and each pick joins it — otherwise the second
 		// chooser happily offers what the first one just took, and the duplicate silently vanishes
+		const heldKey = {race: "race", background: "background", cls: "cls"}[kind] || "background";
 		const held = mergeHeldProficiencyNames(
 			getHeldProficiencyNames(this._comp._getState()),
-			getFixedProficiencyNames({[kind === "race" ? "race" : "background"]: ent}),
+			getFixedProficiencyNames({[heldKey]: ent}),
 		);
 
 		for (const choice of choices) {
@@ -2113,6 +2189,25 @@ export class CharacterPageBase {
 	}
 
 	/**
+	 * The languages the 2024 rules give every character — Common plus two — which no species or
+	 * background carries, so nothing else would ever ask for them.
+	 */
+	async _pResolveLanguageChoice (choice) {
+		if (!choice) return;
+
+		const held = getHeldProficiencyNames(this._comp._getState());
+		const offered = getChoiceWithoutHeld(choice, held);
+		if (!offered?.from?.length) return;
+
+		const count = Math.min(choice.count || 1, offered.from.length);
+		const picked = await pPickList({count, from: offered.from, title: choice.label});
+		(picked || []).forEach(name => this._comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: choice.sourceName || null}));
+		if (picked?.length) {
+			this._comp.recordChoice({sig: getChoiceSignature(choice), sourceName: choice.sourceName, type: choice.type, picks: picked});
+		}
+	}
+
+	/**
 	 * The Origin feats an entity grants, in either shape the data uses:
 	 *
 	 *  - **named**, as most 2024 backgrounds do — `feats: [{"tavern brawler|xphb": true}]`;
@@ -2124,7 +2219,7 @@ export class CharacterPageBase {
 	 * what made a background's feat invisible to everything that counts.
 	 */
 	async _pGrantOriginFeats (ent) {
-		for (const {name, source, displayName} of getGrantedFeats(ent?.feats)) {
+		for (const {name, source, displayName} of getGrantedFeats(ent?.feats, {fromFeature: ent?.fromFeature})) {
 			const feat = await CharacterSheetClassData.pGetFeat({name, source}).catch(() => null);
 			if (!feat) continue;
 			const isApply = await InputUiUtil.pGetUserBoolean({
@@ -2137,9 +2232,34 @@ export class CharacterPageBase {
 			await this._pTakeOriginFeat(feat, displayName || feat.name, ent.name);
 		}
 
+		// "You gain the Lucky, Magic Initiate, or Skilled feat (your choice)" — one of the named few,
+		// not all of them, which is what the Rewarded and Ruined backgrounds were handing over
+		const featChoice = getGrantedFeatChoice(ent?.feats, {fromFeature: ent?.fromFeature});
+		if (featChoice) await this._pPickOriginFeatFromList(ent, featChoice);
+
 		for (const grant of getGrantedFeatCategories(ent?.feats)) {
 			for (let i = 0; i < grant.count; ++i) await this._pPickOriginFeatFromCategory(ent, grant);
 		}
+	}
+
+	/** One feat out of the handful a background's feature names. */
+	async _pPickOriginFeatFromList (ent, choice) {
+		const pool = [];
+		for (const {name, source, displayName} of choice.from) {
+			const feat = await CharacterSheetClassData.pGetFeat({name, source}).catch(() => null);
+			if (feat) pool.push({feat, displayName: displayName || feat.name});
+		}
+		if (!pool.length) return;
+
+		const picked = await InputUiUtil.pGetUserEnum({
+			values: pool,
+			isResolveItem: true,
+			fnDisplay: it => it.displayName,
+			title: `${ent.name}: choose one of these feats`,
+			placeholder: "Select...",
+		});
+		if (picked == null) return;
+		await this._pTakeOriginFeat(picked.feat, picked.displayName, ent.name);
 	}
 
 	/** "An Origin feat of your choice": the picker, then the feat's own questions. */

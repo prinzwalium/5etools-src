@@ -96,7 +96,7 @@ export class CharacterAuditPanel {
 			refSpecies?.name ? CharacterSheetClassData.pGetSpecies(refSpecies).catch(() => null) : null,
 		]);
 
-		const grantedOriginFeats = ents.flatMap(ent => getGrantedFeats(ent?.feats).map(it => ({...it, from: ent.name})));
+		const grantedOriginFeats = ents.flatMap(ent => getGrantedFeats(ent?.feats, {fromFeature: ent?.fromFeature}).map(it => ({...it, from: ent.name})));
 		const grantedFeatChoices = ents
 			.filter(Boolean)
 			.map(ent => ({from: ent.name, count: getGrantedFeatCategories(ent.feats).reduce((a, it) => a + it.count, 0)}))

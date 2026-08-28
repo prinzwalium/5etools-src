@@ -1,4 +1,5 @@
-import {getOutstandingDecisions, STEP_ASI, STEP_CLASS_FEAT, STEP_EXPERTISE, STEP_FIXED_SPELL, STEP_HP, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SIZE, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
+import {getChoiceSignature} from "./charactersheet-choices.js";
+import {getOutstandingDecisions, STEP_ASI, STEP_CLASS_FEAT, STEP_CLASS_PROFICIENCY, STEP_EXPERTISE, STEP_FIXED_SPELL, STEP_HP, STEP_LANGUAGE, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SIZE, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {pPickList} from "./charactersheet-featgrant.js";
@@ -95,6 +96,19 @@ export class CharacterBuildWalk {
 
 			case STEP_HP:
 				return this._pResolveHp();
+
+			// A class's own skills, tools and languages — the four a Rogue picks, the three
+			// instruments a Bard does. The same resolver as a species', because it is the same
+			// question; narrowed to the one choice this step names
+			case STEP_CLASS_PROFICIENCY:
+				return this._page._pResolveProficiencyChoices({
+					ent: ctx.ent,
+					kind: "cls",
+					only: getChoiceSignature(ctx.choice),
+				});
+
+			case STEP_LANGUAGE:
+				return this._page._pResolveLanguageChoice(ctx.choice);
 
 			default:
 				return null;

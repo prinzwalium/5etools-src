@@ -958,3 +958,28 @@ describe("a pool the table does not name", () => {
 		expect(getClassResources(monk, 2)).toEqual([{label: "Ki Points", value: "3", kind: "uses", rest: "short"}]);
 	});
 });
+
+/*
+ * A cantrip "slot". The ten Ravnica guild backgrounds and the five Strixhaven colleges open their
+ * expanded lists with `s0`, which is not a slot the class table has — every caster has cantrips
+ * from its first level.
+ */
+describe("the cantrip slot key", () => {
+	const BARD = {name: "Bard", casterProgression: "full", classTableGroups: [{rowsSpellProgression: [[2], [3], [4, 2]]}]};
+
+	it("Unlocks at first level", () => {
+		expect(getSlotLevelUnlockLevel(BARD, 0)).toBe(1);
+	});
+
+	it("Brings a background's cantrips into the pool straight away", () => {
+		const guild = {additionalSpells: [{expanded: {s0: ["friends#c", "message#c"], s2: ["hold person"]}}]};
+		const at1 = getDynamicSpellGrants(guild, 1, {slotSource: BARD}).flatMap(it => it.from || []);
+		expect(at1.sort()).toEqual(["friends", "message"]);
+		expect(getDynamicSpellGrants(guild, 3, {slotSource: BARD}).flatMap(it => it.from || [])).toContain("hold person");
+	});
+
+	it("Still says nothing for a slot the class never reaches", () => {
+		expect(getSlotLevelUnlockLevel(BARD, 9)).toBeNull();
+		expect(getSlotLevelUnlockLevel(BARD, null)).toBeNull();
+	});
+});

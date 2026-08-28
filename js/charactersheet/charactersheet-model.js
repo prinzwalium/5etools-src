@@ -3,6 +3,7 @@ import {getProfListDisplay} from "./charactersheet-choices.js";
 import {getClassProficiencies, getEntityProficiencies, getMulticlassProficiencies} from "./charactersheet-proficiencies.js";
 import {getEntityDefenses} from "./charactersheet-defenses.js";
 import {formatSpeeds, getSpeeds, getTraitTags} from "./charactersheet-appearance.js";
+import {THEME_SITE} from "./charactersheet-theme.js";
 import {getStateWithMigratedAbilityNotes} from "./charactersheet-charstore.js";
 import {getAmmoRecovered, getChargesAfterRest} from "./charactersheet-equipment.js";
 import {
@@ -80,6 +81,11 @@ export class CharacterModel extends BaseComponent {
 			classText: "",
 			backgroundText: "",
 			speciesText: "",
+
+			// The look this character is read in, stored with the character rather than the browser —
+			// see `charactersheet-theme.js`. "site" changes nothing, which is what every character
+			// built before this existed gets
+			theme: THEME_SITE,
 
 			// Structured entity references, populated by the pickers; the `*Text` fields above remain
 			// free-text overrides

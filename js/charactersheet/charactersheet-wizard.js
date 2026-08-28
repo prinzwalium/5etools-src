@@ -750,7 +750,7 @@ export class CharacterWizard {
 	}
 
 	async _pApplyEntityFeats (comp, ent) {
-		for (const {name, source, displayName} of getGrantedFeats(ent?.feats)) {
+		for (const {name, source, displayName} of getGrantedFeats(ent?.feats, {fromFeature: ent?.fromFeature})) {
 			const feat = await CharacterSheetClassData.pGetFeat({name, source}).catch(() => null);
 			if (!feat) continue;
 
@@ -866,7 +866,7 @@ export class CharacterWizard {
 		// conclusion — that the species had granted Skilled — was the wrong one.
 		const featEnts = [this._draft.background?.ent, this._draft.race?.ent].filter(Boolean);
 		const featParts = featEnts.flatMap(ent => [
-			...getGrantedFeats(ent.feats).map(it => `${(it.displayName || it.name).qq()} <span class="ve-muted">(from ${ent.name.qq()})</span>`),
+			...getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature}).map(it => `${(it.displayName || it.name).qq()} <span class="ve-muted">(from ${ent.name.qq()})</span>`),
 			...Array.from(
 				{length: getGrantedFeatCategories(ent.feats).reduce((a, it) => a + it.count, 0)},
 				() => `one of your choice <span class="ve-muted">(from ${ent.name.qq()})</span>`,

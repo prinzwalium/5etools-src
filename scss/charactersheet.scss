@@ -1773,4 +1773,57 @@
 			font-style: italic;
 		}
 	}
+
+	/* -------------------------------------------- Per-character accents -------------------------------------------- */
+
+	/*
+	 * A character's own tint, chosen per character and stored with it (`charactersheet-theme.js`).
+	 *
+	 * Deliberately shallow: a hue on the sheet's own chrome — panel edges and grounds, section
+	 * labels, the roll buttons — and nothing on the site's furniture, so a theme can never make the
+	 * navbar or a modal unreadable. Brightness is not here at all; that rides the site's night mode,
+	 * because the rest of this file is built on it.
+	 */
+	.cs-theme--parchment {
+		--cs-accent: #8a6a34;
+		--cs-accent-soft: rgb(180 140 70 / 14%);
+	}
+
+	.cs-theme--arcane {
+		--cs-accent: #8f7fd6;
+		--cs-accent-soft: rgb(143 127 214 / 16%);
+	}
+
+	.cs-theme--verdant {
+		--cs-accent: #4f9161;
+		--cs-accent-soft: rgb(79 145 97 / 16%);
+	}
+
+	.cs-theme--crimson {
+		--cs-accent: #b05353;
+		--cs-accent-soft: rgb(176 83 83 / 16%);
+	}
+
+	// One block, four themes: each only sets the two custom properties above
+	[class*="cs-theme--"] {
+		.cs__panel {
+			border-color: var(--cs-accent-soft);
+			background: var(--cs-accent-soft);
+		}
+
+		.cs__lbl,
+		.cs__panel-title {
+			color: var(--cs-accent);
+		}
+
+		.cs__feat-badge--variant,
+		.cs__tag {
+			border-color: var(--cs-accent);
+			color: var(--cs-accent);
+		}
+
+		.cs__roll {
+			color: var(--cs-accent);
+		}
+	}
 }
