@@ -29,7 +29,25 @@ const RANGER_1 = {
 	classes: [{id: "a", name: "Ranger", source: "PHB", level: 1, hdFaces: 10, subclass: null}],
 };
 
-const cardFor = (page, name) => page.locator("#cs-class-panel .cs__feat-card", {hasText: name}).first();
+/*
+ * By the feature's *name element*, not the card's text. Once a taken variant is named in the badge
+ * of the card it replaces, "Natural Explorer" and "Deft Explorer" both match a `hasText` on either
+ * card — and the replaced one comes first.
+ */
+const cardFor = (page, name) => page
+	.locator("#cs-class-panel .cs__feat-card")
+	.filter({has: page.locator(".cs__feat-name", {hasText: new RegExp(`^${name}$`)})})
+	.first();
+
+/** Open a card if the re-render closed it, and hand back its switch. */
+async function pGetToggle (page, name) {
+	const card = cardFor(page, name);
+	if (!(await card.evaluate(el => el.open))) {
+		await card.locator("summary").click();
+		await page.waitForTimeout(250);
+	}
+	return card.locator(".cs__feat-choice input[type=checkbox]").first();
+}
 
 export async function run ({browser, check}) {
 	const page = await openPage(browser, {url: BUILDER_URL, state: storeOf(RANGER_1)});
@@ -53,10 +71,10 @@ export async function run ({browser, check}) {
 	await natural.getAttribute("class"));
 
 	// ---------- take it ----------
-	await deft.locator("summary").click();
-	await page.waitForTimeout(200);
-	await toggle.check();
-	await page.waitForTimeout(1200);
+	// `click`, not `check`: taking one re-renders the panel, so Playwright's post-click re-read
+	// lands on a card that has just been rebuilt and closed
+	await (await pGetToggle(page, "Deft Explorer")).click();
+	await page.waitForTimeout(1500);
 
 	const state = await getState(page);
 	const taken = state?.classes?.[0]?.featureVariants || [];
@@ -69,14 +87,11 @@ export async function run ({browser, check}) {
 	const naturalText = await naturalAfter.locator("summary").textContent();
 	check("naming what replaced it", /Deft Explorer/.test(naturalText), naturalText);
 
+	check("and the switch reads as taken", await (await pGetToggle(page, "Deft Explorer")).isChecked());
+
 	// ---------- and given back ----------
-	const deftAfter = cardFor(page, "Deft Explorer");
-	if (!(await deftAfter.evaluate(el => el.open))) {
-		await deftAfter.locator("summary").click();
-		await page.waitForTimeout(200);
-	}
-	await deftAfter.locator(".cs__feat-choice input[type=checkbox]").first().uncheck();
-	await page.waitForTimeout(1200);
+	await (await pGetToggle(page, "Deft Explorer")).click();
+	await page.waitForTimeout(1500);
 
 	const stateBack = await getState(page);
 	check("it can be given back", !(stateBack?.classes?.[0]?.featureVariants || []).some(it => it.name === "Deft Explorer"));
