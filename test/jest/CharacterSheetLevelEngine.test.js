@@ -785,9 +785,11 @@ describe("spells keyed by slot level", () => {
 	});
 
 	it("Reads a full caster's slot table the same way", () => {
-		const bard = {name: "Bard", casterProgression: "full", classTableGroups: [{rowsSpellProgression: [
-			[2], [3], [4, 2], [4, 3], [4, 3, 2],
-		]}]};
+		const bard = {name: "Bard",
+			casterProgression: "full",
+			classTableGroups: [{rowsSpellProgression: [
+				[2], [3], [4, 2], [4, 3], [4, 3, 2],
+			]}]};
 		expect(getSlotLevelUnlockLevel(bard, 1)).toBe(1);
 		expect(getSlotLevelUnlockLevel(bard, 2)).toBe(3);
 		expect(getSlotLevelUnlockLevel(bard, 3)).toBe(5);

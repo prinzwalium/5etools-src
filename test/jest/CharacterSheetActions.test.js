@@ -139,7 +139,8 @@ describe("Action economy: what anyone can do", () => {
 describe("Action economy: features that say when they happen", () => {
 	it("Takes the feature's own bucket over the curated map", () => {
 		const econ = buildActionEconomy({
-			attacks: [], spells: [],
+			attacks: [],
+			spells: [],
 			features: [{name: "Hand of Harm", bucket: "bonus", cost: {resource: "Ki", label: "Ki Points", amount: 1}, sub: "Costs 1 Ki Point"}],
 		});
 		expect(econ.bonus.map(it => it.label)).toEqual(["Hand of Harm"]);
