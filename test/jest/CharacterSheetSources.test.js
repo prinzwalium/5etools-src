@@ -3,6 +3,7 @@ import {
 	SOURCE_MODE_CLASSIC,
 	SOURCE_MODE_CUSTOM,
 	SOURCE_MODE_MODERN,
+	filterReprinted,
 	getDefaultSourceFilter,
 	getOutOfFilterSources,
 	getSourceFilterLabel,
@@ -120,5 +121,53 @@ describe("Source filter: flagging existing picks", () => {
 	it("Ignores ASI (non-feat) entries and tolerates empty state", () => {
 		expect(getUsedSources({})).toEqual([]);
 		expect(getUsedSources(null)).toEqual([]);
+	});
+});
+
+/*
+ * Reprints. A hundred and sixty entries a picker shows are earlier printings of another entry in
+ * the same list, and the data says which — so the pickers offered Alert twice, with nothing on the
+ * row to tell them apart.
+ */
+describe("hiding what a later printing supersedes", () => {
+	const names = list => list.map(it => `${it.name}|${it.source}`);
+
+	it("Drops the original when its reprint is on offer", () => {
+		const list = [
+			{name: "Alert", source: "PHB", reprintedAs: ["Alert|XPHB"]},
+			{name: "Alert", source: "XPHB"},
+		];
+		expect(names(filterReprinted(list))).toEqual(["Alert|XPHB"]);
+	});
+
+	it("Keeps the original when the reprint is not there", () => {
+		// Filtered to the 2014 books, the reprint is already gone and the original is the answer
+		const list = [{name: "Alert", source: "PHB", reprintedAs: ["Alert|XPHB"]}];
+		expect(names(filterReprinted(list))).toEqual(["Alert|PHB"]);
+	});
+
+	it("Leaves an entry with no reprint alone", () => {
+		const list = [{name: "Lucky", source: "PHB"}, {name: "Tough", source: "XPHB"}];
+		expect(filterReprinted(list)).toHaveLength(2);
+	});
+
+	it("Ignores a reprint into a different kind of thing", () => {
+		// A dragonmark subrace was reprinted as a feat; the feat is not in the species list, so the
+		// species stays pickable rather than vanishing
+		const list = [{name: "Mark of Warding", source: "ERLW", reprintedAs: [{uid: "Mark of Warding|EFA", tag: "feat"}]}];
+		expect(names(filterReprinted(list))).toEqual(["Mark of Warding|ERLW"]);
+	});
+
+	it("Reads the object form when the reprint is present", () => {
+		const list = [
+			{name: "Mark of Warding", source: "ERLW", reprintedAs: [{uid: "Mark of Warding|EFA", tag: "race"}]},
+			{name: "Mark of Warding", source: "EFA"},
+		];
+		expect(names(filterReprinted(list))).toEqual(["Mark of Warding|EFA"]);
+	});
+
+	it("Copes with nothing at all", () => {
+		expect(filterReprinted([])).toEqual([]);
+		expect(filterReprinted(null)).toEqual([]);
 	});
 });

@@ -1,5 +1,5 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
-import {TRAIT_TAG_POWERFUL_BUILD, getTraitTags} from "./charactersheet-appearance.js";
+import {TRAIT_TAG_POWERFUL_BUILD, getAgeDisplay, getCreatureTypeDisplay, getTraitTags} from "./charactersheet-appearance.js";
 import {
 	CHOICE_TYPE_ABILITY,
 	getChoiceSignature,
@@ -138,8 +138,10 @@ export class CharacterOriginPanel {
 					: (ent.size || []).map(sz => Parser.sizeAbvToFull(sz)).join("/"),
 				Parser.getSpeedString ? Parser.getSpeedString(ent) : null,
 				// A Plasmoid is an Ooze and a Skeleton is Undead — which decides what spells can target
-				// them, so it belongs on the sheet rather than only in the species' prose
-				[ent.creatureTypes].flat().filter(Boolean).map(it => String(it).toTitleCase()).join(", ") || null,
+				// them, so it belongs on the sheet rather than only in the species' prose. A Bugbear is
+				// "Humanoid (Goblinoid)": the tag is the half that things target
+				getCreatureTypeDisplay(ent),
+				this._kind === "species" ? getAgeDisplay(ent) : null,
 			].filter(Boolean).join(" · ");
 			wrp.appendChild(meta);
 		}

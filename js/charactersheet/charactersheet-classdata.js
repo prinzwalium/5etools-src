@@ -8,6 +8,7 @@
  */
 import {ALL_TOOL_NAMES} from "./charactersheet-choices.js";
 import {annotateVariantFeatures, filterActiveFeatures} from "./charactersheet-features.js";
+import {filterReprinted} from "./charactersheet-sources.js";
 
 /** Artisan's tools, instrument, gaming set, tool — the item types a proficiency can name. */
 const _TOOL_TYPE_ABVS = new Set(["AT", "INS", "GS", "T"]);
@@ -22,9 +23,13 @@ export class CharacterSheetClassData {
 
 	static setSourceFilter (fn) { this._fnSourceFilter = fn || null; }
 
+	/**
+	 * What a picker may offer: the character's allowed sources, minus anything a later printing in
+	 * that same set supersedes. Order matters — see `filterReprinted`.
+	 */
 	static _filterBySource (arr) {
-		if (!this._fnSourceFilter) return arr;
-		return arr.filter(it => this._fnSourceFilter(it.source));
+		const allowed = this._fnSourceFilter ? arr.filter(it => this._fnSourceFilter(it.source)) : arr;
+		return filterReprinted(allowed);
 	}
 
 	static _pAllClasses = null;

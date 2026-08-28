@@ -167,9 +167,11 @@ export function getAbilityModifier (state, abv) {
  * @param [opts.isClassCaster] Whether the class/subclass progression grants slots — the caller
  * computes this from the loaded class data (`getSpellcastingMeta`).
  */
-export function hasSpellcasting (state, {isClassCaster = false} = {}) {
+export function hasSpellcasting (state, {isClassCaster = false, isOriginCaster = false} = {}) {
 	if (!state) return false;
-	if (isClassCaster) return true;
+	// A species can hand over a cantrip without any class doing so — which is a spellcaster for the
+	// purposes of having somewhere to read the spell
+	if (isClassCaster || isOriginCaster) return true;
 	if (state.spellAbility) return true;
 	if ((state.spellsKnown || []).length) return true;
 	if ((state.grantedSpellChoices || []).length) return true;

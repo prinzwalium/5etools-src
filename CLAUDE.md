@@ -64,6 +64,23 @@ Each page's controller keeps only its own DOM assembly + rendering.
 5. `Dockerfile` — an `ENTRYPOINT` (plus the `CMD` that setting one discards, and the `RUN` that
    installs it) for the deploy-time default books. Upstream's is two lines.
 
+### Species
+
+A species' `additionalSpells` is the **same shape a subclass uses** but keyed by *character* level,
+and it is granted whether or not the character has a spellcasting class — so the spells panel reads
+it beside the classes (`_pGetSpecies`), and `hasSpellcasting` takes an `isOriginCaster` so a Tiefling
+Fighter's Thaumaturgy has somewhere to live. `speed` is a number or an object, and a kind given as
+`true` means "equal to your walking speed" (`getSpeeds` / `formatSpeeds` in `appearance`) — reading
+only `walk` cost thirty-two species the movement that defines them. A creature type has two halves:
+`creatureTypes` plus `creatureTypeTags`, "Humanoid (Goblinoid)" (`getCreatureTypeDisplay`). `age` is
+`{mature, max}`. `_copy`, `overwrite` and `_versions` never reach us — the race loader runs
+`mergeSubraces`, so subspecies arrive pre-merged.
+
+**Reprints.** 160 picker entries are earlier printings of another entry in the same list, named by
+`reprintedAs`; `filterReprinted` (in `sources`) drops one when its reprint is also on offer, applied
+*after* the source filter so a 2014-only filter keeps the 2014 printing. A `{uid, tag}` reprint into
+a different kind of thing never matches, which is what keeps a dragonmark subrace pickable.
+
 ### Feats
 
 `checkFeatPrerequisites` reads eleven of the fourteen prerequisite keys; the three

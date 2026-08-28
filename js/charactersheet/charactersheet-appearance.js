@@ -129,3 +129,89 @@ export function getCarryMultiplier (traitTags) {
 		? 2
 		: 1;
 }
+
+/* -------------------------------------------- speed -------------------------------------------- */
+
+/** The movement kinds a species can have besides walking, in the order a stat block lists them. */
+const _SPEED_KINDS = ["burrow", "climb", "fly", "swim"];
+
+/**
+ * A species' speeds, as the book writes them.
+ *
+ * `speed` is a plain number for two thirds of them and an object for the rest — and only `walk` was
+ * ever read, so thirty-two species and subspecies lost the movement that defines them: an
+ * Aarakocra's fly 50, a Triton's swim 30, a Grung's climb 25. A kind given as `true` means "equal to
+ * your walking speed", which is how a Dhampir climbs and a Giff swims.
+ *
+ * @return {?{walk: number, others: Array<{kind: string, value: number}>}} null when the species
+ *   states no speed at all.
+ */
+export function getSpeeds (race) {
+	const speed = race?.speed;
+	if (speed == null) return null;
+
+	if (typeof speed === "number") return {walk: speed, others: []};
+	if (typeof speed !== "object") return null;
+
+	const walk = Number(speed.walk) || 0;
+	const others = _SPEED_KINDS
+		.map(kind => {
+			const val = speed[kind];
+			if (val == null || val === false) return null;
+			// `true` is the book's shorthand for "equal to your walking speed"
+			const value = val === true ? walk : Number(val) || 0;
+			return value ? {kind, value} : null;
+		})
+		.filter(Boolean);
+
+	return {walk, others};
+}
+
+/** "30 ft., fly 50 ft." — the walking speed first, then everything else, as a stat block reads. */
+export function formatSpeeds (speeds) {
+	if (!speeds) return null;
+	const parts = [];
+	if (speeds.walk) parts.push(`${speeds.walk} ft.`);
+	(speeds.others || []).forEach(({kind, value}) => parts.push(`${kind} ${value} ft.`));
+	return parts.length ? parts.join(", ") : null;
+}
+
+/* -------------------------------------------- what kind of creature -------------------------------------------- */
+
+/**
+ * The species' creature type, written as the books write it — "Humanoid (Goblinoid)".
+ *
+ * The type and its tag are two fields: `creatureTypes` holds the type, `creatureTypeTags` the
+ * parenthetical. Only the first was read, so nine species lost the half that matters most — a
+ * Bugbear read as a plain Humanoid, and nothing targeting goblinoids could see it.
+ */
+export function getCreatureTypeDisplay (race) {
+	// Cased here rather than with the site's `toTitleCase`, which is a String prototype extension
+	// this module deliberately does not load — it stays dependency-free so it can be unit-tested
+	const cased = arr => [arr].flat().filter(Boolean)
+		.map(it => String(it).replace(/\w\S*/g, txt => txt[0].toUpperCase() + txt.slice(1)));
+
+	const types = cased(race?.creatureTypes);
+	if (!types.length) return null;
+
+	const tags = cased(race?.creatureTypeTags);
+	return `${types.join(", ")}${tags.length ? ` (${tags.join(", ")})` : ""}`;
+}
+
+/**
+ * How long a species lives — `{mature, max}`, on sixty-six of them.
+ *
+ * The Appearance panel has an Age field and had nothing to say about what a plausible number for it
+ * would be, which is exactly the question somebody filling it in is asking.
+ */
+export function getAgeDisplay (race) {
+	const age = race?.age;
+	if (!age || typeof age !== "object") return null;
+
+	const mature = Number(age.mature) || 0;
+	const max = Number(age.max) || 0;
+	if (!mature && !max) return null;
+	if (!max) return `matures at about ${mature}`;
+	if (!mature) return `lives about ${max} years`;
+	return `matures at about ${mature}, lives about ${max} years`;
+}

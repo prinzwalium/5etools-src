@@ -156,3 +156,38 @@ export function getOutOfFilterSources (state, filter, {isClassic = null} = {}) {
 	if (isSourceFilterInactive(filter)) return [];
 	return getUsedSources(state).filter(it => !isSourceAllowed(it.source, filter, {isClassic}));
 }
+
+/* -------------------------------------------- reprints -------------------------------------------- */
+
+/**
+ * Drop an entity when the thing it was reprinted as is also on offer.
+ *
+ * A hundred and sixty of the entries a picker shows are earlier printings of another entry in the
+ * same list — Alert from the 2014 book and Alert from the 2024 one, fifty feats and ninety-seven
+ * species and subspecies in all — and the data says so, in `reprintedAs`. Nothing read it, so those
+ * pickers offered every one of them twice, with nothing on the row to say which was which.
+ *
+ * Applied *after* the source filter, which is what makes it right in every mode: filtered to the
+ * 2014 books, the 2024 reprint is already gone and the original survives.
+ *
+ * `reprintedAs` is a uid string, or `{uid, tag}` when the reprint is a different kind of thing
+ * entirely (a dragonmark subrace became a feat). A cross-kind reprint is never in this list, so it
+ * never hides anything — which is the answer that keeps the subrace pickable.
+ */
+export function filterReprinted (entities) {
+	const present = new Set((entities || [])
+		.filter(it => it?.name && it?.source)
+		.map(it => `${it.name}|${it.source}`.toLowerCase()));
+
+	return (entities || []).filter(ent => {
+		const reprints = [ent?.reprintedAs].flat().filter(Boolean);
+		if (!reprints.length) return true;
+
+		return !reprints.some(it => {
+			const uid = typeof it === "string" ? it : it?.uid;
+			if (!uid) return false;
+			const [name, source] = String(uid).split("|");
+			return name && source && present.has(`${name}|${source}`.toLowerCase());
+		});
+	});
+}

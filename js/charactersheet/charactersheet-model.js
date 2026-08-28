@@ -2,7 +2,7 @@ import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SCHEMA_VERSION, CHAR_SHEET_SKILLS, EXPE
 import {getProfListDisplay} from "./charactersheet-choices.js";
 import {getClassProficiencies, getEntityProficiencies, getMulticlassProficiencies} from "./charactersheet-proficiencies.js";
 import {getEntityDefenses} from "./charactersheet-defenses.js";
-import {getTraitTags} from "./charactersheet-appearance.js";
+import {formatSpeeds, getSpeeds, getTraitTags} from "./charactersheet-appearance.js";
 import {getStateWithMigratedAbilityNotes} from "./charactersheet-charstore.js";
 import {getAmmoRecovered, getChargesAfterRest} from "./charactersheet-equipment.js";
 import {
@@ -104,6 +104,9 @@ export class CharacterModel extends BaseComponent {
 			// as the data's abbreviation; blank means unanswered, not Medium.
 			size: "",
 			creatureTypes: [], // what kind of creature the species is — a Plasmoid is an Ooze, not a Humanoid
+			// The parenthetical half of the type: a Bugbear is "Humanoid (Goblinoid)", and it is the
+			// tag that spells and features actually name
+			creatureTypeTags: [],
 			// The species' `traitTags`. Kept because one of them is a number: Powerful Build doubles
 			// carrying capacity, and the entity is not around when the inventory is totalled.
 			speciesTraitTags: [],
@@ -785,11 +788,10 @@ export class CharacterModel extends BaseComponent {
 	}
 
 	applyRaceData (race) {
-		const speed = race.speed;
-		let spd = null;
-		if (typeof speed === "number") spd = speed;
-		else if (speed && typeof speed === "object" && typeof speed.walk === "number") spd = speed.walk;
-		if (spd != null) this._state.speed = `${spd} ft.`;
+		// Not the walking speed alone: an Aarakocra flies, a Triton swims, and reading only `walk`
+		// threw away the one thing those species are for
+		const speed = formatSpeeds(getSpeeds(race));
+		if (speed) this._state.speed = speed;
 
 		(race.skillProficiencies || []).forEach(grp => {
 			Object.entries(grp).forEach(([k, v]) => { if (v === true) this.setSkillProfByName(k, 1); });
@@ -799,6 +801,7 @@ export class CharacterModel extends BaseComponent {
 		const sizes = [race.size].flat().filter(Boolean);
 		if (sizes.length === 1) this._state.size = sizes[0];
 		this._state.creatureTypes = [race.creatureTypes].flat().filter(Boolean);
+		this._state.creatureTypeTags = [race.creatureTypeTags].flat().filter(Boolean);
 		this._state.speciesTraitTags = getTraitTags(race);
 
 		this.setProficienciesFromSource(race.name, getEntityProficiencies(race));

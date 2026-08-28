@@ -28,8 +28,11 @@ export class CharacterSpellsPanel {
 			this._pRenderSlots(); // known counts live in the slots block
 		});
 		this._comp._addHookBase("grantedSpellChoices", () => this._pRenderKnown());
+		// A species grants spells of its own, and at character level — so both the list and the
+		// panel's visibility follow the species and the level, not only the classes
+		["refSpecies", "level"].forEach(prop => this._comp._addHookBase(prop, () => this._pRenderKnown()));
 		// Whether the character has spellcasting at all can change from any of these
-		["inventory", "spellsText", "spellAbility", "spellsKnown", "grantedSpellChoices", "classes"]
+		["inventory", "spellsText", "spellAbility", "spellsKnown", "grantedSpellChoices", "classes", "refSpecies", "level"]
 			.forEach(prop => this._comp._addHookBase(prop, () => this._pRenderVisibility()));
 		// The spell-summary numbers depend on the spellcasting ability score/level, so refresh on those too.
 		["spellAbility", "level", "abil_int", "abil_wis", "abil_cha"].forEach(prop => this._comp._addHookBase(prop, () => this._pRenderKnown()));
@@ -52,7 +55,14 @@ export class CharacterSpellsPanel {
 		const loaded = await this._pGetLoadedClasses();
 		const meta = getSpellcastingMeta(loaded.map(({entry, cls, sc}) => ({cls, sc, level: entry.level})));
 		const isClassCaster = !!(meta.slots?.some(Boolean) || meta.pact);
-		const isCaster = hasSpellcasting(this._comp._state, {isClassCaster});
+		// A Tiefling Fighter casts Thaumaturgy and has no spellcasting class, so the panel has to
+		// open for what the species gave as well as for what a class did
+		const species = await this._pGetSpecies();
+		const isOriginCaster = !!species && (
+			getGrantedSpellUids(species, this._comp.getLevelNumber()).length
+			|| getInnateSpellGrants(species, this._comp.getLevelNumber()).length
+		);
+		const isCaster = hasSpellcasting(this._comp._state, {isClassCaster, isOriginCaster});
 
 		this._wrpBody.classList.toggle("ve-hidden", !isCaster);
 		this._wrpPanel?.classList.toggle("cs__panel--quiet", !isCaster);
@@ -75,20 +85,51 @@ export class CharacterSpellsPanel {
 		return this._spellByKey;
 	}
 
-	/** Spells the character's classes/subclasses grant automatically (domain/patron/circle lists). */
+	/**
+	 * The species the character has, loaded, or null.
+	 *
+	 * Cached per name+source rather than per render: the grant list is rebuilt on every state change,
+	 * and re-fetching an entity that only changes when the species does is wasted work.
+	 */
+	async _pGetSpecies () {
+		const ref = this._comp._state.refSpecies;
+		if (!ref?.name || !ref?.source) return null;
+
+		const key = `${ref.name}|${ref.source}`;
+		if (this._speciesKey !== key) {
+			this._speciesKey = key;
+			this._speciesEnt = await CharacterSheetClassData.pGetSpecies({name: ref.name, source: ref.source}).catch(() => null);
+		}
+		return this._speciesEnt;
+	}
+
+	/**
+	 * Spells the character is given without asking — a class's domain/patron/circle list, and the
+	 * species' own.
+	 *
+	 * The species half was missing entirely. Sixty-nine species and subspecies grant spells through
+	 * the same `additionalSpells` shape a subclass uses, and because only the `{choose}` entries were
+	 * ever resolved, every fixed one was dropped: an Aasimar's Light, a Tiefling's Thaumaturgy, a
+	 * Drow's Dancing Lights, Faerie Fire and Darkness, an Aarakocra's Gust of Wind.
+	 *
+	 * A species keys its lists by **character** level, not class level — "3rd level" on a Drow means
+	 * the character's third, whatever it is a third level of.
+	 */
 	async _pGetGrantedSpells () {
 		const loaded = await this._pGetLoadedClasses();
+		const species = await this._pGetSpecies();
 		const byKey = await this._pEnsureSpellData();
 		const out = [];
 		const seen = new Set();
-		const add = (uid, {cls, castingNote = null}) => {
+		const add = (uid, {className = null, sourceName = null, castingNote = null}) => {
 			const [name, source] = uid.split("|");
 			const spEnt = byKey.get(`${name}|${(source || "phb").toLowerCase()}`) || this._spellByName.get(name);
 			const resolved = {
 				name: spEnt?.name || name.replace(/\b\w/g, c => c.toUpperCase()),
 				source: spEnt?.source || (source || "PHB").toUpperCase(),
 				level: spEnt?.level ?? 0,
-				className: cls?.name || null,
+				className,
+				sourceName,
 				granted: true,
 				castingNote,
 			};
@@ -98,15 +139,21 @@ export class CharacterSpellsPanel {
 			out.push(resolved);
 		};
 
+		const addFrom = (ent, level, meta) => {
+			if (!ent) return;
+			getGrantedSpellUids(ent, level).forEach(uid => add(uid, meta));
+			// The innate bucket's frequency wrappers, which the uid reader cannot see into. Each
+			// carries how it is cast, because a Way of Shadow monk's Darkness costs Ki, not a slot
+			getInnateSpellGrants(ent, level)
+				.forEach(grant => add(grant.uid, {...meta, castingNote: getInnateSpellCastingNote(grant)}));
+		};
+
 		loaded.forEach(({entry, cls, sc}) => {
-			[cls, sc].forEach(ent => {
-				if (!ent) return;
-				getGrantedSpellUids(ent, entry.level).forEach(uid => add(uid, {cls}));
-				// The innate bucket's frequency wrappers, which the uid reader cannot see into. Each
-				// carries how it is cast, because a Way of Shadow monk's Darkness costs Ki, not a slot
-				getInnateSpellGrants(ent, entry.level).forEach(grant => add(grant.uid, {cls, castingNote: getInnateSpellCastingNote(grant)}));
-			});
+			[cls, sc].forEach(ent => addFrom(ent, entry.level, {className: cls?.name || null, sourceName: ent?.name || null}));
 		});
+
+		addFrom(species, this._comp.getLevelNumber(), {sourceName: species?.name || null});
+
 		return out;
 	}
 
@@ -579,8 +626,11 @@ export class CharacterSpellsPanel {
 		if (isGranted) {
 			const badge = document.createElement("span");
 			badge.className = "ve-muted ve-small ve-ml-auto ve-italic";
-			// An innate grant says how it is paid for; everything else is simply always prepared
-			badge.textContent = spell.castingNote || "always prepared";
+			// An innate grant says how it is paid for; everything else is simply always prepared.
+			// Either way it says *what* gave it, because "always prepared" on its own leaves a player
+			// hunting for which half of the character it came from
+			const how = spell.castingNote || "always prepared";
+			badge.textContent = spell.sourceName ? `${how} \u00b7 ${spell.sourceName}` : how;
 			row.appendChild(badge);
 			return row;
 		}

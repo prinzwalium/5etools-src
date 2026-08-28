@@ -3,10 +3,14 @@ import {describe, expect, it} from "@jest/globals";
 import {
 	TRAIT_TAG_POWERFUL_BUILD,
 	formatHeight,
+	formatSpeeds,
+	getAgeDisplay,
 	getCarryMultiplier,
+	getCreatureTypeDisplay,
 	getDiceExpressionRange,
 	getHeightAndWeightRange,
 	getHeightAndWeightTable,
+	getSpeeds,
 	getTraitTags,
 	parseDiceExpression,
 	rollDiceExpression,
@@ -152,5 +156,76 @@ describe("Carrying capacity", () => {
 
 	it("Copes with a character saved before the tags were recorded", () => {
 		expect(getEncumbrance({abil_str: 10, inventory: []})).toMatchObject({capacityLb: 150});
+	});
+});
+
+/*
+ * A species' speeds. Two thirds state a plain number; the rest an object, of which only `walk` was
+ * ever read — so thirty-two species and subspecies lost the movement that defines them.
+ */
+describe("speed", () => {
+	it("Reads a plain number as a walking speed", () => {
+		expect(getSpeeds({speed: 30})).toEqual({walk: 30, others: []});
+		expect(formatSpeeds(getSpeeds({speed: 30}))).toBe("30 ft.");
+	});
+
+	it("Keeps a flying speed", () => {
+		const speeds = getSpeeds({speed: {walk: 20, fly: 50}});
+		expect(speeds).toEqual({walk: 20, others: [{kind: "fly", value: 50}]});
+		expect(formatSpeeds(speeds)).toBe("20 ft., fly 50 ft.");
+	});
+
+	it("Reads `true` as equal to the walking speed", () => {
+		// A Dhampir climbs as fast as it walks, and the data says so with a boolean
+		expect(formatSpeeds(getSpeeds({speed: {walk: 35, climb: true}}))).toBe("35 ft., climb 35 ft.");
+	});
+
+	it("Lists several in the order a stat block does", () => {
+		const speeds = getSpeeds({speed: {walk: 25, swim: 25, fly: 30, burrow: 10, climb: 20}});
+		expect(formatSpeeds(speeds)).toBe("25 ft., burrow 10 ft., climb 20 ft., fly 30 ft., swim 25 ft.");
+	});
+
+	it("Drops a kind the species does not have", () => {
+		expect(getSpeeds({speed: {walk: 30, fly: false, swim: 0}}).others).toEqual([]);
+	});
+
+	it("Says nothing for a species that states no speed", () => {
+		expect(getSpeeds({})).toBeNull();
+		expect(getSpeeds(null)).toBeNull();
+		expect(formatSpeeds(null)).toBeNull();
+	});
+});
+
+/*
+ * What kind of creature a species is, and how long it lives. The type's parenthetical half lives in
+ * its own field, and reading only the first made a Bugbear a plain Humanoid.
+ */
+describe("creature type and age", () => {
+	it("Writes the type with its tag, as the books do", () => {
+		expect(getCreatureTypeDisplay({creatureTypes: ["humanoid"], creatureTypeTags: ["goblinoid"]}))
+			.toBe("Humanoid (Goblinoid)");
+	});
+
+	it("Leaves off the brackets when there is no tag", () => {
+		expect(getCreatureTypeDisplay({creatureTypes: ["ooze"]})).toBe("Ooze");
+	});
+
+	it("Says nothing for a species with no type", () => {
+		expect(getCreatureTypeDisplay({})).toBeNull();
+		expect(getCreatureTypeDisplay(null)).toBeNull();
+	});
+
+	it("Reads how long a species lives", () => {
+		expect(getAgeDisplay({age: {mature: 20, max: 100}})).toBe("matures at about 20, lives about 100 years");
+	});
+
+	it("Copes with only one of the two", () => {
+		expect(getAgeDisplay({age: {mature: 3}})).toBe("matures at about 3");
+		expect(getAgeDisplay({age: {max: 750}})).toBe("lives about 750 years");
+	});
+
+	it("Says nothing where the species does not", () => {
+		expect(getAgeDisplay({})).toBeNull();
+		expect(getAgeDisplay({age: {}})).toBeNull();
 	});
 });
