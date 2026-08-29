@@ -2,6 +2,7 @@ import {BuilderBase} from "./makebrew/makebrew-builder-base.js";
 import {SpellBuilder} from "./makebrew/makebrew-spell.js";
 import {CreatureBuilder} from "./makebrew/makebrew-creature.js";
 import {LegendaryGroupBuilder} from "./makebrew/makebrew-legendarygroup.js";
+import {FeatBuilder} from "./makebrew/makebrew-feat.js";
 import {TagCondition, TaggerUtils} from "./converter/converterutils-tags.js";
 import {SITE_STYLE__CLASSIC} from "./consts.js";
 import {SourceUiUtil} from "./utils-ui/utils-ui-sourcebuilder.js";
@@ -36,6 +37,7 @@ class PageUi extends ProxyBase {
 	set creatureBuilder (creatureBuilder) { this._builders.creatureBuilder = creatureBuilder; }
 	set legendaryGroupBuilder (legendaryGroupBuilder) { this._builders.legendaryGroupBuilder = legendaryGroupBuilder; }
 	set spellBuilder (spellBuilder) { this._builders.spellBuilder = spellBuilder; }
+	set featBuilder (featBuilder) { this._builders.featBuilder = featBuilder; }
 
 	get creatureBuilder () { return this._builders.creatureBuilder; }
 
@@ -160,6 +162,7 @@ class PageUi extends ProxyBase {
 			<option value="creatureBuilder">Creature</option>
 			<option value="legendaryGroupBuilder">Legendary Group</option>
 			<option value="spellBuilder">Spell</option>
+			<option value="featBuilder">Feat</option>
 			<option value="none" class="ve-italic">Everything Else?</option>
 		</select>`
 			.vee.onn("change", async () => {
@@ -472,6 +475,10 @@ creatureBuilder.ui = ui;
 const legendaryGroupBuilder = new LegendaryGroupBuilder();
 ui.legendaryGroupBuilder = legendaryGroupBuilder;
 legendaryGroupBuilder.ui = ui;
+
+const featBuilder = new FeatBuilder();
+ui.featBuilder = featBuilder;
+featBuilder.ui = ui;
 
 window.addEventListener("load", async () => {
 	await Makebrew.doPageInit();
