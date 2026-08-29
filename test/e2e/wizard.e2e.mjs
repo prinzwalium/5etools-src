@@ -52,7 +52,9 @@ export async function run ({browser, check}) {
 	// ---------- 2. class ----------
 	await page.waitForSelector("#cs-wiz-sel-class", {timeout: 10000});
 	await page.waitForFunction(() => document.querySelector("#cs-wiz-sel-class").options.length > 1, {timeout: 15000});
-	await page.selectOption("#cs-wiz-sel-class", {label: "Fighter (PHB'14)"});
+	// The 2024 printing: preferring the newest is the default, so the 2014 Fighter it supersedes is
+	// not on the menu
+	await page.selectOption("#cs-wiz-sel-class", {label: "Fighter (PHB'24)"});
 	await page.fill("#cs-wiz-ipt-level", "3");
 	await page.dispatchEvent("#cs-wiz-ipt-level", "change");
 	await page.waitForTimeout(300);
