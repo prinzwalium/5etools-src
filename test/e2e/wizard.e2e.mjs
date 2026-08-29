@@ -148,7 +148,10 @@ export async function run ({browser, check}) {
 
 	const invText = await page.locator("#cs-inventory").textContent();
 	check("concrete equipment lands in the inventory", invText.includes("Chain Mail"));
-	check("only category placeholders stay as notes", (await page.locator("#cs-equipment").inputValue()).includes("(choose)"));
+	// The 2024 books state starting equipment as concrete bundles — no class among them uses a
+	// `{@filter}` category placeholder — so the note box should be holding nothing back
+	check("and nothing is left dangling as a note", !(await page.locator("#cs-equipment").inputValue()).includes("(choose)"),
+		await page.locator("#cs-equipment").inputValue());
 
 	const state = await getState(page);
 	check("the structured class is persisted", state?.classes?.[0]?.name === "Fighter" && state?.classes?.[0]?.level === 3);
