@@ -76,13 +76,24 @@ only `walk` cost thirty-two species the movement that defines them. A creature t
 `{mature, max}`. `_copy`, `overwrite` and `_versions` never reach us — the race loader runs
 `mergeSubraces`, so subspecies arrive pre-merged.
 
-**Reprints.** 160 picker entries are earlier printings of another entry in the same list, named by
-`reprintedAs`; `filterReprinted` (in `sources`) drops one when its reprint is also on offer, applied
-*after* the source filter so a 2014-only filter keeps the 2014 printing. A `{uid, tag}` reprint into
-a different kind of thing never matches, which is what keeps a dragonmark subrace pickable.
-It is applied to the **feat** picker only (`_filterReprints`). A class is reprinted too — the 2014
-Fighter names the 2024 one — and hiding it would take every 2014 class off the menu; upstream draws
-the same line, deselecting reprints on its feat/species/background pages and not on its class page.
+**Reprints, and the 2024 default.** The data says which entries a later printing supersedes, in
+`reprintedAs` — 361 PHB spells, 695 items, 65 subclasses, 13 classes, 50 feats, 97 species and
+subspecies, and more. `filterReprinted` (in `sources`) drops an entry when its reprint is *also on
+offer*, and `_filterBySource` applies it to every picker unless the character opts out
+(`isPreferReprints`, default on, in the source filter).
+
+Two properties make this safe. It runs **after** the source filter, so a 2014-only character never
+loses anything: the 2024 reprint is not in the list to supersede it. And it only ever drops an entry
+whose replacement is present, so everything the 2024 books never reprinted — Artificer, most
+subclasses, whole books — stays. That is what makes it different from `SOURCE_MODE_MODERN`, which
+drops the 2014 books outright.
+
+A reprint uid is `name|source` except for a **subclass**, which carries its parent class in the
+middle (`"Berserker|Barbarian|XPHB|XPHB"`); the name is always first and the source always last, and
+a subclass answers to both its `name` and its `shortName`. A `{uid, tag}` reprint into a different
+kind of thing never matches, which keeps a dragonmark subrace pickable. Search-driven pickers
+(species, background, item) get `getSupersededKeys` instead, because a search document carries no
+`reprintedAs`.
 
 ### Backgrounds
 

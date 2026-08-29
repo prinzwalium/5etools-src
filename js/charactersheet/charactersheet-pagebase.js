@@ -10,7 +10,7 @@ import {pPickAbilities, pPickList, pResolveEntitySpellGrants, pResolveFeat} from
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL, PROF_KINDS, groupProficienciesByKind} from "./charactersheet-proficiencies.js";
 import {DEFENSE_KINDS, DEFENSE_KIND_RESIST, DEFENSE_KIND_SENSE, getAllDefenses, groupDefensesByKind} from "./charactersheet-defenses.js";
 import {getTraitChoiceResist, getTraitChoices} from "./charactersheet-traitchoices.js";
-import {SOURCE_MODES, SOURCE_MODE_CUSTOM, getSourceFilterLabel, getSourceFilterPredicate, getOutOfFilterSources, isSourceAllowed, isSourceFilterInactive} from "./charactersheet-sources.js";
+import {SOURCE_MODES, SOURCE_MODE_CUSTOM, getSourceFilterLabel, getSourceFilterPredicate, getOutOfFilterSources, getSupersededKeys, isPreferringReprints, isSourceAllowed, isSourceFilterInactive} from "./charactersheet-sources.js";
 import {getBreakdownCitation, getPartCitations, isSameCitation, resolveCitation} from "./charactersheet-citations.js";
 import {EV_DAMAGE, EV_DEATH_SAVE, EV_DOWN, EV_HEAL, EV_LEVEL} from "./charactersheet-journal.js";
 import {PORTRAIT_MIME, PORTRAIT_QUALITY, getPortraitTargetSize, isPortraitTooLarge} from "./charactersheet-portrait.js";
@@ -1912,13 +1912,29 @@ export class CharacterPageBase {
 	 * upstream-merge conflict point), load the same index and drive the lower-level entity search — it
 	 * does accept `fnFilterResults`. Search docs carry their source as `.s`.
 	 */
-	async _pSearchEntity ({fnLoad, indexName, title, fnTransform = null}) {
+	async _pSearchEntity ({fnLoad, indexName, title, fnTransform = null, fnGetEntities = null}) {
 		await fnLoad();
 		const opts = {};
 		if (fnTransform) opts.fnTransform = fnTransform;
-		if (!isSourceFilterInactive(this._comp._state.sourceFilter)) {
-			opts.fnFilterResults = doc => this._isSourceAllowed(doc.s);
+
+		const isFiltered = !isSourceFilterInactive(this._comp._state.sourceFilter);
+
+		// A search document carries a name and a source and nothing a reprint is stated in, so the
+		// entities decide and the widget is handed the keys to reject. Built from what this character
+		// is *allowed*, so a 2014-only filter still supersedes nothing
+		let superseded = null;
+		if (fnGetEntities && isPreferringReprints(this._comp._state.sourceFilter)) {
+			const all = (await fnGetEntities().catch(() => [])) || [];
+			superseded = getSupersededKeys(all.filter(it => this._isSourceAllowed(it?.source)));
 		}
+
+		if (isFiltered || superseded?.size) {
+			opts.fnFilterResults = doc => {
+				if (isFiltered && !this._isSourceAllowed(doc.s)) return false;
+				return !superseded?.has(`${doc.n}|${doc.s}`.toLowerCase());
+			};
+		}
+
 		return SearchWidget.pGetUserEntitySearch(title, indexName, opts);
 	}
 
@@ -1936,6 +1952,8 @@ export class CharacterPageBase {
 			}),
 			indexName: "entity_Races",
 			title: "Select Species",
+			// The merged list, so a subspecies is judged against the same entries the picker shows
+			fnGetEntities: async () => (await DataUtil.race.loadJSON()).race,
 			fnTransform: doc => {
 				const cpy = MiscUtil.copyFast(doc);
 				Object.assign(cpy, SearchWidget.docToPageSourceHash(cpy));
@@ -2116,6 +2134,7 @@ export class CharacterPageBase {
 			}),
 			indexName: "entity_Backgrounds",
 			title: "Select Background",
+			fnGetEntities: async () => (await DataUtil.background.loadJSON()).background,
 			fnTransform: doc => {
 				const cpy = MiscUtil.copyFast(doc);
 				Object.assign(cpy, SearchWidget.docToPageSourceHash(cpy));
@@ -2838,6 +2857,9 @@ export class CharacterPageBase {
 		CharacterSheetClassData.setSourceFilter(
 			getSourceFilterPredicate(filter, {isClassic: src => SourceUtil.isClassicSource(src)}),
 		);
+		// The 2024 books are what a character is built from unless it says otherwise, so a 2014 entry
+		// its reprint supersedes is not offered beside it
+		CharacterSheetClassData.setPreferReprints(isPreferringReprints(filter));
 	}
 
 	/** Whether a source may be picked under this character's filter. */
@@ -2891,7 +2913,11 @@ export class CharacterPageBase {
 		const sources = await this._pGetSelectableSources();
 		const cur = this._comp._state.sourceFilter || {mode: "all", sources: {}};
 		// Working copy; only committed on Save
-		const draft = {mode: cur.mode || "all", sources: {...(cur.sources || {})}};
+		const draft = {
+			mode: cur.mode || "all",
+			sources: {...(cur.sources || {})},
+			isPreferReprints: isPreferringReprints(cur),
+		};
 
 		const {eleModalInner, doClose} = UiUtil.getShowModal({
 			title: "Sources",
@@ -2907,6 +2933,18 @@ export class CharacterPageBase {
 		const wrpModes = document.createElement("div");
 		wrpModes.className = "ve-flex ve-flex-wrap ve-mb-2";
 		wrp.appendChild(wrpModes);
+
+		// --- Prefer the newest printing ---
+		const lblPrefer = document.createElement("label");
+		lblPrefer.className = "ve-flex-v-center ve-small ve-mb-2";
+		const cbPrefer = document.createElement("input");
+		cbPrefer.type = "checkbox";
+		cbPrefer.className = "ve-mr-2";
+		cbPrefer.checked = isPreferringReprints(draft);
+		cbPrefer.addEventListener("change", () => { draft.isPreferReprints = cbPrefer.checked; });
+		lblPrefer.append(cbPrefer);
+		lblPrefer.insertAdjacentHTML("beforeend", `<span>Prefer the newest printing <span class="ve-muted">— where the 2024 books reprint something, offer only that one. Anything they never reprinted stays.</span></span>`);
+		wrp.appendChild(lblPrefer);
 
 		// --- Per-source checkboxes, grouped ---
 		const wrpSources = document.createElement("div");

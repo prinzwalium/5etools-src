@@ -607,7 +607,13 @@ export class CharacterModel extends BaseComponent {
 
 	/** Replace this character's source filter (which books its pickers offer). */
 	setSourceFilter (filter) {
-		this._state.sourceFilter = {mode: filter?.mode || "all", sources: {...(filter?.sources || {})}};
+		this._state.sourceFilter = {
+			mode: filter?.mode || "all",
+			sources: {...(filter?.sources || {})},
+			// Stored explicitly, both ways round: the default is "prefer the newest", and a character
+			// that has opted out has to keep saying so
+			isPreferReprints: filter?.isPreferReprints !== false,
+		};
 	}
 
 	/** Set expended uses of a named class resource (Rages, Ki Points, Wild Shape, ...). */

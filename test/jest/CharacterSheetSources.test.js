@@ -7,10 +7,13 @@ import {
 	getDefaultSourceFilter,
 	getOutOfFilterSources,
 	getSourceFilterLabel,
+	getSupersededKeys,
 	getSourceFilterPredicate,
 	getUsedSources,
 	isSourceAllowed,
+	isPreferringReprints,
 	isSourceFilterInactive,
+	isSourceFilterNarrowing,
 } from "../../js/charactersheet/charactersheet-sources.js";
 
 // Stand-in for SourceUtil.isClassicSource: 2014-era books are "classic"
@@ -169,5 +172,67 @@ describe("hiding what a later printing supersedes", () => {
 	it("Copes with nothing at all", () => {
 		expect(filterReprinted([])).toEqual([]);
 		expect(filterReprinted(null)).toEqual([]);
+	});
+});
+
+/*
+ * The 2024 books as the default.
+ *
+ * Not the same as the "2024 rules only" mode, which drops the 2014 books entirely and with them
+ * every subclass, spell and item the new books never carried over. This offers the newest printing
+ * of anything printed twice, and leaves everything else exactly where it was.
+ */
+describe("preferring the newest printing", () => {
+	const names = list => list.map(it => `${it.name}|${it.source}`);
+
+	it("Is on by default, and stays on for a filter saved before it existed", () => {
+		expect(isPreferringReprints(getDefaultSourceFilter())).toBe(true);
+		expect(isPreferringReprints({mode: SOURCE_MODE_ALL, sources: {}})).toBe(true);
+		expect(isPreferringReprints(null)).toBe(true);
+	});
+
+	it("Is off only when the character says so", () => {
+		expect(isPreferringReprints({mode: SOURCE_MODE_ALL, isPreferReprints: false})).toBe(false);
+	});
+
+	it("Keeps what the new books never reprinted", () => {
+		const list = [
+			{name: "Fighter", source: "PHB", reprintedAs: ["Fighter|XPHB"]},
+			{name: "Fighter", source: "XPHB"},
+			{name: "Artificer", source: "TCE"},
+		];
+		expect(names(filterReprinted(list))).toEqual(["Fighter|XPHB", "Artificer|TCE"]);
+	});
+
+	it("Matches a subclass, whose reprint uid names its class in the middle", () => {
+		// "Berserker|Barbarian|XPHB|XPHB" — the name is first and the source last, with the parent
+		// class between them; reading the second segment as the source matched nothing at all
+		const list = [
+			{name: "Path of the Berserker", shortName: "Berserker", source: "PHB", reprintedAs: ["Berserker|Barbarian|XPHB|XPHB"]},
+			{name: "Berserker", shortName: "Berserker", source: "XPHB"},
+		];
+		expect(names(filterReprinted(list))).toEqual(["Berserker|XPHB"]);
+	});
+
+	it("Says which entries a picker should reject, for a list it cannot filter itself", () => {
+		const list = [
+			{name: "Alert", source: "PHB", reprintedAs: ["Alert|XPHB"]},
+			{name: "Alert", source: "XPHB"},
+			{name: "Lucky", source: "PHB"},
+		];
+		const superseded = getSupersededKeys(list);
+		expect(superseded.has("alert|phb")).toBe(true);
+		expect(superseded.has("alert|xphb")).toBe(false);
+		expect(superseded.has("lucky|phb")).toBe(false);
+	});
+
+	it("Narrows the list even with every book allowed, which the mode alone does not", () => {
+		expect(isSourceFilterNarrowing(getDefaultSourceFilter())).toBe(true);
+		expect(isSourceFilterNarrowing({mode: SOURCE_MODE_ALL, isPreferReprints: false})).toBe(false);
+	});
+
+	it("Says so on the chip only when it is off", () => {
+		expect(getSourceFilterLabel(getDefaultSourceFilter())).toBe("All sources");
+		expect(getSourceFilterLabel({mode: SOURCE_MODE_ALL, isPreferReprints: false})).toBe("All sources, all printings");
 	});
 });

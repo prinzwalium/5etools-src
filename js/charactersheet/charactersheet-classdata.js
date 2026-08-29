@@ -23,23 +23,26 @@ export class CharacterSheetClassData {
 
 	static setSourceFilter (fn) { this._fnSourceFilter = fn || null; }
 
-	static _filterBySource (arr) {
-		if (!this._fnSourceFilter) return arr;
-		return arr.filter(it => this._fnSourceFilter(it.source));
-	}
+	/**
+	 * Whether a later printing supersedes the one it reprints. Set from the character's own filter,
+	 * beside `setSourceFilter`, because both are the same question: what may this character pick?
+	 */
+	static _isPreferReprints = true;
+
+	static setPreferReprints (isPrefer) { this._isPreferReprints = isPrefer !== false; }
 
 	/**
-	 * A picker's list with earlier printings dropped, applied *after* the source filter so a
-	 * 2014-only filter keeps the 2014 printing.
+	 * What a picker may offer: the character's allowed sources, then — unless the character has asked
+	 * otherwise — with anything a later printing supersedes taken out.
 	 *
-	 * Deliberately not applied to everything. A **class** is reprinted too — the 2014 Fighter names
-	 * the 2024 one — and hiding it would take every 2014 class off the menu, which is a choice a
-	 * player makes rather than a duplicate to tidy away. Upstream draws the same line: its feat,
-	 * species and background pages deselect reprints by default and its class page does not, because
-	 * picking a class from thirteen names is not a list anybody is lost in.
+	 * The order is the point. Filtering by source *first* means a 2014-only character never loses its
+	 * 2014 content: the 2024 reprint is not in the list to supersede it. And a character with every
+	 * book allowed is offered the 2024 Fighter rather than both Fighters, while the subclasses,
+	 * spells and items the new books never reprinted stay exactly where they were.
 	 */
-	static _filterReprints (arr) {
-		return filterReprinted(arr);
+	static _filterBySource (arr) {
+		const allowed = this._fnSourceFilter ? arr.filter(it => this._fnSourceFilter(it.source)) : arr;
+		return this._isPreferReprints ? filterReprinted(allowed) : allowed;
 	}
 
 	static _pAllClasses = null;
@@ -212,7 +215,7 @@ export class CharacterSheetClassData {
 
 	/** All feats (site + prerelease + brew), blocklist-filtered and sorted. */
 	static async pGetAllFeats () {
-		return this._filterReprints(this._filterBySource(await this.pGetAllFeatsUnfiltered()));
+		return this._filterBySource(await this.pGetAllFeatsUnfiltered());
 	}
 
 	static pGetAllFeatsUnfiltered () {
@@ -345,13 +348,12 @@ export class CharacterSheetClassData {
 	 * ("martial or mundane weapons", "mundane only") and the item says both of them itself.
 	 */
 	static async pGetBaseWeapons ({categories = null} = {}) {
-		const all = await Renderer.item.pBuildList();
+		const all = this._filterBySource(await Renderer.item.pBuildList());
 		const wanted = categories ? new Set(categories.map(it => String(it).toLowerCase())) : null;
 		const seen = new Set();
 		return all
 			.filter(it => it.weapon && it._isBaseItem)
 			.filter(it => !wanted || wanted.has(String(it.weaponCategory).toLowerCase()))
-			.filter(it => !this._fnSourceFilter || this._fnSourceFilter(it.source))
 			.filter(it => { const k = it.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
 			.map(it => ({name: it.name, source: it.source, weaponCategory: it.weaponCategory}))
 			.sort((a, b) => SortUtil.ascSortLower(a.name, b.name));
