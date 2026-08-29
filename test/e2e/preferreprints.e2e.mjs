@@ -6,7 +6,7 @@
  * them: the picker is what a player actually sees.
  */
 
-import {BASE_URL, getState, openPage} from "./util-e2e.mjs";
+import {BASE_URL, closeModal, getState, openPage} from "./util-e2e.mjs";
 
 const BUILDER_URL = `${BASE_URL}/charbuilder.html`;
 
@@ -20,8 +20,8 @@ async function pGetClassOptions (page) {
 		return sel && sel.options.length > 5;
 	}, {timeout: 20000});
 	const labels = await page.locator(".ve-ui-modal__overlay select option").allTextContents();
-	await page.keyboard.press("Escape");
-	await page.waitForTimeout(400);
+	// The picker is a modal with its own buttons; Escape alone leaves the overlay swallowing clicks
+	await closeModal(page);
 	return labels.map(it => it.trim());
 }
 
