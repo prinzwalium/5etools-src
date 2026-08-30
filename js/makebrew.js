@@ -5,6 +5,8 @@ import {LegendaryGroupBuilder} from "./makebrew/makebrew-legendarygroup.js";
 import {FeatBuilder} from "./makebrew/makebrew-feat.js";
 import {LanguageBuilder} from "./makebrew/makebrew-language.js";
 import {BackgroundBuilder} from "./makebrew/makebrew-background.js";
+import {SpeciesBuilder} from "./makebrew/makebrew-species.js";
+import {ItemBuilder} from "./makebrew/makebrew-item.js";
 import {TagCondition, TaggerUtils} from "./converter/converterutils-tags.js";
 import {SITE_STYLE__CLASSIC} from "./consts.js";
 import {SourceUiUtil} from "./utils-ui/utils-ui-sourcebuilder.js";
@@ -42,6 +44,8 @@ class PageUi extends ProxyBase {
 	set featBuilder (featBuilder) { this._builders.featBuilder = featBuilder; }
 	set languageBuilder (languageBuilder) { this._builders.languageBuilder = languageBuilder; }
 	set backgroundBuilder (backgroundBuilder) { this._builders.backgroundBuilder = backgroundBuilder; }
+	set speciesBuilder (speciesBuilder) { this._builders.speciesBuilder = speciesBuilder; }
+	set itemBuilder (itemBuilder) { this._builders.itemBuilder = itemBuilder; }
 
 	get creatureBuilder () { return this._builders.creatureBuilder; }
 
@@ -167,7 +171,9 @@ class PageUi extends ProxyBase {
 			<option value="legendaryGroupBuilder">Legendary Group</option>
 			<option value="spellBuilder">Spell</option>
 			<option value="featBuilder">Feat</option>
+			<option value="speciesBuilder">Species</option>
 			<option value="backgroundBuilder">Background</option>
+			<option value="itemBuilder">Item</option>
 			<option value="languageBuilder">Language</option>
 			<option value="none" class="ve-italic">Everything Else?</option>
 		</select>`
@@ -493,6 +499,14 @@ languageBuilder.ui = ui;
 const backgroundBuilder = new BackgroundBuilder();
 ui.backgroundBuilder = backgroundBuilder;
 backgroundBuilder.ui = ui;
+
+const speciesBuilder = new SpeciesBuilder();
+ui.speciesBuilder = speciesBuilder;
+speciesBuilder.ui = ui;
+
+const itemBuilder = new ItemBuilder();
+ui.itemBuilder = itemBuilder;
+itemBuilder.ui = ui;
 
 window.addEventListener("load", async () => {
 	await Makebrew.doPageInit();

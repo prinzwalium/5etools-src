@@ -7,7 +7,7 @@
  * proficiency written as prose is invisible to everything, so the test worth having is whether the
  * sheet can see what the builder wrote.
  *
- * All three share one browser context and one brew source, because creating a source is slow and
+ * They share one browser context and one brew source, because creating a source is slow and
  * the point is that they write into the same brew. The context is its own, because homebrew lives
  * in the browser's storage rather than the character store and must not follow the other suites
  * around.
@@ -21,6 +21,8 @@ const BUILDER_URL = `${BASE_URL}/charbuilder.html`;
 const FEAT_NAME = "Test Cellar Sense";
 const LANGUAGE_NAME = "Test Cellarspeak";
 const BACKGROUND_NAME = "Test Cellarer";
+const SPECIES_NAME = "Test Cellarfolk";
+const ITEM_NAME = "Test Cellarer's Tap";
 
 /** The builders' rows are labelled, not identified; the label is the only stable handle. */
 const row = (page, label) => page.locator(`.mkbru__row:has(.mkbru__row-name:text-is("${label}"))`).first();
@@ -67,7 +69,7 @@ export async function run ({browser, check}) {
 
 	const modes = await page.locator("select:has(option[value='featBuilder']) option").allTextContents();
 	check("the fork's builders are all on the menu",
-		["Feat", "Background", "Language"].every(it => modes.includes(it)), modes.join(" | "));
+		["Feat", "Species", "Background", "Item", "Language"].every(it => modes.includes(it)), modes.join(" | "));
 
 	/* ---------------------------------------------------------------- feat */
 	await pSwitchTo(page, "featBuilder");
@@ -172,6 +174,97 @@ export async function run ({browser, check}) {
 
 	await pSave(page);
 
+	/* ------------------------------------------------------------- species */
+	await pSwitchTo(page, "speciesBuilder");
+	await fill(page, "Name", SPECIES_NAME);
+
+	await page.locator(".ve-ui-tab__btn-tab-head:has-text('Body')").first().click();
+	await page.waitForTimeout(400);
+
+	// Small *or* Medium: thirty species offer the choice, and it decides carrying capacity
+	await row(page, "Size").locator("label:has-text('Small') input[type='checkbox']").first().check();
+	await page.waitForTimeout(300);
+
+	await row(page, "Creature Type").locator("label:has-text('Humanoid') input[type='checkbox']").first().check();
+	await page.waitForTimeout(300);
+
+	// Walking, plus a climb speed that defers to it rather than restating a number
+	const speedRow = row(page, "Speed");
+	const iptWalk = speedRow.locator("input[type='number']").first();
+	await iptWalk.fill("25");
+	await iptWalk.dispatchEvent("change");
+	await page.waitForTimeout(500);
+
+	const walkOnly = await pGetWritten(page);
+	check("a species that only walks states a bare number, as 123 of them do",
+		walkOnly?.speed === 25, JSON.stringify(walkOnly?.speed));
+
+	await speedRow.locator("label:has-text('same as walking') input[type='checkbox']").nth(2).check();
+	await page.waitForTimeout(300);
+
+	const iptDark = row(page, "Senses").locator("input[type='number']").first();
+	await iptDark.fill("60");
+	await iptDark.dispatchEvent("change");
+	await page.waitForTimeout(400);
+
+	await page.locator(".ve-ui-tab__btn-tab-head:has-text('Traits')").first().click();
+	await page.waitForTimeout(400);
+	await row(page, "Resistances & Immunities").locator("label:has-text('Poison') input[type='checkbox']").first().check();
+	await page.waitForTimeout(600);
+
+	const species = await pGetWritten(page);
+	check("a species offering two sizes stores both", JSON.stringify(species?.size) === `["S","M"]`, JSON.stringify(species?.size));
+	check("its creature type is recorded", JSON.stringify(species?.creatureTypes) === `["humanoid"]`, JSON.stringify(species?.creatureTypes));
+	check("a second kind of movement turns the speed into an object, keeping the walk",
+		species?.speed?.walk === 25, JSON.stringify(species?.speed));
+	check("and a kind that matches walking is stored as `true`, not as a copy of the number",
+		species?.speed?.climb === true, JSON.stringify(species?.speed));
+	check("darkvision is a field", species?.darkvision === 60, JSON.stringify(species?.darkvision));
+	check("and a resistance is one too", (species?.resist || []).includes("poison"), JSON.stringify(species?.resist));
+
+	await pSave(page);
+
+	/* ---------------------------------------------------------------- item */
+	await pSwitchTo(page, "itemBuilder");
+	await fill(page, "Name", ITEM_NAME);
+	await row(page, "Rarity").locator("select").first().selectOption({label: "Rare"});
+	await page.waitForTimeout(300);
+
+	const cbAttune = row(page, "Attunement").locator("input[type='checkbox']").first();
+	await cbAttune.check();
+	await page.waitForTimeout(300);
+
+	const iptValue = row(page, "Value").locator("input[type='number']").first();
+	await iptValue.fill("250");
+	await iptValue.dispatchEvent("change");
+	await page.waitForTimeout(400);
+
+	await page.locator(".ve-ui-tab__btn-tab-head:has-text('Magic')").first().click();
+	await page.waitForTimeout(400);
+
+	// Typed without a sign, because that is what a person types
+	const iptBonusAc = row(page, "Magic Bonuses").locator("input").nth(2);
+	await iptBonusAc.fill("1");
+	await iptBonusAc.dispatchEvent("change");
+	await page.waitForTimeout(400);
+
+	const iptCharges = row(page, "Charges").locator("input[type='number']").first();
+	await iptCharges.fill("3");
+	await iptCharges.dispatchEvent("change");
+	await page.waitForTimeout(300);
+	await row(page, "Charges").locator("select").first().selectOption({label: "Dawn"});
+	await page.waitForTimeout(600);
+
+	const item = await pGetWritten(page);
+	check("the item's rarity is stored", item?.rarity === "rare", JSON.stringify(item?.rarity));
+	check("attunement with no restriction is `true`, not a sentence", item?.reqAttune === true, JSON.stringify(item?.reqAttune));
+	check("its price is stored in copper", item?.value === 25000, JSON.stringify(item?.value));
+	check("an unsigned bonus is signed, because the sheet parses it as one", item?.bonusAc === "+1", JSON.stringify(item?.bonusAc));
+	check("its charges and recharge are fields the inventory row can spend",
+		item?.charges === 3 && item?.recharge === "dawn", JSON.stringify({charges: item?.charges, recharge: item?.recharge}));
+
+	await pSave(page);
+
 	/* ------------------------------------------- what the brew now holds */
 	const stored = await page.evaluate(async () => {
 		const brew = await BrewUtil2.pGetBrewProcessed();
@@ -179,10 +272,14 @@ export async function run ({browser, check}) {
 			feats: (brew.feat || []).map(it => it.name),
 			languages: (brew.language || []).map(it => it.name),
 			backgrounds: (brew.background || []).map(it => it.name),
+			species: (brew.race || []).map(it => it.name),
+			items: (brew.item || []).map(it => it.name),
 		};
 	});
-	check("all three are saved into the one brew",
-		stored.feats.includes(FEAT_NAME) && stored.languages.includes(LANGUAGE_NAME) && stored.backgrounds.includes(BACKGROUND_NAME),
+	check("all five are saved into the one brew",
+		stored.feats.includes(FEAT_NAME) && stored.languages.includes(LANGUAGE_NAME)
+			&& stored.backgrounds.includes(BACKGROUND_NAME) && stored.species.includes(SPECIES_NAME)
+			&& stored.items.includes(ITEM_NAME),
 		JSON.stringify(stored));
 
 	check("no page errors while authoring", page.errors.length === 0, page.errors.join("\n"));
@@ -194,19 +291,23 @@ export async function run ({browser, check}) {
 	await pageBuilder.goto(BUILDER_URL, {waitUntil: "load"});
 	await pageBuilder.waitForTimeout(6000);
 
-	const seen = await pageBuilder.evaluate(async ({featName, bgName}) => {
+	const seen = await pageBuilder.evaluate(async ({featName, bgName, speciesName}) => {
 		const mod = await import("./js/charactersheet/charactersheet-classdata.js");
 		const feats = await mod.CharacterSheetClassData.pGetAllFeatsUnfiltered();
 		const bg = await mod.CharacterSheetClassData.pGetBackground({name: bgName, source: "E2ETest"});
+		const species = await mod.CharacterSheetClassData.pGetSpecies({name: speciesName, source: "E2ETest"});
 		return {
 			isFeatOffered: feats.some(it => it.name === featName),
 			bgSkills: bg ? Object.keys(bg.skillProficiencies?.[0] || {}) : null,
+			speciesSpeed: species ? species.speed : null,
 		};
-	}, {featName: FEAT_NAME, bgName: BACKGROUND_NAME});
+	}, {featName: FEAT_NAME, bgName: BACKGROUND_NAME, speciesName: SPECIES_NAME});
 
 	check("a feat authored here is offered by the character builder", seen.isFeatOffered);
 	check("and a background reaches it with its grants intact",
 		(seen.bgSkills || []).includes("athletics") && (seen.bgSkills || []).includes("survival"), JSON.stringify(seen.bgSkills));
+	check("and a species reaches it with the movement that defines it",
+		seen.speciesSpeed?.walk === 25 && seen.speciesSpeed?.climb === true, JSON.stringify(seen.speciesSpeed));
 
 	check("no page errors in the character builder", pageBuilder.errors.length === 0, pageBuilder.errors.join("\n"));
 	await context.close();

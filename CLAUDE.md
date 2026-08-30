@@ -45,7 +45,8 @@ Each page's controller keeps only its own DOM assembly + rendering.
   non-root user — creating a file in the web root needs permission on the directory, which
   `user: 1000:1000` lacks. Start-up never fails the container: if the write is refused it
   says why and serves the site unconfigured.
-- `js/makebrew/makebrew-forkbase.js` + `-feat.js`, `-language.js`, `-background.js` — homebrew
+- `js/makebrew/makebrew-forkbase.js` + `-feat.js`, `-language.js`, `-background.js`, `-species.js`,
+  `-item.js` — homebrew
   builders on `makebrew.html`. Upstream's framework (`makebrew-builder-base.js`) covers creatures,
   spells and legendary groups and nothing else; the fork adds its own beside them, registered from
   `js/makebrew.js`. `ForkBuilderBase` holds what is true of every kind — the tab skeleton, the
