@@ -57,8 +57,11 @@ Each page's controller keeps only its own DOM assembly + rendering.
   so there is nowhere for the `classFeature[]` array to live. The loader's "gracefully handle legacy
   class data" short-circuit is what makes that work — and the two shapes differ, because a
   subclass's features are read with `.flat().filter(level)` while a class's are read as
-  `classFeatures[level - 1]`. The plan for the rest — and for serving what is authored —
-  is `docs/HOMEBREW.md` in the **account system**.
+  `classFeatures[level - 1]`. `makebrew-account.js` is the **hand-off**: homebrew saved on
+  `makebrew.html` lives in that browser and nowhere else, so a *Save to Account* button sends the
+  active source to the account system — which stores it opaquely, so the *browser* says what is
+  inside (props, counts, edition). Nothing appears unless one is deployed on the same origin. The
+  plan for serving what is authored is `docs/HOMEBREW.md` in the **account system**.
 - `scripts/` — upstream has no such directory. `update-from-upstream.sh` (the
   preferred way to take an upstream update) and `rehearse-upstream-sync.sh`
   (replays the sync workflow's steps over a synthetic upstream, so the merge and
@@ -77,8 +80,9 @@ Each page's controller keeps only its own DOM assembly + rendering.
 4. `package.json` — a `test:e2e` script and the `playwright-core` dev dependency (two lines)
 5. `Dockerfile` — an `ENTRYPOINT` (plus the `CMD` that setting one discards, and the `RUN` that
    installs it) for the deploy-time default books. Upstream's is two lines.
-6. `js/makebrew.js` — four additive one-liners registering the fork's homebrew builders (an
-   `import`, a setter, an `<option>`, and the instantiate-and-wire block at the bottom)
+6. `js/makebrew.js` — additive one-liners per homebrew builder (an `import`, a setter, an
+   `<option>`, and the instantiate-and-wire block at the bottom), plus two for the account
+   hand-off (an `import` and one line in `_initHeader_save`)
 
 ### Species
 

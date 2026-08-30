@@ -9,6 +9,7 @@ import {SpeciesBuilder} from "./makebrew/makebrew-species.js";
 import {ItemBuilder} from "./makebrew/makebrew-item.js";
 import {SubclassBuilder} from "./makebrew/makebrew-subclass.js";
 import {ClassBuilder} from "./makebrew/makebrew-class.js";
+import {pGetAccountButton} from "./makebrew/makebrew-account.js";
 import {TagCondition, TaggerUtils} from "./converter/converterutils-tags.js";
 import {SITE_STYLE__CLASSIC} from "./consts.js";
 import {SourceUiUtil} from "./utils-ui/utils-ui-sourcebuilder.js";
@@ -312,13 +313,17 @@ class PageUi extends ProxyBase {
 		Object.values(this._builders)
 			.forEach(builder => builder.setHeaderElements({btnHeaderSave, dispHeaderName}));
 
-		veT`<div class="ve-flex-v-center ve-mobile-md__mb-2">
+		const wrpSave = veT`<div class="ve-flex-v-center ve-mobile-md__mb-2">
 			<div class="ve-vr-2 ve-h-21p ve-mobile-md__hidden"></div>
 
 			${btnHeaderSave}
 			${dispHeaderName}
 		</div>`
 			.vee.appendTo(wrpSettingsBtm);
+
+		// Homebrew saved here lives in this browser and nowhere else, which is useless for a table.
+		// Nothing appears unless an account system is deployed and can take one
+		pGetAccountButton({ui: this}).then(btn => { if (btn) btn.vee.appendTo(wrpSave); });
 	}
 
 	_initHeader_download ({wrpSettingsTop}) {
