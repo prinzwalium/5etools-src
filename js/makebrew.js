@@ -8,6 +8,7 @@ import {BackgroundBuilder} from "./makebrew/makebrew-background.js";
 import {SpeciesBuilder} from "./makebrew/makebrew-species.js";
 import {ItemBuilder} from "./makebrew/makebrew-item.js";
 import {SubclassBuilder} from "./makebrew/makebrew-subclass.js";
+import {ClassBuilder} from "./makebrew/makebrew-class.js";
 import {TagCondition, TaggerUtils} from "./converter/converterutils-tags.js";
 import {SITE_STYLE__CLASSIC} from "./consts.js";
 import {SourceUiUtil} from "./utils-ui/utils-ui-sourcebuilder.js";
@@ -48,6 +49,7 @@ class PageUi extends ProxyBase {
 	set speciesBuilder (speciesBuilder) { this._builders.speciesBuilder = speciesBuilder; }
 	set itemBuilder (itemBuilder) { this._builders.itemBuilder = itemBuilder; }
 	set subclassBuilder (subclassBuilder) { this._builders.subclassBuilder = subclassBuilder; }
+	set classBuilder (classBuilder) { this._builders.classBuilder = classBuilder; }
 
 	get creatureBuilder () { return this._builders.creatureBuilder; }
 
@@ -173,6 +175,7 @@ class PageUi extends ProxyBase {
 			<option value="legendaryGroupBuilder">Legendary Group</option>
 			<option value="spellBuilder">Spell</option>
 			<option value="featBuilder">Feat</option>
+			<option value="classBuilder">Class</option>
 			<option value="subclassBuilder">Subclass</option>
 			<option value="speciesBuilder">Species</option>
 			<option value="backgroundBuilder">Background</option>
@@ -514,6 +517,10 @@ itemBuilder.ui = ui;
 const subclassBuilder = new SubclassBuilder();
 ui.subclassBuilder = subclassBuilder;
 subclassBuilder.ui = ui;
+
+const classBuilder = new ClassBuilder();
+ui.classBuilder = classBuilder;
+classBuilder.ui = ui;
 
 window.addEventListener("load", async () => {
 	await Makebrew.doPageInit();

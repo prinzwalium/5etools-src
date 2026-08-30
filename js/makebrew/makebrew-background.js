@@ -282,116 +282,14 @@ export class BackgroundBuilder extends ForkBuilderBase {
 
 	/* -------------------------------------------- */
 
-	/**
-	 * Two bundles and a purse. The books state either one bundle everybody gets (`_`) or a choice
-	 * between two (`A`/`B`, lowercased before 2024) — and the second option is nearly always "take
-	 * the money instead", which is why the coin field stands beside each list rather than below.
-	 */
 	_getEquipmentInput (cb) {
-		const [row, rowInner] = BuilderUi.getLabelledRowTuple("Starting Equipment", {isMarked: true});
-
-		const existing = (this._state.startingEquipment || [])[0] || {};
-		const keyA = existing.A ? "A" : (existing.a ? "a" : "_");
-		const keyB = existing.B ? "B" : (existing.b ? "b" : null);
-
-		const parseGroup = key => {
-			const entries = (key ? existing[key] : null) || [];
-			return {
-				items: entries.filter(it => typeof it === "string" || it?.item || it?.special),
-				valueCp: entries.find(it => it?.value != null)?.value ?? null,
-			};
-		};
-
-		const options = [
-			{label: "Option A", initial: parseGroup(keyA)},
-			{label: "Option B", initial: parseGroup(keyB)},
-		];
-
-		const doUpdate = () => {
-			const groups = options.map(opt => {
-				const out = [...opt.list.getValues()];
-				const gp = this.constructor._getIptNum(opt.iptGp);
-				if (gp != null && gp > 0) out.push({value: gp * _CP_PER_GP});
-				return out;
-			});
-
-			const [a, b] = groups;
-			if (!a.length && !b.length) this._setOrDelete("startingEquipment", null);
-			else if (!b.length) this._setOrDelete("startingEquipment", [{_: a}]);
-			else {
-				const [kA, kB] = this._isModern ? ["A", "B"] : ["a", "b"];
-				this._setOrDelete("startingEquipment", [{[kA]: a, [kB]: b}]);
-			}
-			cb();
-		};
-
-		options.forEach(opt => {
-			veT`<div class="ve-bold ve-mb-1">${opt.label}</div>`.vee.appendTo(rowInner);
-
-			opt.list = this.constructor._getRowList({
-				wrp: rowInner,
-				initial: opt.initial.items,
-				onChange: doUpdate,
-				fnGetRow: (initial, onChange) => this._getEquipmentRow(initial, onChange),
-			});
-
-			const wrpBtns = veT`<div class="ve-flex-v-center ve-mb-2"></div>`.vee.appendTo(rowInner);
-			veT`<button class="ve-btn ve-btn-xs ve-btn-default ve-mr-2">Add Item...</button>`
-				.vee.appendTo(wrpBtns)
-				.vee.onn("click", async () => {
-					const result = await SearchWidget.pGetUserItemSearch();
-					if (!result) return;
-					const item = await DataLoader.pCacheAndGet(result.page, result.source, result.hash);
-					opt.list.add({item: `${item.name}|${item.source}`.toLowerCase()});
-					doUpdate();
-				});
-			veT`<button class="ve-btn ve-btn-xs ve-btn-default ve-mr-2" title="Something with no item entry behind it — 'a set of vestments', 'a trophy from a fallen enemy'.">Add Anything</button>`
-				.vee.appendTo(wrpBtns)
-				.vee.onn("click", () => { opt.list.add({special: ""}); doUpdate(); });
-
-			opt.iptGp = this.constructor._getNumberIpt({
-				initial: opt.initial.valueCp == null ? null : opt.initial.valueCp / _CP_PER_GP,
-				placeholder: "Gold pieces",
-				onChange: doUpdate,
-			});
-			veT`<div class="ve-flex-v-center ve-mb-3"><span class="ve-mr-2 ve-w-100p">Coin (gp)</span>${opt.iptGp}</div>`.vee.appendTo(rowInner);
+		return this._getEquipmentGroupsInput({
+			label: "Starting Equipment",
+			groups: (this._state.startingEquipment || [])[0],
+			isModern: this._isModern,
+			fnSet: nxt => this._setOrDelete("startingEquipment", nxt ? [nxt] : null),
+			cb,
 		});
-
-		return row;
-	}
-
-	/**
-	 * One line of a bundle: a real item by uid, or a thing the books just name. Which it is was
-	 * decided when the row was added, and stays decided — the two are different fields.
-	 */
-	_getEquipmentRow (initial, onChange) {
-		const isSpecial = initial?.special != null;
-		const initialText = isSpecial
-			? initial.special
-			: (typeof initial === "string" ? initial : initial?.item || "");
-
-		const ipt = this.constructor._getTextIpt({
-			initial: initialText,
-			placeholder: isSpecial ? "Whatever it is, in words" : "name|source",
-			onChange,
-		});
-		const iptQty = this.constructor._getNumberIpt({initial: initial?.quantity, placeholder: "Qty", onChange});
-		iptQty.vee.addClass("ve-w-70p");
-
-		const ele = veT`<div class="ve-flex-v-center ve-w-100 ve-mr-2">${ipt}${iptQty}</div>`;
-
-		return {
-			ele,
-			getValue: () => {
-				const text = this.constructor._getIptStr(ipt);
-				if (!text) return null;
-
-				const out = isSpecial ? {special: text} : {item: text.toLowerCase()};
-				const qty = this.constructor._getIptNum(iptQty);
-				if (qty != null && qty > 1) out.quantity = qty;
-				return out;
-			},
-		};
 	}
 
 	/* -------------------------------------------- */

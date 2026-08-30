@@ -46,13 +46,18 @@ Each page's controller keeps only its own DOM assembly + rendering.
   `user: 1000:1000` lacks. Start-up never fails the container: if the write is refused it
   says why and serves the site unconfigured.
 - `js/makebrew/makebrew-forkbase.js` + `-feat.js`, `-language.js`, `-background.js`, `-species.js`,
-  `-item.js` — homebrew
+  `-item.js`, `-subclass.js`, `-class.js` — homebrew
   builders on `makebrew.html`. Upstream's framework (`makebrew-builder-base.js`) covers creatures,
   spells and legendary groups and nothing else; the fork adds its own beside them, registered from
   `js/makebrew.js`. `ForkBuilderBase` holds what is true of every kind — the tab skeleton, the
   rendered-beside-JSON output pane, the load-a-template strip, and the input widgets for the shapes
-  the data takes (a set of things, a count, a list of rows). Anything that knows what a feat *is*
-  belongs in that builder. The plan for the rest — and for serving what is authored —
+  the data takes (a set of things, a count, a list of rows, a bundle of equipment). Anything that
+  knows what a feat *is* belongs in that builder. **A class or subclass carries its features
+  inline**, not as the string refs the books use: a brew document holds one entity in one property,
+  so there is nowhere for the `classFeature[]` array to live. The loader's "gracefully handle legacy
+  class data" short-circuit is what makes that work — and the two shapes differ, because a
+  subclass's features are read with `.flat().filter(level)` while a class's are read as
+  `classFeatures[level - 1]`. The plan for the rest — and for serving what is authored —
   is `docs/HOMEBREW.md` in the **account system**.
 - `scripts/` — upstream has no such directory. `update-from-upstream.sh` (the
   preferred way to take an upstream update) and `rehearse-upstream-sync.sh`
