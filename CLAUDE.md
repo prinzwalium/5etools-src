@@ -45,10 +45,14 @@ Each page's controller keeps only its own DOM assembly + rendering.
   non-root user — creating a file in the web root needs permission on the directory, which
   `user: 1000:1000` lacks. Start-up never fails the container: if the write is refused it
   says why and serves the site unconfigured.
-- `js/makebrew/makebrew-feat.js` — a homebrew **feat builder** on `makebrew.html`. Upstream's
-  builder framework (`makebrew-builder-base.js`) covers creatures, spells and legendary groups and
-  nothing else; the fork adds its own beside them, registered from `js/makebrew.js`. The plan for
-  the rest — and for serving what is authored — is `docs/HOMEBREW.md` in the **account system**.
+- `js/makebrew/makebrew-forkbase.js` + `-feat.js`, `-language.js`, `-background.js` — homebrew
+  builders on `makebrew.html`. Upstream's framework (`makebrew-builder-base.js`) covers creatures,
+  spells and legendary groups and nothing else; the fork adds its own beside them, registered from
+  `js/makebrew.js`. `ForkBuilderBase` holds what is true of every kind — the tab skeleton, the
+  rendered-beside-JSON output pane, the load-a-template strip, and the input widgets for the shapes
+  the data takes (a set of things, a count, a list of rows). Anything that knows what a feat *is*
+  belongs in that builder. The plan for the rest — and for serving what is authored —
+  is `docs/HOMEBREW.md` in the **account system**.
 - `scripts/` — upstream has no such directory. `update-from-upstream.sh` (the
   preferred way to take an upstream update) and `rehearse-upstream-sync.sh`
   (replays the sync workflow's steps over a synthetic upstream, so the merge and

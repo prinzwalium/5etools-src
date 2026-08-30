@@ -1,6 +1,5 @@
-import {BuilderBase} from "./makebrew-builder-base.js";
+import {ForkBuilderBase} from "./makebrew-forkbase.js";
 import {BuilderUi} from "./makebrew-builderui.js";
-import {TagCondition} from "../converter/converterutils-tags.js";
 
 /**
  * A builder for feats.
@@ -22,7 +21,7 @@ const _SKILLS = Object.keys(Parser.SKILL_TO_ATB_ABV);
 /** The categories the books use. Every one is offered; a homebrew feat is usually Origin or General. */
 const _CATEGORIES = Object.keys(Parser.FEAT_CATEGORY_TO_FULL);
 
-export class FeatBuilder extends BuilderBase {
+export class FeatBuilder extends ForkBuilderBase {
 	constructor () {
 		super({
 			prop: "feat",
@@ -37,36 +36,6 @@ export class FeatBuilder extends BuilderBase {
 		if (!result) return;
 		const feat = MiscUtil.copy(await DataLoader.pCacheAndGet(result.page, result.source, result.hash));
 		return this.pHandleLoadExistingData(feat);
-	}
-
-	/**
-	 * @param feat
-	 * @param [opts]
-	 * @param [opts.meta]
-	 */
-	async pHandleLoadExistingData (feat, opts) {
-		opts = opts || {};
-
-		feat.name = `${feat.name} (Copy)`;
-		feat.source = this._ui.source;
-
-		// Claims about the *original* printing, which a copy has no right to make
-		delete feat.srd;
-		delete feat.srd52;
-		delete feat.basicRules;
-		delete feat.basicRules2024;
-		delete feat.reprintedAs;
-		delete feat.additionalSources;
-		delete feat.hasFluffImages;
-		delete feat.hasFluff;
-		delete feat.uniqueId;
-
-		const meta = {...(opts.meta || {}), ...this._getInitialMetaState({nameOriginal: feat.name, isModified: true})};
-
-		this.setStateFromLoaded({s: feat, m: meta});
-
-		this.renderInput();
-		this.renderOutput();
 	}
 
 	_getInitialState () {
@@ -85,109 +54,14 @@ export class FeatBuilder extends BuilderBase {
 		};
 	}
 
-	setStateFromLoaded (state) {
-		if (!state?.s || !state?.m) return;
-
-		this._doResetProxies();
-
-		if (!state.s.uniqueId) state.s.uniqueId = CryptUtil.uid();
-
-		this.__state = state.s;
-		this.__meta = state.m;
-	}
-
-	doHandleSourcesAdd () { /* No-op */ }
-
-	_renderInputImpl () {
-		this._doCreateProxies();
-		this._doBindHeaderElements();
-		this._renderInputMain();
-	}
-
-	/* -------------------------------------------- */
-
-	/** A field that is absent means something different from a field that is null, so remove it. */
-	_setOrDelete (prop, val) {
-		if (val == null) delete this._state[prop];
-		else this._state[prop] = val;
-	}
-
-	/** The single-entry arrays every proficiency field on a feat is. */
-	_getFirstEntry (prop) {
-		const val = this._state[prop];
-		return (val instanceof Array ? val[0] : val) || null;
-	}
-
-	/**
-	 * A column of checkboxes with a live read-back, used wherever a feat names a set of things
-	 * (skills, abilities, damage types) rather than one.
-	 */
-	static _getCheckboxes ({wrp, vals, fnDisplay, initial, onChange}) {
-		const inputs = vals.map(val => {
-			const cb = veT`<input class="mkbru__ipt-cb" type="checkbox">`
-				.vee.prop("checked", initial.includes(val))
-				.vee.onn("change", () => onChange());
-			veT`<label class="ve-flex-v-center ve-split stripe-odd--faint"><span>${fnDisplay ? fnDisplay(val) : val}</span>${cb}</label>`.vee.appendTo(wrp);
-			return {cb, val};
-		});
-		return () => inputs.filter(it => it.cb.vee.prop("checked")).map(it => it.val);
-	}
-
-	static _getNumberIpt ({initial, placeholder, onChange}) {
-		return veT`<input class="ve-form-control ve-input-xs form-control--minimal ve-mr-2" type="number" min="0" ${placeholder ? `placeholder="${placeholder}"` : ""}>`
-			.vee.val(initial ?? null)
-			.vee.onn("change", () => onChange());
-	}
-
-	static _getIptVal (ipt) {
-		const raw = `${ipt.vee.val() ?? ""}`.trim();
-		if (!raw) return null;
-		const num = Number(raw);
-		return isNaN(num) ? null : num;
-	}
-
 	/* -------------------------------------------- */
 
 	_renderInputMain () {
-		this._sourcesCache = MiscUtil.copy(this._ui.allSources);
-
-		// The page tells only the *active* builder when the source changes, and a builder is
-		// constructed before the page exists — so a builder first opened after the source was made
-		// has never been told what it is, and saving would refuse for want of one
-		if (!this._state.source && this._ui.source) this._state.source = this._ui.source;
+		this._adoptUiSource();
 
 		const wrp = this._ui.wrpInput.vee.empty();
-
-		const _cb = () => {
-			// Prefer numerical pages if possible
-			if (!isNaN(this._state.page)) this._state.page = Number(this._state.page);
-
-			TagCondition.tryTagConditions(this._state, {isTagInflicted: true, isInflictedAddOnly: true, styleHint: this._meta.styleHint});
-
-			this.renderOutput();
-			this.doUiSave();
-			this._meta.isModified = true;
-		};
-		const cb = MiscUtil.debounce(_cb, 33);
-		this._cbCache = cb;
-
-		this._resetTabs({tabGroup: "input"});
-
-		const tabOptsShared = {hasBorder: true, hasBackground: true};
-		const tabs = this._renderTabs(
-			[
-				new TabUiUtil.TabMeta({...tabOptsShared, name: "Info"}),
-				new TabUiUtil.TabMeta({...tabOptsShared, name: "Benefits"}),
-				new TabUiUtil.TabMeta({...tabOptsShared, name: "Text"}),
-			],
-			{
-				tabGroup: "input",
-				cbTabChange: this.doUiSave.bind(this),
-			},
-		);
-		const [infoTab, benefitsTab, textTab] = tabs;
-		veT`<div class="ve-flex-v-center ve-w-100 ve-no-shrink ve-ui-tab__wrp-tab-heads--border">${tabs.map(it => it.btnTab)}</div>`.vee.appendTo(wrp);
-		tabs.forEach(it => it.wrpTab.vee.appendTo(wrp));
+		const cb = this._getRenderCallback();
+		const [infoTab, benefitsTab, textTab] = this._renderForkInputTabs({wrp, names: ["Info", "Benefits", "Text"]});
 
 		// ---------- INFO ----------
 		BuilderUi.getStateIptString("Name", cb, this._state, {nullable: false}, "name").vee.appendTo(infoTab.wrpTab);
@@ -243,12 +117,12 @@ export class FeatBuilder extends BuilderBase {
 		const doUpdate = () => {
 			const out = {};
 
-			const level = this.constructor._getIptVal(iptLevel);
+			const level = this.constructor._getIptNum(iptLevel);
 			if (level != null) out.level = level;
 
 			const abilityMins = {};
 			iptsAbility.forEach(({abv, ipt}) => {
-				const val = this.constructor._getIptVal(ipt);
+				const val = this.constructor._getIptNum(ipt);
 				if (val != null) abilityMins[abv] = val;
 			});
 			if (Object.keys(abilityMins).length) out.ability = [abilityMins];
@@ -340,7 +214,7 @@ export class FeatBuilder extends BuilderBase {
 
 		const doUpdate = () => {
 			const abvs = getAbvs();
-			const amount = this.constructor._getIptVal(iptAmount) ?? 1;
+			const amount = this.constructor._getIptNum(iptAmount) ?? 1;
 
 			if (!abvs.length) this._setOrDelete("ability", null);
 			else if (selMode.vee.val() === "choose") this._setOrDelete("ability", [{choose: {from: abvs, amount}}]);
@@ -389,7 +263,7 @@ export class FeatBuilder extends BuilderBase {
 
 		const doUpdate = () => {
 			const skills = getSkills();
-			const count = this.constructor._getIptVal(iptCount);
+			const count = this.constructor._getIptNum(iptCount);
 
 			if (!skills.length) this._setOrDelete("skillProficiencies", null);
 			else if (count != null && count > 0 && count < skills.length) this._setOrDelete("skillProficiencies", [{choose: {from: skills, count}}]);
@@ -461,7 +335,7 @@ export class FeatBuilder extends BuilderBase {
 		const ipts = [];
 		const doUpdate = () => {
 			ipts.forEach(({spec, ipt}) => {
-				const val = this.constructor._getIptVal(ipt);
+				const val = this.constructor._getIptNum(ipt);
 				this._setOrDelete(spec.prop, val != null && val > 0 ? [{[spec.key]: val}] : null);
 			});
 			cb();
@@ -528,52 +402,18 @@ export class FeatBuilder extends BuilderBase {
 	}
 
 	_renderOutput () {
-		const wrp = this._ui.wrpOutput.vee.empty();
-
-		this._resetTabs({tabGroup: "output"});
-		const tabs = this._renderTabs(
-			[
-				new TabUiUtil.TabMeta({name: "Feat"}),
-				new TabUiUtil.TabMeta({name: "Data"}),
-			],
-			{
-				tabGroup: "output",
-				cbTabChange: this.doUiSave.bind(this),
+		this._renderForkOutput({
+			name: "Feat",
+			fnRender: cpy => {
+				// The renderer folds an ability increase into a list, and complains loudly when a
+				// feat has nowhere to put one. A feat mid-authoring often does; that is not
+				// something to shout at the person authoring it, so the *preview* gets somewhere to
+				// put it. What is saved is untouched
+				if (cpy.ability?.length && !(cpy.entries || []).some(ent => ent?.type === "list")) {
+					cpy.entries = [...(cpy.entries || []), {type: "list", items: []}];
+				}
+				return Renderer.feat.getCompactRenderedString(cpy);
 			},
-		);
-		const [featTab, dataTab] = tabs;
-		veT`<div class="ve-flex-v-center ve-w-100 ve-no-shrink">${tabs.map(it => it.btnTab)}</div>`.vee.appendTo(wrp);
-		tabs.forEach(it => it.wrpTab.vee.appendTo(wrp));
-
-		// The renderer folds the ability increase into the entries, and does it by mutating a
-		// cached `_fullEntries` — so it gets a copy, never the live state
-		const cpy = MiscUtil.copy(this._state);
-
-		// It folds it into a list, and complains loudly when a feat has nowhere to put one. A feat
-		// mid-authoring often does; that is not something to shout at the person authoring it, so
-		// the *preview* gets somewhere to put it. What is saved is untouched
-		if (cpy.ability?.length && !(cpy.entries || []).some(ent => ent?.type === "list")) {
-			cpy.entries = [...(cpy.entries || []), {type: "list", items: []}];
-		}
-
-		const tblFeat = veT`<table class="ve-w-100 ve-stats"></table>`.vee.appendTo(featTab.wrpTab);
-		tblFeat.vee.appends(Renderer.feat.getCompactRenderedString(cpy));
-
-		const asCode = Renderer.get().render({
-			type: "entries",
-			entries: [
-				{
-					type: "code",
-					name: `Data`,
-					preformatted: JSON.stringify(DataUtil.cleanJson(MiscUtil.copy(this._state)), null, "\t"),
-				},
-			],
 		});
-		veT`<table class="ve-stats ve-stats--book mkbru__wrp-output-tab-data">
-			${Renderer.utils.getBorderTr()}
-			<tr><td colspan="6">${asCode}</td></tr>
-			${Renderer.utils.getBorderTr()}
-		</table>`
-			.vee.appendTo(dataTab.wrpTab);
 	}
 }
