@@ -23,6 +23,7 @@ const LANGUAGE_NAME = "Test Cellarspeak";
 const BACKGROUND_NAME = "Test Cellarer";
 const SPECIES_NAME = "Test Cellarfolk";
 const ITEM_NAME = "Test Cellarer's Tap";
+const SUBCLASS_NAME = "Test Circle of the Cellar";
 
 /** The builders' rows are labelled, not identified; the label is the only stable handle. */
 const row = (page, label) => page.locator(`.mkbru__row:has(.mkbru__row-name:text-is("${label}"))`).first();
@@ -69,7 +70,7 @@ export async function run ({browser, check}) {
 
 	const modes = await page.locator("select:has(option[value='featBuilder']) option").allTextContents();
 	check("the fork's builders are all on the menu",
-		["Feat", "Species", "Background", "Item", "Language"].every(it => modes.includes(it)), modes.join(" | "));
+		["Feat", "Subclass", "Species", "Background", "Item", "Language"].every(it => modes.includes(it)), modes.join(" | "));
 
 	/* ---------------------------------------------------------------- feat */
 	await pSwitchTo(page, "featBuilder");
@@ -265,6 +266,40 @@ export async function run ({browser, check}) {
 
 	await pSave(page);
 
+	/* ------------------------------------------------------------ subclass */
+	await pSwitchTo(page, "subclassBuilder");
+	await fill(page, "Name", SUBCLASS_NAME);
+	await fill(page, "Short Name", "Cellar");
+	await row(page, "Class").locator("select").first().selectOption({label: "Druid (PHB'24)"});
+	await page.waitForTimeout(400);
+
+	await page.locator(".ve-ui-tab__btn-tab-head:has-text('Features')").first().click();
+	await page.waitForTimeout(400);
+	await row(page, "Features").locator("button:has-text('Add Feature')").first().click();
+	await page.waitForTimeout(300);
+
+	const featureRow = row(page, "Features");
+	const iptFeatName = featureRow.locator("input:not([type='number'])").first();
+	await iptFeatName.fill("Cellar Sense");
+	await iptFeatName.dispatchEvent("change");
+	const iptFeatText = featureRow.locator("textarea").first();
+	await iptFeatText.fill("You always know the way to the nearest cellar.");
+	await iptFeatText.dispatchEvent("change");
+	await page.waitForTimeout(600);
+
+	const subclass = await pGetWritten(page);
+	check("the subclass names its parent class by name and source",
+		subclass?.className === "Druid" && subclass?.classSource === "XPHB",
+		JSON.stringify({className: subclass?.className, classSource: subclass?.classSource}));
+	check("its features are written inline, not as refs the brew cannot resolve",
+		subclass?.subclassFeatures?.length === 1 && typeof subclass.subclassFeatures[0] === "object",
+		JSON.stringify(subclass?.subclassFeatures)?.slice(0, 160));
+	check("and each carries the level the sheet reads it by",
+		subclass?.subclassFeatures?.[0]?.level === 3 && subclass?.subclassFeatures?.[0]?.name === "Cellar Sense",
+		JSON.stringify(subclass?.subclassFeatures?.[0]));
+
+	await pSave(page);
+
 	/* ------------------------------------------- what the brew now holds */
 	const stored = await page.evaluate(async () => {
 		const brew = await BrewUtil2.pGetBrewProcessed();
@@ -274,12 +309,13 @@ export async function run ({browser, check}) {
 			backgrounds: (brew.background || []).map(it => it.name),
 			species: (brew.race || []).map(it => it.name),
 			items: (brew.item || []).map(it => it.name),
+			subclasses: (brew.subclass || []).map(it => it.name),
 		};
 	});
-	check("all five are saved into the one brew",
+	check("all six are saved into the one brew",
 		stored.feats.includes(FEAT_NAME) && stored.languages.includes(LANGUAGE_NAME)
 			&& stored.backgrounds.includes(BACKGROUND_NAME) && stored.species.includes(SPECIES_NAME)
-			&& stored.items.includes(ITEM_NAME),
+			&& stored.items.includes(ITEM_NAME) && stored.subclasses.includes(SUBCLASS_NAME),
 		JSON.stringify(stored));
 
 	check("no page errors while authoring", page.errors.length === 0, page.errors.join("\n"));
@@ -291,23 +327,37 @@ export async function run ({browser, check}) {
 	await pageBuilder.goto(BUILDER_URL, {waitUntil: "load"});
 	await pageBuilder.waitForTimeout(6000);
 
-	const seen = await pageBuilder.evaluate(async ({featName, bgName, speciesName}) => {
+	const seen = await pageBuilder.evaluate(async ({featName, bgName, speciesName, subclassName}) => {
 		const mod = await import("./js/charactersheet/charactersheet-classdata.js");
-		const feats = await mod.CharacterSheetClassData.pGetAllFeatsUnfiltered();
-		const bg = await mod.CharacterSheetClassData.pGetBackground({name: bgName, source: "E2ETest"});
-		const species = await mod.CharacterSheetClassData.pGetSpecies({name: speciesName, source: "E2ETest"});
+		const {CharacterSheetClassData} = mod;
+
+		const feats = await CharacterSheetClassData.pGetAllFeatsUnfiltered();
+		const bg = await CharacterSheetClassData.pGetBackground({name: bgName, source: "E2ETest"});
+		const species = await CharacterSheetClassData.pGetSpecies({name: speciesName, source: "E2ETest"});
+
+		const sc = await CharacterSheetClassData.pGetSubclass({
+			className: "Druid", classSource: "XPHB", shortName: "Cellar", source: "E2ETest",
+		});
+
 		return {
 			isFeatOffered: feats.some(it => it.name === featName),
 			bgSkills: bg ? Object.keys(bg.skillProficiencies?.[0] || {}) : null,
 			speciesSpeed: species ? species.speed : null,
+			subclassName: sc?.name ?? null,
+			// The claim the whole subclass builder rests on: inline features survive the loader,
+			// which would otherwise try to dereference them against an array that is not there
+			subclassFeatureNames: sc ? CharacterSheetClassData.getSubclassFeaturesAtLevel(sc, 3).map(it => it.name) : null,
 		};
-	}, {featName: FEAT_NAME, bgName: BACKGROUND_NAME, speciesName: SPECIES_NAME});
+	}, {featName: FEAT_NAME, bgName: BACKGROUND_NAME, speciesName: SPECIES_NAME, subclassName: SUBCLASS_NAME});
 
 	check("a feat authored here is offered by the character builder", seen.isFeatOffered);
 	check("and a background reaches it with its grants intact",
 		(seen.bgSkills || []).includes("athletics") && (seen.bgSkills || []).includes("survival"), JSON.stringify(seen.bgSkills));
 	check("and a species reaches it with the movement that defines it",
 		seen.speciesSpeed?.walk === 25 && seen.speciesSpeed?.climb === true, JSON.stringify(seen.speciesSpeed));
+	check("a homebrew subclass is found under the class it names", seen.subclassName === SUBCLASS_NAME, JSON.stringify(seen.subclassName));
+	check("and its inline features survive the loader, which would otherwise dereference them away",
+		(seen.subclassFeatureNames || []).includes("Cellar Sense"), JSON.stringify(seen.subclassFeatureNames));
 
 	check("no page errors in the character builder", pageBuilder.errors.length === 0, pageBuilder.errors.join("\n"));
 	await context.close();
