@@ -9,9 +9,11 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
 
 **Status: everything on this list is built.** The one unticked box is struck through — a party
 sheet, which was built instead as a screen in the account system, where a server made the version
-worth having possible. What is left is not on this list and not in this repository: operations for
-the account system (backups with a rehearsed restore, per-user quotas), and whatever the next
-playtest turns up. New work goes at the bottom of its tier, as before.
+worth having possible. Two things arrived after this list was written and have their own section at
+the bottom: **the 2024 books as the default**, and **homebrew authoring** — seven builders on
+`makebrew.html` and the hand-off that sends what they write to an account. What is left is not on
+this list and not in this repository: the homebrew mirror to `5etools-homebrew`, and whatever the
+next playtest turns up. New work goes at the bottom of its tier, as before.
 
 ---
 
@@ -316,3 +318,40 @@ playtest turns up. New work goes at the bottom of its tier, as before.
       there is nothing to double), an origin feat is offered rather than forced, and the shared
       `resolveModals` helper clicks *Skip* by design — right for other suites, wrong for a suite
       whose subject is the optional grant, so this one accepts instead.
+
+
+---
+
+## Since this list was written
+
+Two features that were not on it, kept here rather than retrofitted into a tier they were never
+planned in.
+
+- [x] **The 2024 books as the default.** The data says which entries a later printing supersedes,
+      in `reprintedAs` — 361 PHB spells, 695 items, 65 subclasses, 13 classes, 50 feats, 97 species.
+      `filterReprinted` drops an entry when its reprint is *also on offer*, and every picker applies
+      it unless the character opts out (`isPreferReprints`, in the source filter). Two properties
+      make it safe: it runs **after** the source filter, so a 2014-only character loses nothing —
+      the 2024 reprint is not in the list to supersede it — and it only ever drops an entry whose
+      replacement is present, so Artificer, most subclasses and whole books stay. A subclass's
+      reprint uid carries its parent class in the middle
+      (`"Berserker|Barbarian|XPHB|XPHB"`), which is why those 65 had been silent no-ops.
+
+- [x] **Homebrew authoring.** Upstream's `makebrew.html` ships a builder framework with builders for
+      creatures, spells and legendary groups, and nothing else. The fork adds **seven**: feat,
+      language, background, species, item, subclass and class, on a shared `ForkBuilderBase` holding
+      what is true of every kind. The point is not the JSON — it is that what a table writes lands in
+      *fields*: a proficiency written as prose is invisible to the character sheet, and the same
+      proficiency in `skillProficiencies` ticks a box.
+
+      The two deep kinds share one obstacle. A class's `classFeatures` and a subclass's
+      `subclassFeatures` are string refs into arrays a one-entity brew document has nowhere to put,
+      so every ref would dangle. The loader short-circuits dereferencing when no element is a string
+      or carries a feature key, so both write features **inline** — in different shapes, because a
+      subclass's are read `.flat().filter(level)` and a class's are read `classFeatures[level - 1]`.
+
+      `makebrew-account.js` is the hand-off: a *Save to Account* button sends the active source to
+      the account system, which stores it opaquely and serves it as a **brew root** every 5etools
+      page in the deployment can read. Nothing appears unless one is deployed on the same origin.
+      The service's half, and the mirror still to build, are `docs/HOMEBREW.md` in
+      <https://github.com/PrinzWalium/5etools-online>.

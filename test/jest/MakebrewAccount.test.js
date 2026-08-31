@@ -14,7 +14,6 @@ import {getBrewDocumentForSource, getBrewSummary, isBrewDocumentEmpty} from "../
 // `MiscUtil.copyFast` and `Array.prototype.mergeMap` are 5etools globals, present in a browser and
 // not in a bare test process
 globalThis.MiscUtil = {copyFast: it => JSON.parse(JSON.stringify(it))};
-// eslint-disable-next-line no-extend-native
 Array.prototype.mergeMap = function (fn) { return this.map(fn).reduce((acc, it) => Object.assign(acc, it), {}); };
 
 const brewDocFor = body => ({head: {isEditable: true}, body});
