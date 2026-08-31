@@ -1,6 +1,9 @@
 /**
- * The guided setup, end to end: seven steps, its validation rules, and every field it is supposed
- * to write onto the sheet when it finishes.
+ * The guided setup, end to end: its eight steps, its validation rules, and every field it is
+ * supposed to write onto the sheet when it applies.
+ *
+ * The eighth step's own behaviour — what it lists and how answering one thing reveals another —
+ * lives in `guide.e2e.mjs`; this suite is about the seven that build the draft.
  */
 
 import {BASE_URL, getState, openPage} from "./util-e2e.mjs";
@@ -39,7 +42,7 @@ export async function run ({browser, check}) {
 
 	await page.click("#cs-btn-wizard");
 	await page.waitForSelector(".ve-ui-modal__overlay", {timeout: 10000});
-	check("the wizard opens on step 1", (await page.locator(".ve-ui-modal__overlay").textContent()).includes("Step 1 of 7"));
+	check("the wizard opens on step 1", (await page.locator(".ve-ui-modal__overlay").textContent()).includes("Step 1 of 8"));
 
 	// ---------- 1. species ----------
 	await pickViaWizardSearch(page, {btnText: "Choose Species...", query: "elf", rowText: "Elf", srcText: "PHB'24"});
@@ -49,7 +52,9 @@ export async function run ({browser, check}) {
 	// ---------- 2. class ----------
 	await page.waitForSelector("#cs-wiz-sel-class", {timeout: 10000});
 	await page.waitForFunction(() => document.querySelector("#cs-wiz-sel-class").options.length > 1, {timeout: 15000});
-	await page.selectOption("#cs-wiz-sel-class", {label: "Fighter (PHB'14)"});
+	// The 2024 printing: preferring the newest is the default, so the 2014 Fighter it supersedes is
+	// not on the menu
+	await page.selectOption("#cs-wiz-sel-class", {label: "Fighter (PHB'24)"});
 	await page.fill("#cs-wiz-ipt-level", "3");
 	await page.dispatchEvent("#cs-wiz-ipt-level", "change");
 	await page.waitForTimeout(300);
@@ -112,7 +117,16 @@ export async function run ({browser, check}) {
 
 	await page.fill("#cs-wiz-ipt-name", "Wiz Ard");
 	await page.dispatchEvent("#cs-wiz-ipt-name", "change");
-	await page.click(".ve-ui-modal__footer button:has-text('Finish')");
+
+	// "Apply" writes the character; the guide then walks whatever could not be decided before it
+	// existed, and closing that last step is what hands the sheet back
+	await page.click(".ve-ui-modal__footer button:has-text('Apply')");
+	await page.waitForTimeout(1200);
+
+	const finishText = await page.locator(".ve-ui-modal__overlay").first().innerText();
+	check("applying moves on to the last step rather than closing", /Step 8 of 8/.test(finishText), finishText.slice(0, 160));
+
+	await page.locator(".ve-ui-modal__footer button", {hasText: "Done"}).click();
 	await page.waitForTimeout(900);
 
 	// ---------- what it wrote ----------
@@ -134,7 +148,10 @@ export async function run ({browser, check}) {
 
 	const invText = await page.locator("#cs-inventory").textContent();
 	check("concrete equipment lands in the inventory", invText.includes("Chain Mail"));
-	check("only category placeholders stay as notes", (await page.locator("#cs-equipment").inputValue()).includes("(choose)"));
+	// The 2024 books state starting equipment as concrete bundles — no class among them uses a
+	// `{@filter}` category placeholder — so the note box should be holding nothing back
+	check("and nothing is left dangling as a note", !(await page.locator("#cs-equipment").inputValue()).includes("(choose)"),
+		await page.locator("#cs-equipment").inputValue());
 
 	const state = await getState(page);
 	check("the structured class is persisted", state?.classes?.[0]?.name === "Fighter" && state?.classes?.[0]?.level === 3);

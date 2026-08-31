@@ -2,6 +2,14 @@ import {BuilderBase} from "./makebrew/makebrew-builder-base.js";
 import {SpellBuilder} from "./makebrew/makebrew-spell.js";
 import {CreatureBuilder} from "./makebrew/makebrew-creature.js";
 import {LegendaryGroupBuilder} from "./makebrew/makebrew-legendarygroup.js";
+import {FeatBuilder} from "./makebrew/makebrew-feat.js";
+import {LanguageBuilder} from "./makebrew/makebrew-language.js";
+import {BackgroundBuilder} from "./makebrew/makebrew-background.js";
+import {SpeciesBuilder} from "./makebrew/makebrew-species.js";
+import {ItemBuilder} from "./makebrew/makebrew-item.js";
+import {SubclassBuilder} from "./makebrew/makebrew-subclass.js";
+import {ClassBuilder} from "./makebrew/makebrew-class.js";
+import {pGetAccountButton} from "./makebrew/makebrew-account.js";
 import {TagCondition, TaggerUtils} from "./converter/converterutils-tags.js";
 import {SITE_STYLE__CLASSIC} from "./consts.js";
 import {SourceUiUtil} from "./utils-ui/utils-ui-sourcebuilder.js";
@@ -36,6 +44,13 @@ class PageUi extends ProxyBase {
 	set creatureBuilder (creatureBuilder) { this._builders.creatureBuilder = creatureBuilder; }
 	set legendaryGroupBuilder (legendaryGroupBuilder) { this._builders.legendaryGroupBuilder = legendaryGroupBuilder; }
 	set spellBuilder (spellBuilder) { this._builders.spellBuilder = spellBuilder; }
+	set featBuilder (featBuilder) { this._builders.featBuilder = featBuilder; }
+	set languageBuilder (languageBuilder) { this._builders.languageBuilder = languageBuilder; }
+	set backgroundBuilder (backgroundBuilder) { this._builders.backgroundBuilder = backgroundBuilder; }
+	set speciesBuilder (speciesBuilder) { this._builders.speciesBuilder = speciesBuilder; }
+	set itemBuilder (itemBuilder) { this._builders.itemBuilder = itemBuilder; }
+	set subclassBuilder (subclassBuilder) { this._builders.subclassBuilder = subclassBuilder; }
+	set classBuilder (classBuilder) { this._builders.classBuilder = classBuilder; }
 
 	get creatureBuilder () { return this._builders.creatureBuilder; }
 
@@ -160,6 +175,13 @@ class PageUi extends ProxyBase {
 			<option value="creatureBuilder">Creature</option>
 			<option value="legendaryGroupBuilder">Legendary Group</option>
 			<option value="spellBuilder">Spell</option>
+			<option value="featBuilder">Feat</option>
+			<option value="classBuilder">Class</option>
+			<option value="subclassBuilder">Subclass</option>
+			<option value="speciesBuilder">Species</option>
+			<option value="backgroundBuilder">Background</option>
+			<option value="itemBuilder">Item</option>
+			<option value="languageBuilder">Language</option>
 			<option value="none" class="ve-italic">Everything Else?</option>
 		</select>`
 			.vee.onn("change", async () => {
@@ -291,13 +313,17 @@ class PageUi extends ProxyBase {
 		Object.values(this._builders)
 			.forEach(builder => builder.setHeaderElements({btnHeaderSave, dispHeaderName}));
 
-		veT`<div class="ve-flex-v-center ve-mobile-md__mb-2">
+		const wrpSave = veT`<div class="ve-flex-v-center ve-mobile-md__mb-2">
 			<div class="ve-vr-2 ve-h-21p ve-mobile-md__hidden"></div>
 
 			${btnHeaderSave}
 			${dispHeaderName}
 		</div>`
 			.vee.appendTo(wrpSettingsBtm);
+
+		// Homebrew saved here lives in this browser and nowhere else, which is useless for a table.
+		// Nothing appears unless an account system is deployed and can take one
+		pGetAccountButton({ui: this}).then(btn => { if (btn) btn.vee.appendTo(wrpSave); });
 	}
 
 	_initHeader_download ({wrpSettingsTop}) {
@@ -472,6 +498,34 @@ creatureBuilder.ui = ui;
 const legendaryGroupBuilder = new LegendaryGroupBuilder();
 ui.legendaryGroupBuilder = legendaryGroupBuilder;
 legendaryGroupBuilder.ui = ui;
+
+const featBuilder = new FeatBuilder();
+ui.featBuilder = featBuilder;
+featBuilder.ui = ui;
+
+const languageBuilder = new LanguageBuilder();
+ui.languageBuilder = languageBuilder;
+languageBuilder.ui = ui;
+
+const backgroundBuilder = new BackgroundBuilder();
+ui.backgroundBuilder = backgroundBuilder;
+backgroundBuilder.ui = ui;
+
+const speciesBuilder = new SpeciesBuilder();
+ui.speciesBuilder = speciesBuilder;
+speciesBuilder.ui = ui;
+
+const itemBuilder = new ItemBuilder();
+ui.itemBuilder = itemBuilder;
+itemBuilder.ui = ui;
+
+const subclassBuilder = new SubclassBuilder();
+ui.subclassBuilder = subclassBuilder;
+subclassBuilder.ui = ui;
+
+const classBuilder = new ClassBuilder();
+ui.classBuilder = classBuilder;
+classBuilder.ui = ui;
 
 window.addEventListener("load", async () => {
 	await Makebrew.doPageInit();

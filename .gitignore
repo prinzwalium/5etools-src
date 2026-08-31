@@ -25,6 +25,9 @@ Thumbs.db
 sw.js
 sw-injector.js
 
+# Written into the web root at container start by docker/entrypoint.sh
+js/deploy-defaults-config.js
+
 # Log files
 *.log
 

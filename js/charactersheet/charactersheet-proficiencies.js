@@ -134,7 +134,8 @@ export function getEntityProficiencies (ent) {
 export function mergeProficiencies (entries) {
 	const byKey = new Map();
 
-	(entries || []).forEach(it => {
+	// See `mergeDefenses`: a save file is an input from outside, and a string here must not be fatal
+	(Array.isArray(entries) ? entries : []).forEach(it => {
 		if (!it?.name) return;
 		const key = `${it.kind}|${it.name.toLowerCase()}`;
 		if (!byKey.has(key)) byKey.set(key, {kind: it.kind, name: it.name, sources: [], ids: [], isOptional: !!it.isOptional});

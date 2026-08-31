@@ -1,5 +1,5 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
-import {getCantripsKnown, getDynamicSpellGrants, getGrantedSpellUids, getPreparedSpellCount, getSpellcastingMeta, getSpellsKnown, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
+import {getCantripsKnown, getDynamicSpellGrants, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getPreparedSpellCount, getSpellbookSize, getSpellcastingMeta, getSpellsKnown, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, getAbilityModifier, hasSpellcasting} from "./charactersheet-derive.js";
 import {getSpellSummary, normaliseCastTime} from "./charactersheet-actions.js";
 
@@ -28,8 +28,11 @@ export class CharacterSpellsPanel {
 			this._pRenderSlots(); // known counts live in the slots block
 		});
 		this._comp._addHookBase("grantedSpellChoices", () => this._pRenderKnown());
+		// A species grants spells of its own, and at character level — so both the list and the
+		// panel's visibility follow the species and the level, not only the classes
+		["refSpecies", "level"].forEach(prop => this._comp._addHookBase(prop, () => this._pRenderKnown()));
 		// Whether the character has spellcasting at all can change from any of these
-		["inventory", "spellsText", "spellAbility", "spellsKnown", "grantedSpellChoices", "classes"]
+		["inventory", "spellsText", "spellAbility", "spellsKnown", "grantedSpellChoices", "classes", "refSpecies", "level"]
 			.forEach(prop => this._comp._addHookBase(prop, () => this._pRenderVisibility()));
 		// The spell-summary numbers depend on the spellcasting ability score/level, so refresh on those too.
 		["spellAbility", "level", "abil_int", "abil_wis", "abil_cha"].forEach(prop => this._comp._addHookBase(prop, () => this._pRenderKnown()));
@@ -52,7 +55,14 @@ export class CharacterSpellsPanel {
 		const loaded = await this._pGetLoadedClasses();
 		const meta = getSpellcastingMeta(loaded.map(({entry, cls, sc}) => ({cls, sc, level: entry.level})));
 		const isClassCaster = !!(meta.slots?.some(Boolean) || meta.pact);
-		const isCaster = hasSpellcasting(this._comp._state, {isClassCaster});
+		// A Tiefling Fighter casts Thaumaturgy and has no spellcasting class, so the panel has to
+		// open for what the species gave as well as for what a class did
+		const species = await this._pGetSpecies();
+		const isOriginCaster = !!species && (
+			getGrantedSpellUids(species, this._comp.getLevelNumber()).length
+			|| getInnateSpellGrants(species, this._comp.getLevelNumber()).length
+		);
+		const isCaster = hasSpellcasting(this._comp._state, {isClassCaster, isOriginCaster});
 
 		this._wrpBody.classList.toggle("ve-hidden", !isCaster);
 		this._wrpPanel?.classList.toggle("cs__panel--quiet", !isCaster);
@@ -75,32 +85,75 @@ export class CharacterSpellsPanel {
 		return this._spellByKey;
 	}
 
-	/** Spells the character's classes/subclasses grant automatically (domain/patron/circle lists). */
+	/**
+	 * The species the character has, loaded, or null.
+	 *
+	 * Cached per name+source rather than per render: the grant list is rebuilt on every state change,
+	 * and re-fetching an entity that only changes when the species does is wasted work.
+	 */
+	async _pGetSpecies () {
+		const ref = this._comp._state.refSpecies;
+		if (!ref?.name || !ref?.source) return null;
+
+		const key = `${ref.name}|${ref.source}`;
+		if (this._speciesKey !== key) {
+			this._speciesKey = key;
+			this._speciesEnt = await CharacterSheetClassData.pGetSpecies({name: ref.name, source: ref.source}).catch(() => null);
+		}
+		return this._speciesEnt;
+	}
+
+	/**
+	 * Spells the character is given without asking — a class's domain/patron/circle list, and the
+	 * species' own.
+	 *
+	 * The species half was missing entirely. Sixty-nine species and subspecies grant spells through
+	 * the same `additionalSpells` shape a subclass uses, and because only the `{choose}` entries were
+	 * ever resolved, every fixed one was dropped: an Aasimar's Light, a Tiefling's Thaumaturgy, a
+	 * Drow's Dancing Lights, Faerie Fire and Darkness, an Aarakocra's Gust of Wind.
+	 *
+	 * A species keys its lists by **character** level, not class level — "3rd level" on a Drow means
+	 * the character's third, whatever it is a third level of.
+	 */
 	async _pGetGrantedSpells () {
 		const loaded = await this._pGetLoadedClasses();
+		const species = await this._pGetSpecies();
 		const byKey = await this._pEnsureSpellData();
 		const out = [];
 		const seen = new Set();
+		const add = (uid, {className = null, sourceName = null, castingNote = null}) => {
+			const [name, source] = uid.split("|");
+			const spEnt = byKey.get(`${name}|${(source || "phb").toLowerCase()}`) || this._spellByName.get(name);
+			const resolved = {
+				name: spEnt?.name || name.replace(/\b\w/g, c => c.toUpperCase()),
+				source: spEnt?.source || (source || "PHB").toUpperCase(),
+				level: spEnt?.level ?? 0,
+				className,
+				sourceName,
+				granted: true,
+				castingNote,
+			};
+			const key = `${resolved.name.toLowerCase()}|${resolved.source.toLowerCase()}`;
+			if (seen.has(key)) return;
+			seen.add(key);
+			out.push(resolved);
+		};
+
+		const addFrom = (ent, level, meta) => {
+			if (!ent) return;
+			getGrantedSpellUids(ent, level).forEach(uid => add(uid, meta));
+			// The innate bucket's frequency wrappers, which the uid reader cannot see into. Each
+			// carries how it is cast, because a Way of Shadow monk's Darkness costs Ki, not a slot
+			getInnateSpellGrants(ent, level)
+				.forEach(grant => add(grant.uid, {...meta, castingNote: getInnateSpellCastingNote(grant)}));
+		};
+
 		loaded.forEach(({entry, cls, sc}) => {
-			[cls, sc].forEach(ent => {
-				if (!ent) return;
-				getGrantedSpellUids(ent, entry.level).forEach(uid => {
-					const [name, source] = uid.split("|");
-					const spEnt = byKey.get(`${name}|${(source || "phb").toLowerCase()}`) || this._spellByName.get(name);
-					const resolved = {
-						name: spEnt?.name || name.replace(/\b\w/g, c => c.toUpperCase()),
-						source: spEnt?.source || (source || "PHB").toUpperCase(),
-						level: spEnt?.level ?? 0,
-						className: cls?.name || null,
-						granted: true,
-					};
-					const key = `${resolved.name.toLowerCase()}|${resolved.source.toLowerCase()}`;
-					if (seen.has(key)) return;
-					seen.add(key);
-					out.push(resolved);
-				});
-			});
+			[cls, sc].forEach(ent => addFrom(ent, entry.level, {className: cls?.name || null, sourceName: ent?.name || null}));
 		});
+
+		addFrom(species, this._comp.getLevelNumber(), {sourceName: species?.name || null});
+
 		return out;
 	}
 
@@ -115,17 +168,58 @@ export class CharacterSpellsPanel {
 		loaded.forEach(({entry, cls, sc}) => {
 			[[cls, cls?.name], [sc, sc?.name]].forEach(([ent, entName]) => {
 				if (!ent) return;
-				getDynamicSpellGrants(ent, entry.level).forEach(grant => {
+				// Mystic Arcanum and its like are picks at a fixed spell level, expressed in the same
+				// shape so this one chooser resolves both
+				// The class's slot table answers a subclass's `s1`-`s5` keys: a patron's expanded list
+				// arrives as the pact slot grows, and the subclass has no table of its own
+				[...getDynamicSpellGrants(ent, entry.level, {slotSource: cls}), ...getFixedSpellsKnownGrants(ent, entry.level)].forEach(grant => {
 					out.push({
 						...grant,
 						grantKey: `${entry.id}:${entName}:${grant.id}`,
-						sourceName: entName,
+						sourceName: grant.groupName || entName,
 						className: cls?.name || null,
 					});
 				});
 			});
 		});
 		return out;
+	}
+
+	/**
+	 * The spells a class's subclass has *widened its list with* — the `expanded` bucket.
+	 *
+	 * Expanded is not granted: these are spells the character may now learn, which is why they are
+	 * merged into the browser rather than into the always-prepared list. Twelve Warlock patrons put
+	 * their entire list here, and every one of them was unreachable.
+	 */
+	async _pGetExpandedSpells ({entry, cls, sc}) {
+		// A background widens the list too: the ten Ravnica guild backgrounds and the five Strixhaven
+		// colleges each add their own spells to whatever class you took, keyed by the slot that
+		// unlocks them. Nothing read a background's `additionalSpells` at all
+		const background = await this._pGetBackground();
+
+		const grants = [cls, sc, background]
+			.filter(Boolean)
+			.flatMap(ent => getDynamicSpellGrants(ent, entry.level, {slotSource: cls}))
+			.filter(grant => grant.type === "expanded");
+		if (!grants.length) return [];
+
+		const out = [];
+		for (const grant of grants) out.push(...await this._pGetSpellsForGrant(grant));
+		return out.filter(Boolean);
+	}
+
+	/** The background the character has, loaded, or null. Cached like the species. */
+	async _pGetBackground () {
+		const ref = this._comp._state.refBackground;
+		if (!ref?.name || !ref?.source) return null;
+
+		const key = `${ref.name}|${ref.source}`;
+		if (this._backgroundKey !== key) {
+			this._backgroundKey = key;
+			this._backgroundEnt = await CharacterSheetClassData.pGetBackground({name: ref.name, source: ref.source}).catch(() => null);
+		}
+		return this._backgroundEnt;
 	}
 
 	/** Spell entities matching a dynamic grant's filter (or its explicit `from` list). */
@@ -197,7 +291,11 @@ export class CharacterSpellsPanel {
 			const lbl = document.createElement("span");
 			const remaining = grant.count - chosen.length;
 			lbl.className = remaining > 0 ? "ve-text-danger bold ve-mr-1" : "ve-muted ve-mr-1";
-			lbl.textContent = `${grant.sourceName} spell (${chosen.length}/${grant.count}): `;
+			// A fixed-level grant names its spell level, because the 2024 Warlock calls all four
+			// "Mystic Arcanum" and only the level tells them apart
+			lbl.textContent = grant.spellLevel != null
+				? `${grant.sourceName} (${Parser.getOrdinalForm(grant.spellLevel)}-level spell) (${chosen.length}/${grant.count}): `
+				: `${grant.sourceName} spell (${chosen.length}/${grant.count}): `;
 			row.appendChild(lbl);
 
 			chosen.forEach(sp => {
@@ -268,8 +366,16 @@ export class CharacterSpellsPanel {
 		const cantripEnt = [cls, sc].find(it => it?.cantripProgression);
 		const hasCantrips = !!(cantripEnt && getCantripsKnown(cantripEnt, entry.level));
 
-		const spells = (await CharacterSheetClassData.pGetSpellsForClass(className))
-			.filter(sp => (sp.level === 0 ? hasCantrips : sp.level <= Math.max(maxLevel, 1)));
+		const spells = [
+			...await CharacterSheetClassData.pGetSpellsForClass(className),
+			// What the subclass adds to the list: a patron's expanded spells, a Bard's Magical
+			// Secrets. They are not on the class's own list and were unreachable from here, which
+			// is the whole point of an Archfey warlock
+			...await this._pGetExpandedSpells({entry, cls, sc}),
+		]
+			.filter((sp, ix, all) => all.findIndex(it => it.name === sp.name && it.source === sp.source) === ix)
+			.filter(sp => (sp.level === 0 ? hasCantrips : sp.level <= Math.max(maxLevel, 1)))
+			.sort((a, b) => (a.level - b.level) || a.name.localeCompare(b.name));
 		if (!spells.length) return JqueryUtil.doToast({type: "warning", content: `No learnable ${className} spells found at this level.`});
 
 		const knownKeys = new Set(this._comp._state.spellsKnown
@@ -290,7 +396,7 @@ export class CharacterSpellsPanel {
 			if (maxCantrips != null) limits.push(`${maxCantrips} cantrip${maxCantrips === 1 ? "" : "s"}`);
 		}
 		const knownEnt = [cls, sc].find(it => it?.spellsKnownProgression);
-		const preparedEnt = [cls, sc].find(it => it?.preparedSpells);
+		const preparedEnt = [cls, sc].find(it => it?.preparedSpells || it?.preparedSpellsProgression);
 		if (knownEnt) {
 			const maxKnown = getSpellsKnown(knownEnt, entry.level);
 			if (maxKnown != null) limits.push(`${maxKnown} spells known`);
@@ -409,7 +515,7 @@ export class CharacterSpellsPanel {
 			}
 
 			const knownEnt = [cls, sc].find(it => it?.spellsKnownProgression);
-			const preparedEnt = [cls, sc].find(it => it?.preparedSpells);
+			const preparedEnt = [cls, sc].find(it => it?.preparedSpells || it?.preparedSpellsProgression);
 			if (knownEnt) {
 				const maxKnown = getSpellsKnown(knownEnt, entry.level);
 				if (maxKnown != null) out.push({text: `Spells known: ${cntLeveled}/${maxKnown}`, isOver: cntLeveled > maxKnown});
@@ -419,6 +525,11 @@ export class CharacterSpellsPanel {
 				const maxPrep = getPreparedSpellCount(preparedEnt, entry.level, mod);
 				if (maxPrep != null) out.push({text: `Spells prepared: ${cntLeveled}/${maxPrep}`, isOver: cntLeveled > maxPrep});
 			}
+
+			// A Wizard's book is its own limit, and a different one: it is what may be prepared *from*,
+			// and it grows by two a level whether or not any of them are prepared today
+			const book = getSpellbookSize(cls, entry.level);
+			if (book != null) out.push({text: `Spellbook: ${cntLeveled}/${book}`, isOver: cntLeveled > book});
 		});
 		return out;
 	}
@@ -447,8 +558,13 @@ export class CharacterSpellsPanel {
 		if (token !== this._knownToken) return;
 
 		// Spells picked for a {choose} grant are granted too, so show them with the always-prepared list.
+		// A fixed-level pick is not always prepared, though: a Mystic Arcanum is cast once per long
+		// rest and never out of a slot, so it carries that note instead.
+		const noteByGrantKey = new Map(dynamicGrants
+			.filter(g => g.spellLevel != null)
+			.map(g => [g.grantKey, "once per long rest"]));
 		const chosenGranted = (this._comp._state.grantedSpellChoices || [])
-			.map(it => ({name: it.name, source: it.source, level: it.level, className: it.className, granted: true}));
+			.map(it => ({name: it.name, source: it.source, level: it.level, className: it.className, granted: true, castingNote: noteByGrantKey.get(it.grantKey) || null}));
 
 		// A granted spell already chosen manually shouldn't appear twice.
 		const knownKeys = new Set(known.map(it => `${it.name.toLowerCase()}|${(it.source || "").toLowerCase()}`));
@@ -528,7 +644,11 @@ export class CharacterSpellsPanel {
 		if (isGranted) {
 			const badge = document.createElement("span");
 			badge.className = "ve-muted ve-small ve-ml-auto ve-italic";
-			badge.textContent = "always prepared";
+			// An innate grant says how it is paid for; everything else is simply always prepared.
+			// Either way it says *what* gave it, because "always prepared" on its own leaves a player
+			// hunting for which half of the character it came from
+			const how = spell.castingNote || "always prepared";
+			badge.textContent = spell.sourceName ? `${how} \u00b7 ${spell.sourceName}` : how;
 			row.appendChild(badge);
 			return row;
 		}

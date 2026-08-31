@@ -23,6 +23,7 @@
 		<button class="ve-btn ve-btn-sm ve-btn-default" id="cs-btn-save" type="button" title="Save this sidekick to a file"><span class="glyphicon glyphicon-download"></span> Save to File</button>
 		<button class="ve-btn ve-btn-sm ve-btn-default" id="cs-btn-load" type="button" title="Load a sidekick from a file"><span class="glyphicon glyphicon-upload"></span> Load from File</button>
 		<button class="ve-btn ve-btn-sm ve-btn-danger" id="cs-btn-reset" type="button" title="Clear this sidekick"><span class="glyphicon glyphicon-refresh"></span> Reset</button>
+			<button class="ve-btn ve-btn-sm ve-btn-default" id="cs-btn-homebrew" type="button" title="Add or remove homebrew; brew content then appears in every picker on this page"><span class="glyphicon glyphicon-folder-open"></span> Homebrew</button>
 		<a href="charactersheet.html" class="ve-btn ve-btn-sm ve-btn-default ve-ml-auto" title="Open the character sheet"><span class="glyphicon glyphicon-th-list"></span> Character Sheet</a>
 	</div>
 
@@ -50,7 +51,7 @@
 						<input type="number" id="cs-level" min="1" max="20" value="1" class="ve-form-control ve-input-xs cs__ipt-num">
 					</label>
 					<div class="cs__field">
-						<span class="cs__lbl">Base Creature <span class="cs__pick-link" id="cs-link-species"></span></span>
+						<label class="cs__lbl" for="cs-species">Base Creature</label> <span class="cs__pick-link" id="cs-link-species"></span>
 						<div class="cs__pick-group">
 							<input type="text" id="cs-species" class="ve-form-control ve-input-xs" placeholder="e.g. Guard">
 							<button type="button" class="ve-btn ve-btn-xs ve-btn-default cs__pick-btn" id="cs-pick-creature" title="Choose any stat block to build from"><span class="glyphicon glyphicon-search"></span></button>
@@ -179,7 +180,7 @@
 						</div>
 					</div>
 					<div id="cs-sk-traits"><!-- populated by JS --></div>
-					<textarea id="cs-features" class="ve-form-control cs__textarea cs__textarea--md ve-mt-2" placeholder="Anything else worth noting..."></textarea>
+					<textarea id="cs-features" aria-label="Other notes" class="ve-form-control cs__textarea cs__textarea--md ve-mt-2" placeholder="Anything else worth noting..."></textarea>
 				</div>
 
 				<div class="cs__panel">
@@ -195,7 +196,7 @@
 						<span class="ve-muted ve-small ve-ml-2" id="cs-exhaustion-note"><!-- populated by JS --></span>
 					</label>
 					<div class="cs__conditions ve-flex ve-flex-wrap" id="cs-conditions"><!-- populated by JS --></div>
-					<textarea id="cs-personality" class="ve-form-control cs__textarea cs__textarea--md ve-mt-2" placeholder="Who is this sidekick? Loyalties, quirks, who controls it..."></textarea>
+					<textarea id="cs-personality" aria-label="Who this sidekick is" class="ve-form-control cs__textarea cs__textarea--md ve-mt-2" placeholder="Who is this sidekick? Loyalties, quirks, who controls it..."></textarea>
 				</div>
 			</div>
 
@@ -217,7 +218,7 @@
 
 				<div class="cs__panel">
 					<div class="cs__panel-title-row ve-flex-v-center ve-flex-h-between no-print">
-						<span class="cs__lbl ve-mb-0">Spells</span>
+						<span class="cs__lbl ve-mb-0" id="cs-title-spells">Spells</span>
 						<div class="ve-flex-v-center no-print">
 							<button type="button" id="cs-spell-browse" class="ve-btn ve-btn-xs ve-btn-primary ve-mr-2" title="Browse this class's learnable spells"><span class="glyphicon glyphicon-book"></span> Class Spells</button>
 							<button type="button" id="cs-spell-add" class="ve-btn ve-btn-xs ve-btn-default" title="Search and add any spell"><span class="glyphicon glyphicon-search"></span> Add Spell</button>
@@ -245,14 +246,14 @@
 						</div>
 						<div id="cs-spell-slots" class="ve-mt-1"><!-- populated by JS --></div>
 						<div id="cs-spells-known" class="ve-mt-1"><!-- populated by JS --></div>
-						<textarea id="cs-spells" class="ve-form-control cs__textarea cs__textarea--md" placeholder="Spell notes..."></textarea>
+						<textarea id="cs-spells" aria-labelledby="cs-title-spells" class="ve-form-control cs__textarea cs__textarea--md" placeholder="Spell notes..."></textarea>
 					</div>
 				</div>
 
 				<div class="cs__panel">
-					<h5 class="cs__panel-title">Equipment</h5>
+					<h5 class="cs__panel-title" id="cs-title-equipment">Equipment</h5>
 					<div id="cs-inventory"><!-- populated by JS --></div>
-					<textarea id="cs-equipment" class="ve-form-control cs__textarea cs__textarea--md" placeholder="Gear, treasure..."></textarea>
+					<textarea id="cs-equipment" aria-labelledby="cs-title-equipment" class="ve-form-control cs__textarea cs__textarea--md" placeholder="Gear, treasure..."></textarea>
 				</div>
 
 				<div class="cs__panel">
@@ -261,9 +262,9 @@
 				</div>
 
 				<div class="cs__panel">
-					<h5 class="cs__panel-title">Other Proficiencies &amp; Senses</h5>
+					<h5 class="cs__panel-title" id="cs-title-proficiencies">Other Proficiencies &amp; Senses</h5>
 					<div id="cs-prof-list" class="ve-mb-1"><!-- populated by JS --></div>
-					<textarea id="cs-proficiencies" class="ve-form-control cs__textarea cs__textarea--md" placeholder="Senses, languages, armor, weapons, tools..."></textarea>
+					<textarea id="cs-proficiencies" aria-labelledby="cs-title-proficiencies" class="ve-form-control cs__textarea cs__textarea--md" placeholder="Senses, languages, armor, weapons, tools..."></textarea>
 				</div>
 			</div>
 		</div>

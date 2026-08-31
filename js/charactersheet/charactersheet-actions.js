@@ -128,9 +128,89 @@ export function buildActionEconomy ({attacks = [], unarmed = null, spells = [], 
 		const tag = typeof f === "string" ? null : f?.tag;
 		if (!name || seen.has(name)) return;
 		seen.add(name);
-		const econ = FEATURE_ACTION_ECONOMY[name];
-		if (econ && out[econ]) out[econ].push({label: name, kind: "feature", tag});
+
+		// The book's own "as a Bonus Action" first, the curated map second. The map was written when
+		// nothing read the features themselves, and it knows twenty names; the phrasing is in
+		// fifty-six of the features that spend a resource, including every subclass one
+		const econ = (typeof f === "object" && f?.bucket) || FEATURE_ACTION_ECONOMY[name];
+		if (!econ || !out[econ]) return;
+
+		// What it costs, so the panel can say so and the availability check can see whether the
+		// character can still pay it
+		const cost = typeof f === "object" ? f?.cost || null : null;
+		out[econ].push({label: name, kind: "feature", tag, cost, sub: (typeof f === "object" ? f?.sub : null) || null});
 	});
 
+	return out;
+}
+
+/* -------------------------------------------- what anyone can do -------------------------------------------- */
+
+/**
+ * Actions in `data/actions.json` the sheet should not list.
+ *
+ * Not because they are wrong — because the sheet already says them better. "Attack" is above the
+ * list as the character's actual weapons; "Cast a Spell" and "Magic" are the spells themselves;
+ * "Activate an Item" is the charge chip on the item. And a few are not a thing you decide to do at
+ * all: improvising is what the list is *for*, and ending concentration has its own button.
+ */
+const _GENERAL_ACTION_SKIP = new Set([
+	"Attack", "Cast a Spell", "Magic", "Activate an Item", "Use an Object",
+	"Improvising an Action", "Other Activity", "End Concentration",
+]);
+
+/**
+ * Grapple and Shove, for a character playing by the 2024 rules.
+ *
+ * They stopped being actions of their own and became options on an Unarmed Strike, so they are in
+ * the variant rules rather than the action list — and a turn helper that omits the two things
+ * everybody reaches for at the table would be missing the point. Curated because the shape they
+ * live in now is prose, and only these two are affected.
+ */
+const _MODERN_UNARMED_OPTIONS = [
+	{name: "Grapple", sub: "Unarmed Strike: Str save or Grappled", cite: {name: "Unarmed Strike", source: "XPHB"}},
+	{name: "Shove", sub: "Unarmed Strike: Str save, push 5 ft. or knock Prone", cite: {name: "Unarmed Strike", source: "XPHB"}},
+];
+
+/** Jumping is movement rather than an action, and is the rule most often looked up mid-turn. */
+const _JUMP = {name: "Jump", bucket: "free", sub: "Long: Str score in feet with a 10 ft. run-up. High: 3 + Str modifier"};
+
+/**
+ * The actions every character has, whatever they are.
+ *
+ * Read from `data/actions.json` rather than listed here: the book already writes them down, with
+ * their timing and their text, and two editions' worth of differences that nobody should be
+ * maintaining by hand — 2024 renamed Search to Study and Influence, and moved Grapple and Shove
+ * onto the Unarmed Strike.
+ *
+ * @param actionEntities the `action` entries, as loaded.
+ * @param [opts.isClassic] read the 2014 list rather than the 2024 one.
+ * @return {Array<{label: string, bucket: string, sub: string|null, kind: string, ent: object|null}>}
+ */
+export function getGeneralActionEntries (actionEntities, {isClassic = false} = {}) {
+	const wantSource = isClassic ? "PHB" : "XPHB";
+
+	const out = (actionEntities || [])
+		.filter(ent => ent?.name && String(ent.source).toUpperCase() === wantSource)
+		.filter(ent => !_GENERAL_ACTION_SKIP.has(ent.name))
+		.map(ent => {
+			// `time` is an array that may hold several — Identify a Spell is a reaction *or* an
+			// action. The first is the one it is normally taken as
+			const bucket = normaliseCastTime(ent.time);
+			return {
+				label: ent.name,
+				bucket: bucket === "other" ? "free" : bucket,
+				sub: null,
+				kind: "general",
+				ent,
+			};
+		});
+
+	if (!isClassic) {
+		_MODERN_UNARMED_OPTIONS.forEach(it => out.push({label: it.name, bucket: "action", sub: it.sub, kind: "general", cite: it.cite, ent: null}));
+	}
+	out.push({label: _JUMP.name, bucket: _JUMP.bucket, sub: _JUMP.sub, kind: "general", ent: null});
+
+	out.sort((a, b) => a.label.localeCompare(b.label));
 	return out;
 }

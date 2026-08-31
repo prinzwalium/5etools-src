@@ -1,15 +1,17 @@
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_CONDITIONS, CHAR_SHEET_SKILLS} from "./charactersheet/charactersheet-consts.js";
 import {deriveCharacterSheet, formatBreakdown, getWeaponAttack} from "./charactersheet/charactersheet-derive.js";
 import {getInventoryItemMeta} from "./charactersheet/charactersheet-equipment.js";
-import {getChosenFeatureEffects, getFeatureInitiativeBonus} from "./charactersheet/charactersheet-features.js";
+import {getChosenFeatureEffects} from "./charactersheet/charactersheet-features.js";
 import {pGetUserItemSearchFiltered} from "./charactersheet/charactersheet-sources.js";
 import {CharacterSheetClassData} from "./charactersheet/charactersheet-classdata.js";
 import {CharacterClassPanel} from "./charactersheet/charactersheet-classpanel.js";
+import {CharacterOriginPanel} from "./charactersheet/charactersheet-originpanel.js";
 import {CharacterInventoryPanel} from "./charactersheet/charactersheet-inventorypanel.js";
 import {CharacterSpellsPanel} from "./charactersheet/charactersheet-spellspanel.js";
 import {CharacterActionsPanel} from "./charactersheet/charactersheet-actionspanel.js";
 import {CharacterPageBase} from "./charactersheet/charactersheet-pagebase.js";
 import {CharacterCardsPanel} from "./charactersheet/charactersheet-cardspanel.js";
+import {CharacterJournalPanel} from "./charactersheet/charactersheet-journalpanel.js";
 
 /** Renders the attacks table from the model's `attacks` collection. */
 class _AttacksRenderableCollection extends RenderableCollectionBase {
@@ -22,16 +24,16 @@ class _AttacksRenderableCollection extends RenderableCollectionBase {
 		const tr = document.createElement("tr");
 		tr.className = "cs__atk-row";
 		tr.innerHTML = `
-			<td><input type="text" class="ve-form-control ve-input-xs cs__atk-name" placeholder="e.g. Longsword"></td>
+			<td><input type="text" class="ve-form-control ve-input-xs cs__atk-name" aria-label="Attack name" placeholder="e.g. Longsword"></td>
 			<td class="ve-text-center">
 				<div class="cs__atk-cell">
-					<input type="number" class="ve-form-control ve-input-xs cs__ipt-num cs__ipt-num--xs cs__atk-bonus">
+					<input type="number" class="ve-form-control ve-input-xs cs__ipt-num cs__ipt-num--xs cs__atk-bonus" aria-label="Attack bonus">
 					<span class="cs__roll cs__atk-hit"></span>
 				</div>
 			</td>
 			<td class="ve-text-center">
 				<div class="cs__atk-cell">
-					<input type="text" class="ve-form-control ve-input-xs cs__atk-dmg" placeholder="e.g. 1d8+3 slashing">
+					<input type="text" class="ve-form-control ve-input-xs cs__atk-dmg" aria-label="Damage and type" placeholder="e.g. 1d8+3 slashing">
 					<span class="cs__roll cs__atk-dmgroll"></span>
 				</div>
 			</td>
@@ -83,7 +85,7 @@ class _AttacksRenderableCollection extends RenderableCollectionBase {
 		const dmg = (entity.damage || "").trim();
 
 		meta.dispHit.innerHTML = Renderer.get().render(`{@hit ${bonus}|${CharacterPageBase.fmtBonus(bonus)}|${name || "Attack"}}`);
-		CharacterPageBase.setBreakdownTitle(meta.dispHit, `${name || "Attack"} to hit`, entity.atkParts, bonus);
+		CharacterPageBase.setBreakdownTitle(meta.dispHit, `${name || "Attack"} to hit`, entity.atkParts, bonus, {citeKind: "attack"});
 
 		if (dmg && /\d\s*d\s*\d/i.test(dmg)) {
 			meta.dispDmg.innerHTML = Renderer.get().render(`{@dice ${dmg}|${dmg}|${name || "Damage"}}`);
@@ -122,6 +124,15 @@ class CharacterSheetPage extends CharacterPageBase {
 		this._attacksCollection = new _AttacksRenderableCollection(this._comp, document.getElementById("cs-attacks-body"));
 		this._comp._addHookBase("attacks", () => this._attacksCollection.render());
 
+		// What a species and a background actually give you, ticked against what the character has
+		this._originPanels = ["species", "background"].map(kind => new CharacterOriginPanel({
+			comp: this._comp,
+			wrp: document.getElementById(`cs-${kind}-panel`),
+			kind,
+			page: this,
+		}));
+		this._originPanels.forEach(panel => panel.init());
+
 		this._classPanel = new CharacterClassPanel({comp: this._comp, wrp: document.getElementById("cs-class-panel")});
 		this._classPanel.init();
 		this._inventoryPanel = new CharacterInventoryPanel({comp: this._comp, wrp: document.getElementById("cs-inventory")});
@@ -138,6 +149,8 @@ class CharacterSheetPage extends CharacterPageBase {
 		this._actionsPanel.init();
 		// Built only when asked for: the deck needs the whole spell list loaded
 		this._cardsPanel = new CharacterCardsPanel({comp: this._comp, wrp: document.getElementById("cs-cards")});
+		this._journalPanel = new CharacterJournalPanel({comp: this._comp, wrp: document.getElementById("cs-journal")});
+		this._journalPanel.init();
 		this._bindClick("cs-btn-cards", () => this._cardsPanel.pPrint());
 
 		this._comp._addHookBase("pickTags", () => this._renderPickLinks());
@@ -171,7 +184,7 @@ class CharacterSheetPage extends CharacterPageBase {
 		this._renderProficiencies();
 		this._renderDefenses();
 		this._renderAbilityOffers();
-		this._pRefreshTraitChoices();
+		this._pRefreshSpeciesData();
 		this._renderDerived();
 		this._pRefreshFeatureEffects();
 		this._lastLevel = this._comp.getLevelNumber();
@@ -198,9 +211,13 @@ class CharacterSheetPage extends CharacterPageBase {
 		const eleComputed = document.getElementById("cs-ac-computed");
 		if (!eleComputed) return;
 		eleComputed.textContent = `${armorClass.ac}`;
-		eleComputed.title = armorClass.note === "manual"
-			? "Manual AC"
-			: `Armor Class: ${formatBreakdown(armorClass.parts, armorClass.ac, {isTotalValue: true})}`;
+		if (armorClass.note === "manual") {
+			eleComputed.title = "Manual AC";
+			CharacterPageBase.setBreakdownTitle(eleComputed, "Armor Class", null);
+		} else {
+			CharacterPageBase.setBreakdownTitle(eleComputed, "Armor Class", armorClass.parts, armorClass.ac,
+				{isTotalValue: true, citeKind: "ac"});
+		}
 		// In manual mode the number is editable; otherwise it is computed from equipped gear.
 		const isManual = (this._comp._state.acMode || "auto") === "manual";
 		const eleManual = document.getElementById("cs-ac");
@@ -257,7 +274,7 @@ class CharacterSheetPage extends CharacterPageBase {
 	}
 
 	_renderDerived () {
-		const derived = deriveCharacterSheet(this._comp._getState());
+		const derived = deriveCharacterSheet(this._comp._getState(), {featureNames: this._featureNames || []});
 
 		document.getElementById("cs-pb").textContent = CharacterPageBase.fmtBonus(derived.pb);
 
@@ -271,7 +288,7 @@ class CharacterSheetPage extends CharacterPageBase {
 			const u = derived.unarmedStrike;
 			const hitRoll = Renderer.get().render(`{@d20 ${u.atkBonus}|${CharacterPageBase.fmtBonus(u.atkBonus)}|Unarmed Strike}`);
 			eleUnarmed.innerHTML = `<span class="ve-muted">Unarmed Strike:</span> ${hitRoll} <span class="ve-muted">to hit,</span> ${u.damage.qq()}`;
-			CharacterPageBase.setBreakdownTitle(eleUnarmed, "Unarmed Strike", u.atkParts, u.atkBonus);
+			CharacterPageBase.setBreakdownTitle(eleUnarmed, "Unarmed Strike", u.atkParts, u.atkBonus, {citeKind: "attack"});
 		}
 
 		this._renderCombatNotes();
@@ -285,23 +302,21 @@ class CharacterSheetPage extends CharacterPageBase {
 			eleHpMax.title = `Expected Max HP: ${formatBreakdown(exp.parts, exp.total, {isTotalValue: true})}${ptDiff}`;
 		}
 
-		const abilMods = Object.fromEntries(CHAR_SHEET_ABILITIES.map(([abv]) => [abv, derived.abilities[abv].mod]));
-		const initiative = derived.initiative + getFeatureInitiativeBonus(this._featureNames, {abilities: abilMods, pb: derived.pb});
+		// Rakish Audacity and Jack of All Trades are folded in by `deriveCharacterSheet` now, given the
+		// gained feature names it cannot read from state — each named in the breakdown rather than
+		// summed into one anonymous "Features" line
+		const initiative = derived.initiative;
 		const eleInit = document.getElementById("cs-initiative-roll");
 		eleInit.innerHTML = Renderer.get().render(`{@initiative ${initiative}|${CharacterPageBase.fmtBonus(initiative)}}`);
-		// Feature-driven initiative (Rakish Audacity, Jack of All Trades) is added on top of the derived parts
-		const initParts = [...derived.initiativeParts];
-		const featureInit = initiative - derived.initiative;
-		if (featureInit) initParts.push({label: "Features", value: featureInit});
-		CharacterPageBase.setBreakdownTitle(eleInit, "Initiative", initParts, initiative);
+		CharacterPageBase.setBreakdownTitle(eleInit, "Initiative", derived.initiativeParts, initiative, {citeKind: "initiative"});
 
 		const eleDc = document.getElementById("cs-spell-dc");
 		const eleAtk = document.getElementById("cs-spell-atk");
 		if (derived.spell) {
 			eleDc.textContent = `${derived.spell.dc}`;
-			CharacterPageBase.setBreakdownTitle(eleDc, "Spell save DC", derived.spell.dcParts, derived.spell.dc, {isTotalValue: true});
+			CharacterPageBase.setBreakdownTitle(eleDc, "Spell save DC", derived.spell.dcParts, derived.spell.dc, {isTotalValue: true, citeKind: "spellDc"});
 			eleAtk.innerHTML = Renderer.get().render(`{@d20 ${derived.spell.atkMod}|${CharacterPageBase.fmtBonus(derived.spell.atkMod)}|Spell attack}`);
-			CharacterPageBase.setBreakdownTitle(eleAtk, "Spell attack", derived.spell.atkParts, derived.spell.atkMod);
+			CharacterPageBase.setBreakdownTitle(eleAtk, "Spell attack", derived.spell.atkParts, derived.spell.atkMod, {citeKind: "spellAttack"});
 		} else {
 			eleDc.textContent = "—";
 			eleAtk.textContent = "—";
@@ -312,5 +327,7 @@ class CharacterSheetPage extends CharacterPageBase {
 
 window.addEventListener("load", () => {
 	const page = new CharacterSheetPage();
-	page.init();
+	// Exposed so the browser tests can ask the page about itself (e.g. whether sync is connected)
+	window.__csPage = page;
+	page.pInit();
 });

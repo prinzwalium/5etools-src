@@ -1,8 +1,11 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
 import {getEncumbrance} from "./charactersheet-derive.js";
-import {getAsiCount, getExpertiseSkillCount, getWeaponMasteryCount} from "./charactersheet-levelengine.js";
+import {getAsiCount, getCantripsKnown, getExpertiseSkillCount, getFeatProgressionCounts, getSpellsKnown, getWeaponMasteryCount} from "./charactersheet-levelengine.js";
 import {AUDIT_BROKEN, auditCharacter, groupFindings} from "./charactersheet-audit.js";
+import {getGrantedFeatCategories, getGrantedFeats} from "./charactersheet-choices.js";
+import {getTraitChoices} from "./charactersheet-traitchoices.js";
+import {bindPanelRender} from "./charactersheet-panelrender.js";
 
 /**
  * The build audit, on the builder: what breaks a rule, and what the character is owed but has not
@@ -20,13 +23,9 @@ export class CharacterAuditPanel {
 	}
 
 	init () {
-		[
-			"classes", "level", "inventory", "weaponMasteries", "pendingAbilityOffers",
-			"refSpecies", "refBackground", "speciesText", "backgroundText", "hpMax",
-			...CHAR_SHEET_SKILLS.map(({key}) => `skill_${key}`),
-			"abil_str", "abil_dex", "abil_con", "abil_int", "abil_wis", "abil_cha",
-		].forEach(prop => this._comp._addHookBase(prop, () => this._pRender()));
-		this._pRender();
+		// The whole state, not a list: this panel reads more of the character than any other, and a
+		// missed prop makes it demand something already taken. See `charactersheet-panelrender.js`.
+		bindPanelRender(this._comp, () => this._pRender());
 	}
 
 	/** What the character's classes grant, and how much of it has been taken. */
@@ -43,7 +42,81 @@ export class CharacterAuditPanel {
 		const masteryTotal = loaded.reduce((acc, {entry, cls}) => acc + (cls ? getWeaponMasteryCount(cls, entry.level) : 0), 0);
 		const masteryTaken = (state.weaponMasteries || []).length;
 
-		return {asiTotal, asiTaken, expertiseTotal, expertiseTaken, masteryTotal, masteryTaken};
+		// Feats the class table grants by category — the 2024 Fighting Style and the Epic Boon at 19
+		let classFeatTotal = 0; let classFeatTaken = 0;
+		loaded.forEach(({entry, cls, sc}) => {
+			[...getFeatProgressionCounts(cls, entry.level), ...(sc ? getFeatProgressionCounts(sc, entry.level) : [])]
+				.forEach(prog => {
+					classFeatTotal += prog.count;
+					classFeatTaken += (state.featureFeats || [])
+						.filter(it => it.entryId === entry.id && prog.categories.includes(String(it.category || "").toUpperCase())).length;
+				});
+		});
+
+		// Spells a caster is owed. Per class, since a multiclass caster's counts are separate, and
+		// summed here because what somebody wants to know is "how many am I short"
+		let cantripsTotal = 0; let cantripsTaken = 0; let spellsKnownTotal = 0; let spellsKnownTaken = 0;
+		loaded.forEach(({entry, cls, sc}) => {
+			if (!cls) return;
+			const nCantrips = getCantripsKnown(sc, entry.level) ?? getCantripsKnown(cls, entry.level);
+			const nKnown = getSpellsKnown(sc, entry.level) ?? getSpellsKnown(cls, entry.level);
+			if (!nCantrips && !nKnown) return;
+
+			const mine = (state.spellsKnown || []).filter(it => !it.className || it.className === entry.name);
+			cantripsTotal += nCantrips || 0;
+			cantripsTaken += mine.filter(it => !it.level).length;
+			spellsKnownTotal += nKnown || 0;
+			spellsKnownTaken += mine.filter(it => it.level).length;
+		});
+
+		return {
+			asiTotal,
+			asiTaken,
+			expertiseTotal,
+			expertiseTaken,
+			masteryTotal,
+			classFeatTotal,
+			classFeatTaken,
+			masteryTaken,
+			cantripsTotal,
+			cantripsTaken,
+			spellsKnownTotal,
+			spellsKnownTaken,
+		};
+	}
+
+	/**
+	 * The Origin feats the species and background grant — by name, and as "one of your choice".
+	 * Only their entities know, so they are loaded here rather than guessed from the state.
+	 */
+	async _pGetOriginFeatGrants () {
+		const {refSpecies, refBackground} = this._comp._state;
+		const ents = await Promise.all([
+			refBackground?.name ? CharacterSheetClassData.pGetBackground(refBackground).catch(() => null) : null,
+			refSpecies?.name ? CharacterSheetClassData.pGetSpecies(refSpecies).catch(() => null) : null,
+		]);
+
+		const grantedOriginFeats = ents.flatMap(ent => getGrantedFeats(ent?.feats, {fromFeature: ent?.fromFeature}).map(it => ({...it, from: ent.name})));
+		const grantedFeatChoices = ents
+			.filter(Boolean)
+			.map(ent => ({from: ent.name, count: getGrantedFeatCategories(ent.feats).reduce((a, it) => a + it.count, 0)}))
+			.filter(it => it.count);
+
+		const level = this._comp.getLevelNumber();
+		const openTraitChoices = ents
+			.filter(Boolean)
+			.flatMap(ent => getTraitChoices(ent)
+				.filter(choice => (choice.level || 1) <= level)
+				.filter(choice => !this._comp.getTraitChoice(ent.name, choice.trait))
+				.map(choice => ({from: ent.name, trait: choice.trait})));
+
+		// A species that offers "Small or Medium" is asking a question, and 30 of them do
+		const speciesEnt = ents[1];
+		const isSizeOwed = !!speciesEnt
+			&& [speciesEnt.size].flat().filter(Boolean).length > 1
+			&& !this._comp._state.size;
+
+		return {grantedOriginFeats, grantedFeatChoices, openTraitChoices, isSizeOwed};
 	}
 
 	async _pRender () {
@@ -60,6 +133,7 @@ export class CharacterAuditPanel {
 				requirements: cls?.multiclassing?.requirements || null,
 			})),
 			counts: await this._pGetCounts(loaded),
+			...(await this._pGetOriginFeatGrants()),
 		});
 
 		this._wrp.innerHTML = "";

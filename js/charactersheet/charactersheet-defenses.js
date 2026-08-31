@@ -98,10 +98,15 @@ export function getEntityDefenses (ent) {
 	_SENSE_KEYS.forEach(key => {
 		if (ent[key]) out.push({kind: DEFENSE_KIND_SENSE, name: formatSense(key, ent[key]), note: null});
 	});
-	(Array.isArray(ent.senses) ? ent.senses : []).forEach(grp => {
-		if (!grp || typeof grp !== "object") return;
-		Object.entries(grp).forEach(([key, range]) => {
-			if (_SENSE_KEYS.includes(key)) out.push({kind: DEFENSE_KIND_SENSE, name: formatSense(key, range), note: null});
+	// `senses` is the feat spelling; `bonusSenses` the one a feat uses when it *improves* a sense it
+	// does not itself grant (Keenness of the Stone Giant's darkvision). Both are the same shape, and
+	// reading only the first lost the second entirely.
+	[ent.senses, ent.bonusSenses].forEach(arr => {
+		(Array.isArray(arr) ? arr : []).forEach(grp => {
+			if (!grp || typeof grp !== "object") return;
+			Object.entries(grp).forEach(([key, range]) => {
+				if (_SENSE_KEYS.includes(key)) out.push({kind: DEFENSE_KIND_SENSE, name: formatSense(key, range), note: null});
+			});
 		});
 	});
 
@@ -156,7 +161,9 @@ export function getAllDefenses (state) {
 export function mergeDefenses (entries) {
 	const byKey = new Map();
 
-	(entries || []).forEach(it => {
+	// Not just `|| []`: a hand-edited or ancient save file can have a *string* here, and a character
+	// somebody sent you should fail to show a resistance rather than fail to open
+	(Array.isArray(entries) ? entries : []).forEach(it => {
 		if (!it?.name) return;
 		const key = `${it.kind}|${it.name.toLowerCase()}`;
 		if (!byKey.has(key)) byKey.set(key, {kind: it.kind, name: it.name, note: it.note || null, sources: [], ids: [], isFromItem: true});

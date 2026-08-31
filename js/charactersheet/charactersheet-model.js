@@ -1,9 +1,22 @@
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SCHEMA_VERSION, CHAR_SHEET_SKILLS, EXPENDABLE_RESOURCES, getSkillKeyByName} from "./charactersheet-consts.js";
-import {getGrantedFeats, getProfListDisplay} from "./charactersheet-choices.js";
+import {getProfListDisplay} from "./charactersheet-choices.js";
 import {getClassProficiencies, getEntityProficiencies, getMulticlassProficiencies} from "./charactersheet-proficiencies.js";
 import {getEntityDefenses} from "./charactersheet-defenses.js";
+import {formatSpeeds, getSpeeds, getTraitTags} from "./charactersheet-appearance.js";
+import {THEME_SITE} from "./charactersheet-theme.js";
 import {getStateWithMigratedAbilityNotes} from "./charactersheet-charstore.js";
 import {getAmmoRecovered, getChargesAfterRest} from "./charactersheet-equipment.js";
+import {
+	EV_AMMO_FIRED,
+	EV_AMMO_RECOVERED,
+	EV_CHARGE,
+	EV_CONDITION,
+	EV_RESOURCE,
+	EV_REST,
+	EV_SESSION,
+	EV_SLOT,
+	appendJournalEvent,
+} from "./charactersheet-journal.js";
 import {
 	getCreatureTraitEntries,
 	getSidekickRoleOfCreature,
@@ -69,6 +82,11 @@ export class CharacterModel extends BaseComponent {
 			backgroundText: "",
 			speciesText: "",
 
+			// The look this character is read in, stored with the character rather than the browser —
+			// see `charactersheet-theme.js`. "site" changes nothing, which is what every character
+			// built before this existed gets
+			theme: THEME_SITE,
+
 			// Structured entity references, populated by the pickers; the `*Text` fields above remain
 			// free-text overrides
 			isSidekick: false, // a sidekick is a stat block plus levels in a sidekick class
@@ -88,6 +106,16 @@ export class CharacterModel extends BaseComponent {
 			acMisc: 0, // flat misc bonus added to computed AC
 			initMisc: 0,
 			speed: "30 ft.",
+			// Which size, when the species offers a choice ("Small or Medium" — 30 of them do). Stored
+			// as the data's abbreviation; blank means unanswered, not Medium.
+			size: "",
+			creatureTypes: [], // what kind of creature the species is — a Plasmoid is an Ooze, not a Humanoid
+			// The parenthetical half of the type: a Bugbear is "Humanoid (Goblinoid)", and it is the
+			// tag that spells and features actually name
+			creatureTypeTags: [],
+			// The species' `traitTags`. Kept because one of them is a number: Powerful Build doubles
+			// carrying capacity, and the entity is not around when the inventory is totalled.
+			speciesTraitTags: [],
 
 			hpMax: 0,
 			hpCur: 0,
@@ -123,6 +151,20 @@ export class CharacterModel extends BaseComponent {
 			defenses: [], // [{id, kind, name, note, source}] — resistances/immunities/vulnerabilities/senses (gear is derived, not stored)
 			traitChoices: [], // [{id, source, trait, level, option, resist}] — "choose one" species traits
 			pendingAbilityOffers: [], // [{id, source, offer, packages}] — ability increases offered but not yet assigned
+			// [{sig, sourceName, type, picks}] — the choices a species or background asked for and
+			// somebody answered. Recorded because a *skill* keeps no note of where it came from, so
+			// without this nothing could tell "Perception, granted by Sailor" from "Perception,
+			// chosen for the Rogue" — and the guided setup and the panels each guessed differently.
+			choiceLog: [],
+			journal: [], // [{t, k, v, n}] — what happened at the table, grouped into sessions on read
+
+			portrait: "", // a data URL, downscaled on import — it shares localStorage with everything else
+			appearanceAge: "",
+			appearanceHeight: "",
+			appearanceWeight: "",
+			appearanceEyes: "",
+			appearanceSkin: "",
+			appearanceHair: "",
 
 			featuresText: "",
 			equipmentText: "",
@@ -262,10 +304,16 @@ export class CharacterModel extends BaseComponent {
 
 	/** Set the number of expended slots for a spell level (1-9) or "pact". */
 	/** Record a background-granted origin feat and apply its ability bonuses (no duplicates by name/source). */
-	addOriginFeat ({name, source, displayName = null, bonuses = null}) {
-		if (this._state.originFeats.some(it => it.name === name && it.source === source)) return false;
+	/**
+	 * @param from the entity that granted it — "Sailor", "Human". Recorded because more than one can
+	 *        grant one, and a panel that has to guess which of them a feat belongs to guesses wrong.
+	 */
+	addOriginFeat ({name, source, displayName = null, bonuses = null, from = null, isRepeatable = false}) {
+		// A feat the book marks repeatable may be held twice; anything else is a duplicate. Without
+		// this the picker would offer a second Skilled and then drop it on the floor.
+		if (!isRepeatable && this._state.originFeats.some(it => it.name === name && it.source === source)) return false;
 		const id = CryptUtil.uid();
-		this._state.originFeats = [...this._state.originFeats, {id, name, source, displayName: displayName || name, bonuses}];
+		this._state.originFeats = [...this._state.originFeats, {id, name, source, displayName: displayName || name, bonuses, from}];
 		if (bonuses) this.applyAbilityBonuses(bonuses, {source: `${displayName || name} (feat)`, logId: id});
 		return true;
 	}
@@ -428,14 +476,41 @@ export class CharacterModel extends BaseComponent {
 		this._state.weaponMasteries = [...set];
 	}
 
+	/* -------------------------------------------- The session journal -------------------------------------------- */
+
+	/**
+	 * Record something that happened at the table. Silent while the sheet is loading or switching
+	 * character: restoring a saved hit-point total is not damage, and would otherwise write a fight
+	 * into the journal every time the page opened.
+	 */
+	logJournal (k, {v = null, n = null} = {}) {
+		if (this._isJournalPaused) return;
+		const ev = {k};
+		if (v != null) ev.v = v;
+		if (n != null) ev.n = n;
+		this._state.journal = appendJournalEvent(this._state.journal, ev);
+	}
+
+	/** Stop recording (while loading), or start again. */
+	setJournalPaused (isPaused) { this._isJournalPaused = !!isPaused; }
+
+	/** Draw a line: whatever comes next belongs to a new session. */
+	startJournalSession () {
+		this._state.journal = appendJournalEvent(this._state.journal, {k: EV_SESSION});
+	}
+
+	clearJournal () { this._state.journal = []; }
+
 	/* -------------------------------------------- Rests & conditions -------------------------------------------- */
 
 	/** Toggle a named condition on/off. */
 	toggleCondition (name) {
 		const set = new Set(this._state.conditions || []);
-		if (set.has(name)) set.delete(name);
-		else set.add(name);
+		const isAdding = !set.has(name);
+		if (isAdding) set.add(name);
+		else set.delete(name);
 		this._state.conditions = [...set];
+		this.logJournal(EV_CONDITION, {n: name, v: isAdding ? 1 : 0});
 	}
 
 	/**
@@ -453,6 +528,7 @@ export class CharacterModel extends BaseComponent {
 		this._state.concentration = "";
 		this._state.exhaustion = Math.max(0, (Number(this._state.exhaustion) || 0) - 1);
 		this.rechargeItems("long");
+		this.logJournal(EV_REST, {n: "long"});
 	}
 
 	/** A short rest: restore Pact Magic slots (Warlock) and short-rest class resources (Ki, Wild Shape, ...). */
@@ -462,6 +538,7 @@ export class CharacterModel extends BaseComponent {
 		Object.keys(used).forEach(label => { if (EXPENDABLE_RESOURCES[label] === "short") used[label] = 0; });
 		this._state.resourcesUsed = used;
 		this.rechargeItems("short");
+		this.logJournal(EV_REST, {n: "short"});
 	}
 
 	/* -------------------------------------------- Charges & ammunition -------------------------------------------- */
@@ -494,7 +571,9 @@ export class CharacterModel extends BaseComponent {
 		const item = this._state.inventory.find(it => it.id === id);
 		if (!item?.chargesMax) return;
 		const used = Math.max(0, Number(item.chargesUsed) || 0);
-		item.chargesUsed = Math.max(0, Math.min(item.chargesMax, used - delta));
+		const after = Math.max(0, Math.min(item.chargesMax, used - delta));
+		if (after > used) this.logJournal(EV_CHARGE, {n: item.name, v: after - used});
+		item.chargesUsed = after;
 		this._triggerCollectionUpdate("inventory");
 	}
 
@@ -510,6 +589,7 @@ export class CharacterModel extends BaseComponent {
 		if (!spend) return;
 		item.quantity = have - spend;
 		item.ammoSpent = (Number(item.ammoSpent) || 0) + spend;
+		this.logJournal(EV_AMMO_FIRED, {n: item.name, v: spend});
 		this._triggerCollectionUpdate("inventory");
 	}
 
@@ -520,22 +600,36 @@ export class CharacterModel extends BaseComponent {
 		const recovered = getAmmoRecovered(item.ammoSpent);
 		item.quantity = (Number(item.quantity) || 0) + recovered;
 		item.ammoSpent = 0;
+		this.logJournal(EV_AMMO_RECOVERED, {n: item.name, v: recovered});
 		this._triggerCollectionUpdate("inventory");
 		return recovered;
 	}
 
 	/** Replace this character's source filter (which books its pickers offer). */
 	setSourceFilter (filter) {
-		this._state.sourceFilter = {mode: filter?.mode || "all", sources: {...(filter?.sources || {})}};
+		this._state.sourceFilter = {
+			mode: filter?.mode || "all",
+			sources: {...(filter?.sources || {})},
+			// Stored explicitly, both ways round: the default is "prefer the newest", and a character
+			// that has opted out has to keep saying so
+			isPreferReprints: filter?.isPreferReprints !== false,
+		};
 	}
 
 	/** Set expended uses of a named class resource (Rages, Ki Points, Wild Shape, ...). */
 	setResourceUsed (label, n) {
-		this._state.resourcesUsed = {...this._state.resourcesUsed, [label]: Math.max(0, Number(n) || 0)};
+		const before = Math.max(0, Number((this._state.resourcesUsed || {})[label]) || 0);
+		const after = Math.max(0, Number(n) || 0);
+		// Only spending is worth recording; a rest giving them back is already logged as the rest
+		if (after > before) this.logJournal(EV_RESOURCE, {n: label, v: after - before});
+		this._state.resourcesUsed = {...this._state.resourcesUsed, [label]: after};
 	}
 
 	setSlotsUsed (level, count) {
-		this._state.slotsUsed = {...this._state.slotsUsed, [level]: Math.max(0, Number(count) || 0)};
+		const before = Math.max(0, Number((this._state.slotsUsed || {})[level]) || 0);
+		const after = Math.max(0, Number(count) || 0);
+		if (after > before) this.logJournal(EV_SLOT, {n: `${level}`, v: after - before});
+		this._state.slotsUsed = {...this._state.slotsUsed, [level]: after};
 	}
 
 	appendToTextProp (prop, text) {
@@ -695,6 +789,8 @@ export class CharacterModel extends BaseComponent {
 			this.setProficienciesFromSource(prev, []);
 			this.setDefensesFromSource(prev, []);
 			this.clearPendingAbilityOffers(prev);
+			// The new species asks its own questions rather than inheriting the old one's answers
+			this.clearChoicesFrom(`Species: ${prev}`);
 		}
 
 		this._state.speciesText = doc.n;
@@ -703,29 +799,31 @@ export class CharacterModel extends BaseComponent {
 		if (ent) this.applyRaceData(ent);
 	}
 
-	// Trait entries that are boilerplate rather than named features worth surfacing
-	static _RACE_TRAIT_NAMES_IGNORED = new Set(["Age", "Size", "Speed", "Languages", "Alignment", "Ability Score Increase", "Creature Type", "Darkvision"]);
-
 	applyRaceData (race) {
-		const speed = race.speed;
-		let spd = null;
-		if (typeof speed === "number") spd = speed;
-		else if (speed && typeof speed === "object" && typeof speed.walk === "number") spd = speed.walk;
-		if (spd != null) this._state.speed = `${spd} ft.`;
+		// Not the walking speed alone: an Aarakocra flies, a Triton swims, and reading only `walk`
+		// threw away the one thing those species are for
+		const speed = formatSpeeds(getSpeeds(race));
+		if (speed) this._state.speed = speed;
 
 		(race.skillProficiencies || []).forEach(grp => {
 			Object.entries(grp).forEach(([k, v]) => { if (v === true) this.setSkillProfByName(k, 1); });
 		});
+
+		// A species with one size settles it; one with a choice leaves it for the player to answer
+		const sizes = [race.size].flat().filter(Boolean);
+		if (sizes.length === 1) this._state.size = sizes[0];
+		this._state.creatureTypes = [race.creatureTypes].flat().filter(Boolean);
+		this._state.creatureTypeTags = [race.creatureTypeTags].flat().filter(Boolean);
+		this._state.speciesTraitTags = getTraitTags(race);
 
 		this.setProficienciesFromSource(race.name, getEntityProficiencies(race));
 		// Darkvision, resistances, immunities and the rest are structured now, so they are no longer
 		// copied into the notes box as well
 		this.setDefensesFromSource(race.name, getEntityDefenses(race));
 
-		const traitNames = (race.entries || [])
-			.filter(it => it && typeof it === "object" && it.name && !CharacterModel._RACE_TRAIT_NAMES_IGNORED.has(it.name))
-			.map(it => it.name);
-		if (traitNames.length) this.appendToTextProp("featuresText", `${race.name} Traits: ${traitNames.join(", ")}`);
+		// The traits are *not* copied into the notes box. The Species panel renders them as cards, from
+		// the data, so a second hand-written copy could only go stale — and a list of names in a
+		// notes box was never what somebody needed anyway.
 	}
 
 	/**
@@ -752,8 +850,41 @@ export class CharacterModel extends BaseComponent {
 		this._state.abilityBonusLog = [...log, {id: logId || CryptUtil.uid(), source, bonuses: {...bonuses}}];
 	}
 
+	/* -------------------------------------------- The choice log -------------------------------------------- */
+
+	/**
+	 * Record that one of a species' or background's choices has been answered.
+	 *
+	 * Keyed by `getChoiceSignature`, so the guided setup and the pickers write the same key and the
+	 * panels and the Build Check read it. Re-answering the same choice replaces the old record
+	 * rather than adding a second.
+	 */
+	recordChoice ({sig, sourceName, type, picks = []}) {
+		if (!sig) return;
+		this._state.choiceLog = [
+			...(this._state.choiceLog || []).filter(it => it.sig !== sig),
+			{sig, sourceName, type, picks: [...picks]},
+		];
+	}
+
+	hasAnsweredChoice (sig) {
+		return (this._state.choiceLog || []).some(it => it.sig === sig && it.picks.length);
+	}
+
+	/**
+	 * Forget every choice a source answered — used when that species or background is replaced, so
+	 * the new one asks its own questions rather than inheriting the old one's answers.
+	 */
+	clearChoicesFrom (sourceName) {
+		if (!sourceName) return;
+		this._state.choiceLog = (this._state.choiceLog || []).filter(it => it.sourceName !== sourceName);
+	}
+
 	/** Apply a picked background: search doc bookkeeping + mechanical fields from the entity. */
 	applyPickedBackground ({doc, ent, isFixedOnly = false}) {
+		const prev = this._state.refBackground?.name;
+		if (prev && prev !== doc.n) this.clearChoicesFrom(`Background: ${prev}`);
+
 		this._state.backgroundText = doc.n;
 		this._state.refBackground = {name: doc.n, source: doc.source, tag: doc.tag};
 		this.setPickTag("background", doc.tag);
@@ -776,9 +907,11 @@ export class CharacterModel extends BaseComponent {
 		if (langs) parts.push(`Languages: ${langs}`);
 		if (parts.length) this.appendToTextProp("proficienciesText", parts.join("\n"));
 
-		// 2024-style backgrounds grant a feat directly
-		getGrantedFeats(bg.feats)
-			.forEach(feat => this.appendToTextProp("featuresText", `Feat: ${feat.displayName} (${Parser.sourceJsonToAbv(feat.source)})`));
+		// A 2024 background's Origin feat is *not* written into the notes here. It used to be, and a
+		// line of text is the one thing it must not be: nothing counted it, nothing showed it, and
+		// the feat's own choices were never asked. It is applied as a real feat by whoever did the
+		// picking (the wizard, or the background picker), and the Build Check reports it if it never
+		// was — see `getBuildAudit`.
 	}
 
 	/** Apply a picked class at a given level: display text, tag, structured entry, and mechanical fields. */
@@ -790,6 +923,22 @@ export class CharacterModel extends BaseComponent {
 		if (cls.hd && cls.hd.faces) this._state.hdTotal = `${level}d${cls.hd.faces}`;
 		(cls.proficiency || []).forEach(abv => this._state[`save_${abv}`] = true);
 		if (cls.spellcastingAbility) this._state.spellAbility = cls.spellcastingAbility;
+	}
+
+	/**
+	 * Proficiency in one saving throw. Classes set these directly on apply; a feat (Resilient) grants
+	 * one by choice, and goes through here so there is one way in.
+	 */
+	/** The size a species left to the player, as the data's abbreviation ("S"/"M"). */
+	setSize (abv) {
+		this._state.size = abv || "";
+	}
+
+	setSaveProficiency (abv, isProficient = true) {
+		const prop = `save_${abv}`;
+		if (!(prop in this.__state)) return false;
+		this._state[prop] = !!isProficient;
+		return true;
 	}
 
 	/** Set the (single) primary class from picked class data, replacing any existing classes. */
@@ -811,6 +960,7 @@ export class CharacterModel extends BaseComponent {
 			// Re-picking the same class (e.g. to refresh level) keeps its subclass/feature choices
 			subclass: isSameClass ? existing.subclass : null,
 			optionalFeatures: isSameClass ? (existing.optionalFeatures || []) : [],
+			featureVariants: isSameClass ? (existing.featureVariants || []) : [],
 			asiFeatChoices: isSameClass ? (existing.asiFeatChoices || []) : [],
 		}];
 	}
@@ -830,6 +980,7 @@ export class CharacterModel extends BaseComponent {
 				hdFaces: cls.hd?.faces ?? null,
 				subclass: null,
 				optionalFeatures: [],
+				featureVariants: [],
 				asiFeatChoices: [],
 			},
 		];
@@ -871,6 +1022,19 @@ export class CharacterModel extends BaseComponent {
 		const entry = this._state.classes.find(it => it.id === id);
 		if (!entry?.optionalFeatures) return;
 		entry.optionalFeatures = entry.optionalFeatures.filter(it => !(it.name === name && it.source === source));
+		this._triggerCollectionUpdate("classes");
+	}
+
+	/**
+	 * Take, or give back, one of Tasha's optional class features. These are a permission the table
+	 * gives rather than something a level grants, so they default to off and what they replace stays
+	 * in force until one is taken.
+	 */
+	setFeatureVariantForClass (id, {name, source}, isTaken) {
+		const entry = this._state.classes.find(it => it.id === id);
+		if (!entry || !name) return;
+		const rest = (entry.featureVariants || []).filter(it => !(it.name === name && it.source === source));
+		entry.featureVariants = isTaken ? [...rest, {name, source}] : rest;
 		this._triggerCollectionUpdate("classes");
 	}
 

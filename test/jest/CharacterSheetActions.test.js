@@ -1,4 +1,4 @@
-import {buildActionEconomy, getSpellSummary, normaliseCastTime} from "../../js/charactersheet/charactersheet-actions.js";
+import {buildActionEconomy, getGeneralActionEntries, getSpellSummary, normaliseCastTime} from "../../js/charactersheet/charactersheet-actions.js";
 
 describe("Action economy: casting-time normalisation", () => {
 	it("Should map a spell's time to an economy bucket", () => {
@@ -69,5 +69,97 @@ describe("Spell summary line", () => {
 		expect(getSpellSummary({time: [{number: 1, unit: "bonus"}], range: {distance: {type: "self"}}})).toBe("Bonus · Self");
 		expect(getSpellSummary({time: [{number: 1, unit: "action"}], range: {distance: {type: "touch"}}})).toBe("Action · Touch");
 		expect(getSpellSummary(null)).toBe("");
+	});
+});
+
+/*
+ * What *any* character can do on their turn — Dash, Dodge, Hide, Ready, Two-Weapon Fighting.
+ *
+ * Read from the book's own action list rather than written out here, because the two editions
+ * differ in ways nobody should be holding in their head: 2024 split Search into Study and
+ * Influence, and moved Grapple and Shove onto the Unarmed Strike.
+ */
+describe("Action economy: what anyone can do", () => {
+	const ACTIONS = [
+		{name: "Dash", source: "XPHB", time: [{number: 1, unit: "action"}]},
+		{name: "Dash", source: "PHB", time: [{number: 1, unit: "action"}]},
+		{name: "Two-Weapon Fighting", source: "XPHB", time: [{number: 1, unit: "bonus"}]},
+		{name: "Opportunity Attack", source: "XPHB", time: [{number: 1, unit: "reaction"}]},
+		{name: "Study", source: "XPHB", time: [{number: 1, unit: "action"}]},
+		{name: "Search", source: "PHB", time: [{number: 1, unit: "action"}]},
+		{name: "Grapple", source: "PHB", time: [{number: 1, unit: "action"}]},
+		// The sheet says these better itself, as the character's own weapons and spells
+		{name: "Attack", source: "XPHB", time: [{number: 1, unit: "action"}]},
+		{name: "Magic", source: "XPHB", time: [{number: 1, unit: "action"}]},
+		// Another book's optional variant, and not something every character has
+		{name: "Disarm", source: "DMG", time: [{number: 1, unit: "action"}]},
+	];
+
+	const labels = opts => getGeneralActionEntries(ACTIONS, opts).map(it => it.label);
+
+	it("Should read the edition the character is playing", () => {
+		expect(labels({})).toContain("Study");
+		expect(labels({})).not.toContain("Search");
+		expect(labels({isClassic: true})).toContain("Search");
+		expect(labels({isClassic: true})).not.toContain("Study");
+	});
+
+	it("Should leave out what the sheet already lists better, and another book's variants", () => {
+		const shown = labels({});
+		expect(shown).not.toContain("Attack");
+		expect(shown).not.toContain("Magic");
+		expect(shown).not.toContain("Disarm");
+	});
+
+	it("Should bucket each by what it costs", () => {
+		const byLabel = Object.fromEntries(getGeneralActionEntries(ACTIONS, {}).map(it => [it.label, it.bucket]));
+		expect(byLabel["Dash"]).toBe("action");
+		expect(byLabel["Two-Weapon Fighting"]).toBe("bonus");
+		expect(byLabel["Opportunity Attack"]).toBe("reaction");
+	});
+
+	// 2024 made both an option on an Unarmed Strike, so they are in the variant rules and not here
+	it("Should still offer Grapple and Shove under the 2024 rules", () => {
+		expect(labels({})).toEqual(expect.arrayContaining(["Grapple", "Shove"]));
+		// 2014 has them as actions of their own, so they come from the data and are not duplicated
+		expect(labels({isClassic: true}).filter(it => it === "Grapple")).toHaveLength(1);
+	});
+
+	it("Should include jumping, which costs no action and is looked up constantly", () => {
+		const jump = getGeneralActionEntries(ACTIONS, {}).find(it => it.label === "Jump");
+		expect(jump.bucket).toBe("free");
+		expect(jump.sub).toMatch(/Str score in feet/);
+	});
+});
+
+/*
+ * A feature reaches the turn helper by what the book says about it, not only by being on a list of
+ * twenty names somebody wrote down.
+ */
+describe("Action economy: features that say when they happen", () => {
+	it("Takes the feature's own bucket over the curated map", () => {
+		const econ = buildActionEconomy({
+			attacks: [],
+			spells: [],
+			features: [{name: "Hand of Harm", bucket: "bonus", cost: {resource: "Ki", label: "Ki Points", amount: 1}, sub: "Costs 1 Ki Point"}],
+		});
+		expect(econ.bonus.map(it => it.label)).toEqual(["Hand of Harm"]);
+		expect(econ.bonus[0].sub).toBe("Costs 1 Ki Point");
+		expect(econ.bonus[0].cost).toEqual({resource: "Ki", label: "Ki Points", amount: 1});
+	});
+
+	it("Falls back to the curated map where the book does not say", () => {
+		const econ = buildActionEconomy({attacks: [], spells: [], features: [{name: "Rage", bucket: null}]});
+		expect(econ.bonus.map(it => it.label)).toEqual(["Rage"]);
+	});
+
+	it("Leaves out a feature that is neither", () => {
+		const econ = buildActionEconomy({attacks: [], spells: [], features: [{name: "Psionic Strike", bucket: null}]});
+		expect([...econ.action, ...econ.bonus, ...econ.reaction]).toEqual([]);
+	});
+
+	it("Still accepts a plain name", () => {
+		const econ = buildActionEconomy({attacks: [], spells: [], features: ["Action Surge"]});
+		expect(econ.action.map(it => it.label)).toEqual(["Action Surge"]);
 	});
 });

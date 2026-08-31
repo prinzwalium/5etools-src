@@ -1,13 +1,21 @@
 import {CHAR_SHEET_ABILITIES} from "./charactersheet-consts.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {
+	ALL_TOOL_NAMES,
 	CHOICE_TYPE_ABILITY,
 	CHOICE_TYPE_LANGUAGE,
 	CHOICE_TYPE_SKILL,
+	CHOICE_TYPE_SKILL_TOOL_LANGUAGE,
 	CHOICE_TYPE_TOOL,
 	getAbilityPackageDisplay,
+	getChoiceSignature,
 	getFixedAbilityBonuses,
+	getGrantedFeatCategories,
+	getFixedProficiencyNames,
+	getGrantedFeats,
+	getHeldProficiencyNames,
 	getPendingChoices,
+	mergeHeldProficiencyNames,
 } from "./charactersheet-choices.js";
 import {
 	ABILITY_METHOD_MANUAL,
@@ -20,8 +28,11 @@ import {
 	getPointBuyTotalCost,
 	isValidStandardArrayAssignment,
 } from "./charactersheet-abilityscores.js";
+import {getPrimaryAbilities} from "./charactersheet-levelengine.js";
 import {EQUIPMENT_ALWAYS_KEY, getEquipmentChoiceGroups, getEquipmentOptionDisplay, getInventoryItemMeta} from "./charactersheet-equipment.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL} from "./charactersheet-proficiencies.js";
+import {pResolveFeat} from "./charactersheet-featgrant.js";
+import {CharacterBuildWalk} from "./charactersheet-buildwalk.js";
 
 /**
  * Guided character creation: a step-sequence wizard
@@ -37,10 +48,18 @@ export class CharacterWizard {
 		{id: "choices", name: "Choices"},
 		{id: "equipment", name: "Equipment"},
 		{id: "review", name: "Review"},
+		// Runs *after* the draft is applied: everything above can only be decided up front, and
+		// everything here needs the character to exist first — a subclass needs a class, Expertise
+		// needs skills, spells need a spell list
+		{id: "finish", name: "Finish"},
 	];
 
-	constructor ({comp}) {
+	constructor ({comp, page = null}) {
 		this._comp = comp;
+		// The page owns the pickers the last step walks; without one that step simply says what is
+		// left rather than offering to do it
+		this._page = page;
+		this._walk = page ? new CharacterBuildWalk({comp, page}) : null;
 		this._ixStep = 0;
 
 		this._draft = {
@@ -62,10 +81,17 @@ export class CharacterWizard {
 		this._eleBody = null;
 		this._eleFooter = null;
 		this._doClose = null;
+
+		// The Choices step renders synchronously, four steps after this; starting the read now means
+		// the real tool list is there when it needs one, and the static fallback if the read fails
+		this._toolNames = ALL_TOOL_NAMES;
+		CharacterSheetClassData.pGetToolProficiencyNames()
+			.then(names => this._toolNames = names)
+			.catch(() => {});
 	}
 
-	static async pShow ({comp}) {
-		const wizard = new CharacterWizard({comp});
+	static async pShow ({comp, page = null}) {
+		const wizard = new CharacterWizard({comp, page});
 		return wizard._pShow();
 	}
 
@@ -117,7 +143,6 @@ export class CharacterWizard {
 		btnBack.type = "button";
 		btnBack.className = "ve-btn ve-btn-default";
 		btnBack.textContent = "Back";
-		btnBack.disabled = this._ixStep === 0;
 		btnBack.addEventListener("click", () => {
 			this._ixStep -= 1;
 			this._renderStep();
@@ -126,34 +151,47 @@ export class CharacterWizard {
 		const btnCancel = document.createElement("button");
 		btnCancel.type = "button";
 		btnCancel.className = "ve-btn ve-btn-default ve-ml-2";
-		btnCancel.textContent = "Cancel";
 		btnCancel.addEventListener("click", () => this._doClose(false));
 
 		const dispValidation = document.createElement("div");
 		dispValidation.className = "ve-muted ve-small ve-ml-auto ve-mr-2";
 		dispValidation.id = "cs-wiz-validation";
 
-		const isLast = this._ixStep === CharacterWizard._STEPS.length - 1;
+		const step = CharacterWizard._STEPS[this._ixStep];
+		const isApplyStep = step.id === "review";
+		const isDone = step.id === "finish";
+
+		// Back is meaningless once the draft has been applied: the character exists, and the earlier
+		// steps would apply it a second time
+		btnBack.disabled = this._ixStep === 0 || isDone;
+		btnCancel.textContent = isDone ? "Close" : "Cancel";
+
 		const btnNext = document.createElement("button");
 		btnNext.type = "button";
-		btnNext.className = `ve-btn ${isLast ? "ve-btn-primary" : "ve-btn-default"}`;
-		btnNext.textContent = isLast ? "Finish" : "Next";
+		btnNext.className = `ve-btn ${isApplyStep || isDone ? "ve-btn-primary" : "ve-btn-default"}`;
+		btnNext.textContent = isDone ? "Done" : (isApplyStep ? "Apply" : "Next");
 		btnNext.addEventListener("click", async () => {
+			if (isDone) return this._doClose(true);
+
 			const msgInvalid = this._getStepValidationError();
 			if (msgInvalid) {
 				dispValidation.textContent = msgInvalid;
 				return;
 			}
-			if (isLast) {
+
+			if (isApplyStep) {
 				btnNext.disabled = true;
 				try {
 					await this._pApplyDraft();
 				} finally {
 					btnNext.disabled = false;
 				}
-				this._doClose(true);
+				// Straight on to what is left, rather than closing and leaving somebody to find it
+				this._ixStep += 1;
+				this._renderStep();
 				return;
 			}
+
 			this._ixStep += 1;
 			this._renderStep();
 		});
@@ -267,9 +305,27 @@ export class CharacterWizard {
 
 	/* -------------------------------------------- Step: ability scores -------------------------------------------- */
 
+	/**
+	 * Where the high score goes, according to the class itself.
+	 *
+	 * `primaryAbility` is in the data for every class and was never read, so the step that decides a
+	 * character's whole shape offered no hint at the one moment somebody new needs one.
+	 */
+	_getPrimaryAbilityHint () {
+		const abvs = getPrimaryAbilities(this._draft.cls);
+		if (!abvs.length) return "";
+
+		const names = abvs.map(abv => Parser.attAbvToFull(abv)).filter(Boolean);
+		if (!names.length) return "";
+
+		const ptNames = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+		return `<p class="ve-muted ve-small">A ${this._draft.cls.name} leans on <b>${ptNames}</b>&nbsp;\u2014 the class names it as its primary ability.</p>`;
+	}
+
 	_render_abilities (wrp) {
 		wrp.innerHTML = `
 			<p>Choose how to determine ability scores. Fixed species/background ability bonuses, and any you resolve in the Choices step, are added on top when you finish.</p>
+			${this._getPrimaryAbilityHint()}
 			<div class="ve-flex-v-center ve-mb-2">
 				<label class="ve-flex-v-center"><span class="ve-mr-2">Method</span><select class="ve-form-control ve-input-xs" id="cs-wiz-sel-abil-method" style="max-width: 220px;">
 					<option value="">Keep current scores</option>
@@ -350,17 +406,16 @@ export class CharacterWizard {
 
 	/* -------------------------------------------- Step: choice queue -------------------------------------------- */
 
-	static _getChoiceSig (choice) { return `${choice.sourceName}|${choice.label}`; }
-
 	_render_choices (wrp) {
 		this._draft.choices = getPendingChoices({
 			race: this._draft.race?.ent,
 			background: this._draft.background?.ent,
 			cls: this._draft.cls,
+			toolNames: this._toolNames,
 		});
 
 		// Drop stale selections (e.g. after going back and changing class)
-		const sigs = new Set(this._draft.choices.map(it => CharacterWizard._getChoiceSig(it)));
+		const sigs = new Set(this._draft.choices.map(it => getChoiceSignature(it)));
 		[...this._draft.choiceSelections.keys()].filter(sig => !sigs.has(sig)).forEach(sig => this._draft.choiceSelections.delete(sig));
 
 		if (!this._draft.choices.length) {
@@ -370,10 +425,33 @@ export class CharacterWizard {
 
 		wrp.innerHTML = `<p>Resolve the choices granted by your selections.</p>`;
 
+		// Nothing here is applied yet, so the choices cannot see each other through the character —
+		// which is how a Human Fighter offered Acrobatics twice could spend two picks on one skill.
+		// Every option control registers here, and one pass over them greys what is spoken for.
+		const held = mergeHeldProficiencyNames(
+			getHeldProficiencyNames(this._comp._getState()),
+			// …plus what the draft is about to grant outright, which the character cannot know yet
+			getFixedProficiencyNames({race: this._draft.race?.ent, background: this._draft.background?.ent, cls: this._draft.cls}),
+		);
+		const ctrls = [];
+		const refreshBlocked = () => {
+			const owners = new Map();
+			ctrls.forEach(({choice, opt, cb}) => { if (cb.checked) owners.set(`${choice.type}|${opt}`, choice); });
+			ctrls.forEach(({choice, opt, cb, lbl}) => {
+				const owner = owners.get(`${choice.type}|${opt}`);
+				const isElsewhere = owner && owner !== choice;
+				const isAlready = !cb.checked && held[choice.type]?.has(opt);
+				const isBlocked = !!(isElsewhere || isAlready);
+				cb.disabled = isBlocked;
+				lbl.classList.toggle("ve-muted", isBlocked);
+				lbl.title = isElsewhere ? `Already chosen for ${owner.sourceName}` : isAlready ? "Already proficient" : "";
+			});
+		};
+
 		this._draft.choices.forEach(choice => {
 			if (choice.type === CHOICE_TYPE_ABILITY) return this._renderAbilityChoice(wrp, choice);
 
-			const sig = CharacterWizard._getChoiceSig(choice);
+			const sig = getChoiceSignature(choice);
 			if (!this._draft.choiceSelections.has(sig)) this._draft.choiceSelections.set(sig, new Set());
 			const selections = this._draft.choiceSelections.get(sig);
 			selections.forEach(v => { if (!choice.from.includes(v)) selections.delete(v); });
@@ -407,16 +485,20 @@ export class CharacterWizard {
 						selections.add(opt);
 					} else selections.delete(opt);
 					renderStatus();
+					refreshBlocked();
 				});
 				const spn = document.createElement("span");
 				spn.textContent = opt;
 				lbl.append(cb, spn);
 				wrpOpts.appendChild(lbl);
+				ctrls.push({choice, opt, cb, lbl});
 			});
 
 			renderStatus();
 			wrp.appendChild(wrpChoice);
 		});
+
+		refreshBlocked();
 	}
 
 	/* -------------------------------------------- Ability score choices -------------------------------------------- */
@@ -428,7 +510,7 @@ export class CharacterWizard {
 	}
 
 	_renderAbilityChoice (wrp, choice) {
-		const sig = CharacterWizard._getChoiceSig(choice);
+		const sig = getChoiceSignature(choice);
 		if (!this._draft.abilitySelections.has(sig)) this._draft.abilitySelections.set(sig, {ixPackage: 0, slots: []});
 		const sel = this._draft.abilitySelections.get(sig);
 
@@ -510,7 +592,7 @@ export class CharacterWizard {
 
 	/** Resolved bonuses for one ability choice, or null while incomplete/invalid. */
 	_getResolvedAbilityBonuses (choice) {
-		const sel = this._draft.abilitySelections.get(CharacterWizard._getChoiceSig(choice));
+		const sel = this._draft.abilitySelections.get(getChoiceSignature(choice));
 		if (!sel) return null;
 		const pkg = choice.packages[sel.ixPackage];
 		if (!pkg) return null;
@@ -540,6 +622,35 @@ export class CharacterWizard {
 			.forEach(choice => add(this._getResolvedAbilityBonuses(choice)));
 		return bonuses;
 	}
+
+	/**
+	 * The same bonuses as `_getCombinedAbilityBonuses`, but kept apart by what granted each.
+	 *
+	 * The sheet stores final scores, so the only record of *why* a score is what it is is the
+	 * ability-bonus log — and a panel that wants to tick "+2 Strength, from your background" needs
+	 * the background's name in it.
+	 */
+	_getAbilityBonusesBySource () {
+		const bySource = new Map();
+		const add = (source, map) => {
+			if (!source || !Object.keys(map || {}).length) return;
+			const cur = bySource.get(source) || {};
+			Object.entries(map).forEach(([abv, n]) => cur[abv] = (cur[abv] || 0) + n);
+			bySource.set(source, cur);
+		};
+
+		if (this._draft.race?.ent) add(this._draft.race.ent.name, getFixedAbilityBonuses(this._draft.race.ent.ability));
+		if (this._draft.background?.ent) add(this._draft.background.ent.name, getFixedAbilityBonuses(this._draft.background.ent.ability));
+
+		this._draft.choices
+			.filter(it => it.type === CHOICE_TYPE_ABILITY)
+			.forEach(choice => add(CharacterWizard._getEntityName(choice.sourceName), this._getResolvedAbilityBonuses(choice)));
+
+		return [...bySource.entries()].map(([source, bonuses]) => ({source, bonuses}));
+	}
+
+	/** "Background: Sailor" → "Sailor". A choice names its source for a person; a log names the entity. */
+	static _getEntityName (sourceName) { return String(sourceName || "").replace(/^(Species|Background|Class):\s*/, ""); }
 
 	/* -------------------------------------------- Step: equipment -------------------------------------------- */
 
@@ -628,6 +739,50 @@ export class CharacterWizard {
 		});
 	}
 
+	/**
+	 * The feats the chosen background grants, applied for real: the ability increase, the fixed
+	 * grants, and any skill or Expertise the feat itself asks you to choose.
+	 *
+	 * Silent when there are none, which is every pre-2024 background.
+	 */
+	async _pApplyBackgroundFeats (comp) {
+		for (const ent of [this._draft.background?.ent, this._draft.race?.ent]) await this._pApplyEntityFeats(comp, ent);
+	}
+
+	async _pApplyEntityFeats (comp, ent) {
+		for (const {name, source, displayName} of getGrantedFeats(ent?.feats, {fromFeature: ent?.fromFeature})) {
+			const feat = await CharacterSheetClassData.pGetFeat({name, source}).catch(() => null);
+			if (!feat) continue;
+
+			const bonuses = await pResolveFeat(comp, feat);
+			if (bonuses == null) continue;
+			comp.addOriginFeat({name: feat.name, source: feat.source, displayName: displayName || feat.name, bonuses, from: ent.name, isRepeatable: !!feat.repeatable});
+		}
+
+		// "An Origin feat of your choice" (the 2024 Human's Versatile) is a pick, not a confirmation
+		for (const grant of getGrantedFeatCategories(ent?.feats)) {
+			for (let i = 0; i < grant.count; ++i) {
+				const pool = (await CharacterSheetClassData.pGetAllFeats())
+					.filter(f => String(f.category || "").toUpperCase().split(":")[0] === grant.category)
+					.filter(f => !(comp._state.originFeats || []).some(it => it.name === f.name && it.source === f.source));
+				if (!pool.length) break;
+
+				const feat = await InputUiUtil.pGetUserEnum({
+					values: pool,
+					isResolveItem: true,
+					fnDisplay: f => `${f.name} (${Parser.sourceJsonToAbv(f.source)})`,
+					title: `${ent.name}: choose an Origin feat`,
+					placeholder: "Select...",
+				});
+				if (feat == null) break;
+
+				const bonuses = await pResolveFeat(comp, feat);
+				if (bonuses == null) break;
+				comp.addOriginFeat({name: feat.name, source: feat.source, displayName: feat.name, bonuses, from: ent.name, isRepeatable: !!feat.repeatable});
+			}
+		}
+	}
+
 	async _pApplyEquipment () {
 		const notes = [];
 		let cpGained = 0;
@@ -696,12 +851,28 @@ export class CharacterWizard {
 
 		const selectionSummaries = this._draft.choices
 			.map(choice => {
-				const selections = this._draft.choiceSelections.get(CharacterWizard._getChoiceSig(choice));
+				const selections = this._draft.choiceSelections.get(getChoiceSignature(choice));
 				if (!selections?.size) return null;
 				return `${choice.sourceName.qq()}: ${[...selections].join(", ").qq()}`;
 			})
 			.filter(Boolean);
 		if (selectionSummaries.length) addRow("Choices", selectionSummaries.join("<br>"));
+
+		// Named here because finishing will ask about it — a feat that arrives unannounced, with its
+		// own questions, is a surprise in the middle of the last click.
+		//
+		// Each one says which entity grants it. Without that, a Human noble read as
+		// "Origin Feat: Skilled, one of your choice" beside "Species: Human", and the obvious
+		// conclusion — that the species had granted Skilled — was the wrong one.
+		const featEnts = [this._draft.background?.ent, this._draft.race?.ent].filter(Boolean);
+		const featParts = featEnts.flatMap(ent => [
+			...getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature}).map(it => `${(it.displayName || it.name).qq()} <span class="ve-muted">(from ${ent.name.qq()})</span>`),
+			...Array.from(
+				{length: getGrantedFeatCategories(ent.feats).reduce((a, it) => a + it.count, 0)},
+				() => `one of your choice <span class="ve-muted">(from ${ent.name.qq()})</span>`,
+			),
+		]);
+		if (featParts.length) addRow("Origin Feat", featParts.join("<br>"));
 
 		const suggestedHp = this._getSuggestedHpMax();
 
@@ -716,6 +887,81 @@ export class CharacterWizard {
 		const cbHp = wrp.querySelector("#cs-wiz-cb-hp");
 		if (cbHp) cbHp.addEventListener("change", () => this._draft.isSetSuggestedHp = cbHp.checked);
 	}
+
+	/* -------------------------------------------- Step: finish -------------------------------------------- */
+
+	/**
+	 * Everything still to decide, after the draft has been applied.
+	 *
+	 * The steps before this one can all be answered up front; these cannot. A subclass needs a class
+	 * to belong to, Expertise needs skills to double, spells need a spell list — so they are asked
+	 * here, against the real character, using the same pickers the panels use.
+	 *
+	 * It re-reads the list after every answer, because answering one can reveal another: a subclass
+	 * arrives with its own optional features, and a feat can bring a skill choice with it.
+	 */
+	_render_finish (wrp) {
+		wrp.insertAdjacentHTML("beforeend",
+			`<p>Your character is on the sheet. These are the decisions still open &mdash; the ones that only make sense once it exists.</p>`);
+
+		const wrpList = document.createElement("div");
+		wrpList.className = "ve-flex-col ve-min-h-0 ve-overflow-y-auto";
+		wrp.appendChild(wrpList);
+		this._pRenderFinishList(wrpList);
+	}
+
+	async _pRenderFinishList (wrpList) {
+		wrpList.innerHTML = `<div class="ve-muted ve-small">Checking…</div>`;
+
+		if (!this._walk) {
+			wrpList.innerHTML = `<div class="ve-muted ve-small">Everything else can be set on the sheet itself.</div>`;
+			return;
+		}
+
+		const decisions = await this._pGetFinishDecisions();
+		wrpList.innerHTML = "";
+
+		if (!decisions.length) {
+			wrpList.insertAdjacentHTML("beforeend",
+				`<div class="ve-success-text"><b>Nothing left.</b> This character is ready to play.</div>`);
+			return;
+		}
+
+		decisions.forEach(decision => {
+			const row = document.createElement("div");
+			row.className = "ve-flex-v-center ve-mb-1";
+
+			const lbl = document.createElement("span");
+			lbl.style.flex = "1";
+			const ptCount = decision.count > 1 ? ` <span class="ve-muted">×${decision.count}</span>` : "";
+			const ptDetail = decision.detail ? ` <span class="ve-muted ve-small">${decision.detail.qq()}</span>` : "";
+			lbl.innerHTML = `<span class="bold">${decision.label.qq()}</span>${ptCount}${ptDetail}`;
+			row.appendChild(lbl);
+
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "ve-btn ve-btn-primary ve-btn-xs";
+			btn.textContent = "Choose";
+			btn.addEventListener("click", async () => {
+				btn.disabled = true;
+				try {
+					await this._walk.pResolve(decision);
+				} catch (e) {
+					JqueryUtil.doToast({type: "danger", content: `${e?.message || e}`});
+				}
+				// Re-read rather than strike through: one answer can reveal the next
+				this._pRenderFinishList(wrpList);
+			});
+			row.appendChild(btn);
+
+			wrpList.appendChild(row);
+		});
+
+		wrpList.insertAdjacentHTML("beforeend",
+			`<div class="ve-muted ve-small ve-mt-2">Anything left here can also be settled later &mdash; the Build Check panel lists the same things.</div>`);
+	}
+
+	_pGetFinishDecisions () { return this._walk.pGetDecisions(); }
 
 	/* -------------------------------------------- Apply -------------------------------------------- */
 
@@ -740,17 +986,56 @@ export class CharacterWizard {
 			});
 		}
 
-		const abilityBonuses = this._getCombinedAbilityBonuses();
-		if (Object.keys(abilityBonuses).length) comp.applyAbilityBonuses(abilityBonuses, {source: "Species & Background"});
+		// Attributed to whatever granted them, not lumped under "Species & Background": the panels tick
+		// a grant by looking for its source, and a lump matches nothing
+		this._getAbilityBonusesBySource().forEach(({source, bonuses}) => comp.applyAbilityBonuses(bonuses, {source}));
 
-		// Resolve queued choices
+		// An ability choice answered here must not be asked again by the panels
+		this._draft.choices
+			.filter(it => it.type === CHOICE_TYPE_ABILITY)
+			.filter(choice => Object.keys(this._getResolvedAbilityBonuses(choice) || {}).length)
+			.forEach(choice => comp.recordChoice({
+				sig: getChoiceSignature(choice),
+				sourceName: choice.sourceName,
+				type: choice.type,
+				picks: Object.entries(this._getResolvedAbilityBonuses(choice)).map(([abv, n]) => `${n >= 0 ? "+" : ""}${n} ${abv.toUpperCase()}`),
+			}));
+
+		// Resolve queued choices — and *record* them. A skill keeps no note of where it came from, so
+		// without the log nothing afterwards can tell an answered choice from an unasked one, which is
+		// what left the Species panel asking for a skill the guide had already chosen.
 		this._draft.choices.forEach(choice => {
-			const selections = this._draft.choiceSelections.get(CharacterWizard._getChoiceSig(choice));
+			const selections = this._draft.choiceSelections.get(getChoiceSignature(choice));
 			if (!selections?.size) return;
-			if (choice.type === CHOICE_TYPE_SKILL) selections.forEach(name => comp.setSkillProfByName(name, 1));
-			else if (choice.type === CHOICE_TYPE_LANGUAGE) selections.forEach(name => comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: choice.sourceName}));
-			else if (choice.type === CHOICE_TYPE_TOOL) selections.forEach(name => comp.addProficiency({kind: PROF_KIND_TOOL, name, source: choice.sourceName}));
+
+			// A mixed pool ("three skills or tools") is applied per pick, by the pool the name came from
+			const typeOf = name => (choice.type === CHOICE_TYPE_SKILL_TOOL_LANGUAGE
+				? [CHOICE_TYPE_SKILL, CHOICE_TYPE_TOOL, CHOICE_TYPE_LANGUAGE].find(t => (choice.pools?.[t] || []).includes(name)) || CHOICE_TYPE_TOOL
+				: choice.type);
+
+			selections.forEach(name => {
+				const type = typeOf(name);
+				if (type === CHOICE_TYPE_SKILL) comp.setSkillProfByName(name, 1);
+				else if (type === CHOICE_TYPE_LANGUAGE) comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: choice.sourceName});
+				else if (type === CHOICE_TYPE_TOOL) comp.addProficiency({kind: PROF_KIND_TOOL, name, source: choice.sourceName});
+			});
+
+			comp.recordChoice({
+				sig: getChoiceSignature(choice),
+				sourceName: choice.sourceName,
+				type: choice.type,
+				picks: [...selections],
+			});
 		});
+
+		// The size a species leaves open belongs with its other questions, asked while the species is
+		// being applied — not deferred to the list of things that need the character to exist first
+		if (this._page) await this._page._pResolveSizeChoice(this._draft.race?.ent);
+
+		// A 2024 background grants an Origin feat, and it is part of the character rather than a note
+		// about it: without this the wizard wrote "Feat: Tavern Brawler" into a text box and stopped,
+		// so nothing counted it, nothing showed it, and its own choices were never asked
+		await this._pApplyBackgroundFeats(comp);
 
 		if (this._draft.isAddEquipment) await this._pApplyEquipment();
 

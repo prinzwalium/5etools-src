@@ -8,6 +8,7 @@ import {
 	getWeaponMasteryCount,
 	getMulticlassRequirementsDisplay,
 	getOptionalFeatureCounts,
+	getPreparedSpellsChange,
 	getPreparedSpellsDisplay,
 	getSpellcastingMeta,
 	getSpellsKnown,
@@ -16,6 +17,8 @@ import {
 import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SKILLS, EXPENDABLE_RESOURCES, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {pPickAbilities, pResolveFeat} from "./charactersheet-featgrant.js";
 import {getStateSourcePredicate} from "./charactersheet-sources.js";
+import {getChosenFeatureNames, getTakenFeats, getVariantParentName, getVariantReplacedNames} from "./charactersheet-features.js";
+import {PROF_KIND_ARMOR, PROF_KIND_WEAPON} from "./charactersheet-proficiencies.js";
 
 /**
  * The "Class & Leveling" sheet panel: renders the derived feature timeline, subclass and
@@ -89,6 +92,40 @@ export class CharacterClassPanel {
 			loaded.push({entry, cls, sc});
 		}
 		if (token !== this._renderToken) return;
+
+		// An optional feature can itself grant something — Lessons of the First Ones gives an Origin
+		// feat. `entry.optionalFeatures` holds only a name and a source, so the entities are looked
+		// up once here and kept for the choosers to read.
+		this._optionalFeatureData = new Map();
+		try {
+			(await CharacterSheetClassData.pGetAllOptionalFeatures())
+				.forEach(it => this._optionalFeatureData.set(`${it.name}|${it.source}`, it));
+		} catch (e) {
+			this._optionalFeatureData = new Map();
+		}
+		if (token !== this._renderToken) return;
+
+		// A feat's category, for the two prerequisites that ask about one (the dragonmark rules).
+		// Cached here rather than looked up per check, which would make the check async
+		this._featCategoryData = new Map();
+		try {
+			(await CharacterSheetClassData.pGetAllFeatsUnfiltered()).forEach(it => {
+				if (!it.category) return;
+				this._featCategoryData.set(`${it.name}|${it.source}`.toLowerCase(), it.category);
+				if (!this._featCategoryData.has(String(it.name).toLowerCase())) this._featCategoryData.set(String(it.name).toLowerCase(), it.category);
+			});
+		} catch (e) {
+			this._featCategoryData = new Map();
+		}
+		if (token !== this._renderToken) return;
+
+		// The features the character has gained by levelling — "Fighting Style" and "Pact Magic" are
+		// both prerequisites, and both arrive this way rather than by being chosen
+		this._featureNames = loaded.flatMap(({entry, cls, sc}) => (cls
+			? CharacterSheetClassData.getActiveFeatureTimeline(cls, {subclass: sc, level: entry.level, featureVariants: entry.featureVariants})
+				.map(it => CharacterSheetClassData.getFeatureNameMeta(it.feature).name)
+				.filter(Boolean)
+			: []));
 
 		this._loaded = loaded;
 		this._wrp.innerHTML = "";
@@ -211,7 +248,11 @@ export class CharacterClassPanel {
 		wrp.className = "ve-mb-2";
 
 		if (!cls) {
-			wrp.innerHTML = `<div class="bold">${entry.name.qq()} ${entry.level}</div><div class="ve-muted ve-small">Class data not available (${entry.source.qq()}).</div>`;
+			// A class with no source at all is a character from somewhere else — an old save, another
+			// tool, a hand-written file. Saying which book is missing is the point of this line, so
+			// where there is no answer it says that rather than taking the panel down
+			const why = entry.source ? `${entry.source.qq()} is not loaded` : "no source was recorded for it";
+			wrp.innerHTML = `<div class="bold">${(entry.name || "Unknown class").qq()} ${entry.level ?? ""}</div><div class="ve-muted ve-small">Class data not available: ${why}.</div>`;
 			this._wrp.appendChild(wrp);
 			return;
 		}
@@ -577,6 +618,24 @@ export class CharacterClassPanel {
 			btn.addEventListener("click", () => this._pOnChooseOptionalFeature({entry, prog}));
 			box.appendChild(btn);
 		}
+
+		// What a taken option grants is the option's business — an invocation that hands you an
+		// Origin feat asks for it here, under the invocation, rather than from the list it came from
+		chosenForProg.forEach(feat => this._renderOptionalFeatureGrants(box.parentElement || box, {entry, feat}));
+	}
+
+	/** Feats granted by an optional feature the character has actually taken. */
+	_renderOptionalFeatureGrants (host, {entry, feat}) {
+		const ent = this._optionalFeatureData?.get(`${feat.name}|${feat.source}`);
+		if (!ent) return;
+
+		CharacterSheetClassData.getFeatureFeatGrants(ent).forEach(grant => {
+			const box = document.createElement("div");
+			box.className = "cs__feat-choice cs__feat-choice--nested";
+			box.insertAdjacentHTML("beforeend", `<span class="ve-muted ve-small ve-mr-1">${feat.name.qq()} grants:</span>`);
+			this._renderFeatureFeatChooser(box, {entry, featureKey: `optfeature:${feat.name}|${feat.source}`, grant});
+			host.appendChild(box);
+		});
 	}
 
 	async _pOnChooseOptionalFeature ({entry, prog}) {
@@ -599,8 +658,11 @@ export class CharacterClassPanel {
 	static _FEAT_CATEGORY_LABELS = {FS: "Fighting Style", EB: "Epic Boon", G: "General Feat", O: "Origin Feat"};
 
 	static _featMatchesCategory (feat, category) {
-		const c = String(feat.category || "");
-		return c === category || c.split(":")[0] === category;
+		// Case-folded on both sides: the data's filters say `category=o` and a feat says `"O"`, and
+		// comparing them literally is what left "Choose Feat…" doing nothing at all
+		const c = String(feat.category || "").toUpperCase();
+		const want = String(category || "").toUpperCase();
+		return c === want || c.split(":")[0] === want;
 	}
 
 	/** Chooser for a feat a feature grants by category (2024 Fighting Style, Epic Boon, ...), hosted in its card. */
@@ -645,8 +707,20 @@ export class CharacterClassPanel {
 			.map(it => `${it.name}|${it.source}`));
 		const pool = (await CharacterSheetClassData.pGetAllFeats())
 			.filter(f => CharacterClassPanel._featMatchesCategory(f, grant.category))
-			.filter(f => !chosenUids.has(`${f.name}|${f.source}`));
-		if (!pool.length) return;
+			// `repeatable` feats may be taken again; the rest may not
+			.filter(f => f.repeatable || !chosenUids.has(`${f.name}|${f.source}`));
+
+		// A button that does nothing reads as a broken page. Say which of the two it is: nothing of
+		// this kind exists in the loaded books, or you have taken them all
+		if (!pool.length) {
+			JqueryUtil.doToast({
+				type: "warning",
+				content: chosenUids.size
+					? `No ${label.toLowerCase()} left to choose — you have taken them all.`
+					: `No ${label.toLowerCase()} found in the books this character allows.`,
+			});
+			return;
+		}
 		const feat = await InputUiUtil.pGetUserEnum({
 			values: pool,
 			isResolveItem: true,
@@ -655,7 +729,8 @@ export class CharacterClassPanel {
 			placeholder: "Select...",
 		});
 		if (feat == null) return;
-		const bonuses = await pResolveFeat(this._comp, feat);
+		// The class that granted the feat is the one its optional features hang from
+		const bonuses = await pResolveFeat(this._comp, feat, {entryId: entry.id});
 		if (bonuses == null) return;
 		this._comp.addFeatureFeat({entryId: entry.id, featureKey, category: grant.category, name: feat.name, source: feat.source, bonuses});
 	}
@@ -742,8 +817,22 @@ export class CharacterClassPanel {
 			String(speciesName).replace(/\(.*?\)/g, " ").split(/[\s-]+/).forEach(w => { if (w) raceNames.push(w); });
 		}
 
-		const featNames = [];
-		(state.classes || []).forEach(cls => (cls.asiFeatChoices || []).forEach(ch => { if (ch.type === "feat") featNames.push(ch.name); }));
+		// Every feat, not only the ASI-slot ones: a background's origin feat and a DM's grant count
+		// towards a prerequisite exactly as much
+		const taken = getTakenFeats(state);
+
+		// The categories of what is held, for the dragonmark rules — `featCategory` wants one,
+		// `exclusiveFeatCategory` forbids a second
+		const featCategories = taken
+			.map(it => this._featCategoryData?.get(`${it.name}|${it.source}`.toLowerCase()) ??
+				this._featCategoryData?.get(String(it.name).toLowerCase()))
+			.filter(Boolean);
+
+		const proficiencies = {armor: [], weapon: []};
+		(state.proficiencies || []).forEach(it => {
+			if (it?.kind === PROF_KIND_ARMOR) proficiencies.armor.push(it.name);
+			else if (it?.kind === PROF_KIND_WEAPON) proficiencies.weapon.push(it.name);
+		});
 
 		return {
 			abilityScores,
@@ -751,7 +840,12 @@ export class CharacterClassPanel {
 			classes: (state.classes || []).map(c => ({name: c.name, level: c.level})),
 			raceNames,
 			backgroundName: state.refBackground?.name || state.backgroundText,
-			featNames,
+			featNames: taken.map(it => it.name),
+			featCategories,
+			proficiencies,
+			// The class features the character has gained, plus the ones it chose — "Fighting Style"
+			// is a prerequisite that a Fighter meets by levelling and a feat-taker by choosing
+			featureNames: [...(this._featureNames || []), ...getChosenFeatureNames(state)],
 			isSpellcaster: !!state.spellAbility || (state.spellsKnown || []).length > 0,
 		};
 	}
@@ -782,7 +876,7 @@ export class CharacterClassPanel {
 			}
 		}
 
-		const bonuses = await pResolveFeat(this._comp, feat);
+		const bonuses = await pResolveFeat(this._comp, feat, {entryId: entry.id});
 		if (bonuses == null) return;
 		this._comp.addAsiFeatChoice(entry.id, {type: "feat", name: feat.name, source: feat.source, bonuses});
 	}
@@ -804,7 +898,7 @@ export class CharacterClassPanel {
 	}
 
 	_renderFeatureTimeline ({wrp, entry, cls, sc}) {
-		const timeline = CharacterSheetClassData.getFeatureTimeline(cls, {subclass: sc, level: entry.level});
+		const timeline = CharacterSheetClassData.getFeatureTimeline(cls, {subclass: sc, level: entry.level, featureVariants: entry.featureVariants});
 		if (!timeline.length) return;
 
 		const ctx = this._getSectionChoosers({entry, cls, sc});
@@ -832,6 +926,10 @@ export class CharacterClassPanel {
 			if (!card) return;
 			const body = card.querySelector(".cs__feat-body");
 			let unmet = false;
+
+			// Tasha's optional features are offered, not granted; the feature one replaces is struck
+			// through until it is taken back
+			if (meta.isVariant) this._renderVariantToggle(this._makeChoiceBox(body), {entry, meta});
 
 			if (!isSubclassFeature && feature.gainSubclassFeature && ctx.gainLevel != null) {
 				this._renderSubclassChooser(this._makeChoiceBox(body), {entry, cls});
@@ -891,8 +989,41 @@ export class CharacterClassPanel {
 		wrp.appendChild(outer);
 	}
 
+	/**
+	 * The opt-in for one of Tasha's optional class features, inside its own card. A variant that is
+	 * merely the rest of one already taken ("Deft Explorer Improvement") carries no toggle of its
+	 * own — it follows its parent — so it says so instead.
+	 */
+	_renderVariantToggle (box, {entry, meta}) {
+		const {feature} = meta;
+		const replaced = getVariantReplacedNames(feature);
+
+		if (getVariantParentName(feature)) {
+			box.innerHTML = `<div class="ve-small ve-muted">Part of ${getVariantParentName(feature).qq()}.</div>`;
+			return;
+		}
+
+		const label = document.createElement("label");
+		label.className = "ve-flex-v-center ve-small";
+
+		const cb = document.createElement("input");
+		cb.type = "checkbox";
+		cb.className = "mr-2";
+		cb.checked = !!meta.isVariantTaken;
+		cb.addEventListener("change", () => this._comp.setFeatureVariantForClass(entry.id, {name: feature.name, source: feature.source}, cb.checked));
+
+		const txt = document.createElement("span");
+		txt.innerHTML = replaced.length
+			? `Use this optional feature <span class="ve-muted">(replaces ${replaced.join(", ").qq()})</span>`
+			: `Use this optional feature`;
+
+		label.appendChild(cb);
+		label.appendChild(txt);
+		box.appendChild(label);
+	}
+
 	/** One expandable feature card: level badge, name (hover link), subclass badge, and rendered rules text. */
-	_getFeatureCard ({level, feature, isSubclassFeature}) {
+	_getFeatureCard ({level, feature, isSubclassFeature, isVariant, isVariantTaken, replacedBy}) {
 		const {name} = CharacterSheetClassData.getFeatureNameMeta(feature);
 		if (!name) return null;
 
@@ -901,7 +1032,7 @@ export class CharacterClassPanel {
 			: CharacterClassPanel._getClassFeatureTag(feature);
 
 		const card = document.createElement("details");
-		card.className = "cs__feat-card";
+		card.className = `cs__feat-card${isVariant && !isVariantTaken ? " cs__feat-card--unused" : ""}${replacedBy ? " cs__feat-card--replaced" : ""}`;
 
 		const summary = document.createElement("summary");
 		const nameHtml = tag ? Renderer.get().render(tag) : name.qq();
@@ -909,6 +1040,8 @@ export class CharacterClassPanel {
 			<span class="cs__feat-lvl">L${level}</span>
 			<span class="cs__feat-name">${nameHtml}</span>
 			${isSubclassFeature ? `<span class="cs__feat-badge">Subclass</span>` : ""}
+			${isVariant ? `<span class="cs__feat-badge cs__feat-badge--variant" title="An optional class feature; taking it is up to your table">Optional</span>` : ""}
+			${replacedBy ? `<span class="cs__feat-badge cs__feat-badge--variant" title="Superseded by an optional feature you took">Replaced by ${replacedBy.qq()}</span>` : ""}
 		`;
 		card.appendChild(summary);
 
@@ -965,10 +1098,13 @@ export class CharacterClassPanel {
 			const bits = [];
 			const cantrips = getCantripsKnown(casterEnt, entry.level);
 			const known = getSpellsKnown(casterEnt, entry.level);
-			const prepared = getPreparedSpellsDisplay(cls) || (sc ? getPreparedSpellsDisplay(sc) : null);
+			const prepared = getPreparedSpellsDisplay(cls, entry.level) || (sc ? getPreparedSpellsDisplay(sc, entry.level) : null);
 			if (cantrips != null) bits.push(`${cantrips} cantrips`);
 			if (known != null) bits.push(`${known} spells known`);
 			else if (prepared) bits.push(`prepares ${prepared}`);
+			// What a level-up lets you swap, which is a 2024 rule and easy to forget
+			const swap = getPreparedSpellsChange(cls, entry.level) ?? (sc ? getPreparedSpellsChange(sc, entry.level) : null);
+			if (swap) bits.push(`${swap} may be swapped on a level-up`);
 			if (bits.length) parts.push(`<div class="ve-muted">${cls.name.qq()}: ${bits.join(", ")}</div>`);
 		});
 

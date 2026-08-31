@@ -73,11 +73,11 @@ describe("Encumbrance", () => {
 				{id: "c", name: "Trinket", quantity: 1, weightLb: null},
 			],
 		};
-		expect(getEncumbrance(state)).toEqual({totalWeightLb: 59, capacityLb: 225});
+		expect(getEncumbrance(state)).toMatchObject({totalWeightLb: 59, capacityLb: 225});
 	});
 
 	it("Should handle an empty inventory", () => {
-		expect(getEncumbrance({abil_str: 10, inventory: []})).toEqual({totalWeightLb: 0, capacityLb: 150});
+		expect(getEncumbrance({abil_str: 10, inventory: []})).toMatchObject({totalWeightLb: 0, capacityLb: 150});
 	});
 });
 

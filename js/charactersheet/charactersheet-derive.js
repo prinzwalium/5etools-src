@@ -8,8 +8,10 @@ import {
 	PROF_STATE_EXPERTISE,
 	PROF_STATE_PROFICIENT,
 } from "./charactersheet-consts.js";
-import {getChosenFeatureEffects} from "./charactersheet-features.js";
+import {getChosenFeatureEffects, getChosenFeatureNames, getFeatureInitiativeParts} from "./charactersheet-features.js";
+import {PG_OPT_FEATURES, getItemCitation} from "./charactersheet-citations.js";
 import {getExpectedHp} from "./charactersheet-levelengine.js";
+import {getCarryMultiplier} from "./charactersheet-appearance.js";
 
 /**
  * Pure derivation of renderable stats from character state.
@@ -25,6 +27,10 @@ const _MAX_LEVEL = 20;
  * A breakdown is the list of contributions behind a derived number, so the sheet can explain where
  * a value came from ("Dexterity +3, Proficiency +2, Archery +2"). Zero-value parts are dropped
  * unless they carry an explanatory note.
+ *
+ * A part may also carry `cite`: which rule allows it to be there, either a key into `CITATIONS` or
+ * a `{name, source, page}` descriptor for an entity the character actually has. The producer names
+ * its own rule — nothing downstream tries to infer one from the label.
  */
 function _mkParts (...parts) {
 	return parts.filter(p => p && (p.value || p.isKeep || p.isText));
@@ -47,7 +53,65 @@ export function formatBreakdown (parts, total, {isTotalValue = false} = {}) {
 function _fmtSigned (n) { return `${n >= 0 ? "+" : "\u2212"}${Math.abs(n)}`; }
 
 /**
- * Where an ability score came from: its base value plus every recorded increase.
+ * What worn gear does to an ability score.
+ *
+ * Two shapes, both the data's own (`ability` on an item):
+ *  - `{static: {str: 21}}` — a Belt of Giant Strength, a Headband of Intellect, an Amulet of Health.
+ *    The score *becomes* that number, and the item does nothing at all for somebody already at or
+ *    above it, which is why it is a floor rather than an assignment.
+ *  - `{str: 2}` — a flat increase: a Belt of Dwarvenkind, the Ioun Stones. Capped at 20, the rule
+ *    every one of them prints. (A handful in the books name a higher cap in their prose; the data
+ *    does not carry it, and 20 is the honest default rather than a guess per item.)
+ *
+ * Only while equipped, and only while attuned if the item asks for it — a belt in your pack makes
+ * nobody stronger, and every item in this family requires attunement.
+ */
+export function getItemAbilityEffects (state, abv) {
+	const adds = [];
+	const sets = [];
+	(state?.inventory || [])
+		.filter(it => it?.equipped && (!it.requiresAttunement || it.attuned))
+		.forEach(it => {
+			const ability = it.ability;
+			if (!ability || typeof ability !== "object") return;
+
+			const setTo = Number(ability.static?.[abv]) || 0;
+			if (setTo) sets.push({kind: "set", value: setTo, name: it.name, item: it});
+
+			const add = Number(ability[abv]) || 0;
+			if (add) adds.push({kind: "add", value: add, name: it.name, item: it});
+		});
+
+	// Increases first, then the floors — so a Belt of Giant Strength still does nothing to somebody
+	// an Ioun Stone has already carried past it, whichever order the two are worn in
+	return [...adds, ...sets];
+}
+
+/** The cap on a flat ability increase from an item, and the one every such item prints. */
+const _ITEM_ABILITY_MAX = 20;
+
+/** One gear effect applied to a running score. The single rule both the score and its parts fold. */
+function _applyItemAbilityEffect (score, effect) {
+	return effect.kind === "set"
+		? Math.max(score, effect.value)
+		: Math.min(_ITEM_ABILITY_MAX, score + effect.value);
+}
+
+/**
+ * An ability score as it actually is: what the character built, then what they are wearing.
+ *
+ * Everything that reads a score goes through here rather than `state.abil_*` — a Headband of
+ * Intellect that raised the number on the sheet but not the Arcana check under it would be worse
+ * than no headband. The *base* is still what the builder edits and what point buy counts; this is
+ * the number the rules use.
+ */
+export function getAbilityScore (state, abv) {
+	const base = Number(state?.[`abil_${abv}`]) || 10;
+	return getItemAbilityEffects(state, abv).reduce(_applyItemAbilityEffect, base);
+}
+
+/**
+ * Where an ability score came from: its base value, every recorded increase, and what is worn.
  * Increases are recorded in `abilityBonusLog` as they are applied, since scores are stored as
  * final values; anything applied before that log existed simply folds into "base".
  */
@@ -55,10 +119,27 @@ export function getAbilityScoreParts (state, abv) {
 	const score = Number(state[`abil_${abv}`]) || 10;
 	const log = (state.abilityBonusLog || []).filter(it => (it.bonuses || {})[abv]);
 	const applied = log.reduce((acc, it) => acc + (Number(it.bonuses[abv]) || 0), 0);
-	return [
+
+	const parts = [
 		{label: "Base", value: score - applied, isRaw: true},
 		...log.map(it => ({label: it.source, value: Number(it.bonuses[abv]) || 0})),
 	];
+
+	// Each gear part is written as the difference it actually makes, so the breakdown still adds up
+	// to the score above it — a "sets to 21" that contributed nothing shows as nothing
+	let running = score;
+	getItemAbilityEffects(state, abv).forEach(effect => {
+		const next = _applyItemAbilityEffect(running, effect);
+		if (next === running) return;
+		parts.push({
+			label: effect.kind === "set" ? `${effect.name} (sets to ${effect.value})` : effect.name,
+			value: next - running,
+			cite: getItemCitation(effect.item),
+		});
+		running = next;
+	});
+
+	return parts;
 }
 
 /** Total character level: the sum of class levels when structured class data exists, else the manual level field. */
@@ -74,7 +155,7 @@ export function getProfBonus (state) {
 }
 
 export function getAbilityModifier (state, abv) {
-	return Parser.getAbilityModNumber(Number(state[`abil_${abv}`]) || 10);
+	return Parser.getAbilityModNumber(getAbilityScore(state, abv));
 }
 
 /**
@@ -86,9 +167,11 @@ export function getAbilityModifier (state, abv) {
  * @param [opts.isClassCaster] Whether the class/subclass progression grants slots — the caller
  * computes this from the loaded class data (`getSpellcastingMeta`).
  */
-export function hasSpellcasting (state, {isClassCaster = false} = {}) {
+export function hasSpellcasting (state, {isClassCaster = false, isOriginCaster = false} = {}) {
 	if (!state) return false;
-	if (isClassCaster) return true;
+	// A species can hand over a cantrip without any class doing so — which is a spellcaster for the
+	// purposes of having somewhere to read the spell
+	if (isClassCaster || isOriginCaster) return true;
 	if (state.spellAbility) return true;
 	if ((state.spellsKnown || []).length) return true;
 	if ((state.grantedSpellChoices || []).length) return true;
@@ -124,18 +207,23 @@ export function getConcentrationSaveDc (damage) {
 	return Math.max(CONCENTRATION_MIN_DC, Math.floor((Number(damage) || 0) / 2));
 }
 
-export function deriveCharacterSheet (state) {
+/**
+ * @param [opts.featureNames] Features the character has *gained* by levelling, which need the class
+ * files and so cannot be read from state alone. Passing them is what lets a Swashbuckler's Rakish
+ * Audacity reach Initiative; without them only chosen features (Fighting Styles, feats) are counted.
+ */
+export function deriveCharacterSheet (state, {featureNames = []} = {}) {
 	const totalLevel = getTotalLevel(state);
 	const pb = getProfBonus(state);
 	const magic = getEquippedMagicBonuses(state);
 	const exhaustion = getExhaustionPenalty(state);
-	const partExhaustion = {label: `Exhaustion ${getExhaustionLevel(state)}`, value: exhaustion};
+	const partExhaustion = {label: `Exhaustion ${getExhaustionLevel(state)}`, value: exhaustion, cite: "exhaustion"};
 
 	const abilities = {};
 	CHAR_SHEET_ABILITIES.forEach(([abv]) => {
 		const mod = getAbilityModifier(state, abv);
 		abilities[abv] = {
-			score: Number(state[`abil_${abv}`]) || 10,
+			score: getAbilityScore(state, abv),
 			mod,
 			// An ability *check* is a d20 test, so exhaustion applies to it \u2014 but not to the modifier
 			// the rest of the sheet is built from (a save DC is not rolled, and is unaffected)
@@ -152,9 +240,9 @@ export function deriveCharacterSheet (state) {
 			isProf,
 			mod,
 			parts: _mkParts(
-				{label: Parser.attAbvToFull(abv), value: abilities[abv].mod, isKeep: true},
-				isProf ? {label: "Proficiency", value: pb} : null,
-				{label: "Magic items", value: magic.savingThrow},
+				{label: Parser.attAbvToFull(abv), value: abilities[abv].mod, isKeep: true, cite: "abilityModifier"},
+				isProf ? {label: "Proficiency", value: pb, cite: "proficiency"} : null,
+				{label: "Magic items", value: magic.savingThrow, cite: _citeSoleItem(getMagicBonusItems(state, "bonusSavingThrow"))},
 				partExhaustion,
 			),
 		};
@@ -170,8 +258,8 @@ export function deriveCharacterSheet (state) {
 			ability,
 			mod: abilities[ability].mod + (pb * profMult) + exhaustion,
 			parts: _mkParts(
-				{label: Parser.attAbvToFull(ability), value: abilities[ability].mod, isKeep: true},
-				profMult ? {label: profLabel, value: pb * profMult} : null,
+				{label: Parser.attAbvToFull(ability), value: abilities[ability].mod, isKeep: true, cite: "abilityModifier"},
+				profMult ? {label: profLabel, value: pb * profMult, cite: "proficiency"} : null,
 				partExhaustion,
 			),
 		};
@@ -186,20 +274,27 @@ export function deriveCharacterSheet (state) {
 			atkMod: pb + abilities[spellAbility].mod + magic.spellAttack + exhaustion,
 			dcParts: _mkParts(
 				{label: "Base", value: 8, isRaw: true},
-				{label: "Proficiency", value: pb},
-				{label: Parser.attAbvToFull(spellAbility), value: abilities[spellAbility].mod, isKeep: true},
-				{label: "Magic items", value: magic.spellSaveDc},
+				{label: "Proficiency", value: pb, cite: "proficiency"},
+				{label: Parser.attAbvToFull(spellAbility), value: abilities[spellAbility].mod, isKeep: true, cite: "abilityModifier"},
+				{label: "Magic items", value: magic.spellSaveDc, cite: _citeSoleItem(getMagicBonusItems(state, "bonusSpellSaveDc"))},
 			),
 			atkParts: _mkParts(
-				{label: "Proficiency", value: pb},
-				{label: Parser.attAbvToFull(spellAbility), value: abilities[spellAbility].mod, isKeep: true},
-				{label: "Magic items", value: magic.spellAttack},
+				{label: "Proficiency", value: pb, cite: "proficiency"},
+				{label: Parser.attAbvToFull(spellAbility), value: abilities[spellAbility].mod, isKeep: true, cite: "abilityModifier"},
+				{label: "Magic items", value: magic.spellAttack, cite: _citeSoleItem(getMagicBonusItems(state, "bonusSpellAttack"))},
 				partExhaustion,
 			),
 		}
 		: null;
 
 	const initMisc = Number(state.initMisc) || 0;
+	// Features that add to Initiative — a Swashbuckler's Charisma, a Bard's half proficiency. Each is
+	// its own part, because "Misc +4" explains nothing and this is the number people ask about
+	const initFeatureParts = getFeatureInitiativeParts(
+		[...featureNames, ...getChosenFeatureNames(state)],
+		{abilities: Object.fromEntries(CHAR_SHEET_ABILITIES.map(([abv]) => [abv, abilities[abv].mod])), pb},
+	);
+	const initFeatures = initFeatureParts.reduce((acc, it) => acc + it.value, 0);
 
 	return {
 		totalLevel,
@@ -209,13 +304,14 @@ export function deriveCharacterSheet (state) {
 		skills,
 		passivePerception: 10 + skills.perception.mod,
 		passivePerceptionParts: _mkParts(
-			{label: "Base", value: 10, isRaw: true},
+			{label: "Base", value: 10, isRaw: true, cite: "passivePerception"},
 			...skills.perception.parts,
 		),
 		// Initiative is a Dexterity check, so exhaustion drags it down too
-		initiative: abilities.dex.mod + initMisc + exhaustion,
+		initiative: abilities.dex.mod + initFeatures + initMisc + exhaustion,
 		initiativeParts: _mkParts(
-			{label: "Dexterity", value: abilities.dex.mod, isKeep: true},
+			{label: "Dexterity", value: abilities.dex.mod, isKeep: true, cite: "abilityModifier"},
+			...initFeatureParts,
 			{label: "Misc", value: initMisc},
 			partExhaustion,
 		),
@@ -249,37 +345,40 @@ export function deriveArmorClass (state) {
 	let base;
 	let note;
 	const baseParts = [];
+	// The armour itself is the rule for its own base AC; an unarmored formula is the AC rule
+	const citeArmor = armor ? getItemCitation(armor) : "armorClass";
 	if (armor) {
 		const armorAc = Number(armor.baseAc) || 10;
 		const magic = Number(armor.bonusAc) || 0;
-		baseParts.push({label: armor.name, value: armorAc, isRaw: true});
+		baseParts.push({label: armor.name, value: armorAc, isRaw: true, cite: citeArmor});
 		if (armor.type === "LA") {
 			base = armorAc + dexMod + magic;
-			baseParts.push({label: "Dexterity", value: dexMod, isKeep: true});
+			baseParts.push({label: "Dexterity", value: dexMod, isKeep: true, cite: "abilityModifier"});
 		} else if (armor.type === "MA") {
 			const capped = Math.min(dexMod, armor.dexterityMax ?? 2);
 			base = armorAc + capped + magic;
-			baseParts.push({label: `Dexterity (max +${armor.dexterityMax ?? 2})`, value: capped, isKeep: true});
+			baseParts.push({label: `Dexterity (max +${armor.dexterityMax ?? 2})`, value: capped, isKeep: true, cite: citeArmor});
 		} else {
 			base = armorAc + magic; // Heavy: no Dex
 		}
-		if (magic) baseParts.push({label: "Armor magic bonus", value: magic});
+		if (magic) baseParts.push({label: "Armor magic bonus", value: magic, cite: citeArmor});
 		note = armor.name;
 	} else if (mode === "barbarian") {
 		base = 10 + dexMod + getAbilityModifier(state, "con");
-		baseParts.push({label: "Unarmored Defense (Barbarian)", value: 10, isRaw: true},
-			{label: "Dexterity", value: dexMod, isKeep: true},
-			{label: "Constitution", value: getAbilityModifier(state, "con"), isKeep: true});
+		baseParts.push({label: "Unarmored Defense (Barbarian)", value: 10, isRaw: true, cite: "armorClass"},
+			{label: "Dexterity", value: dexMod, isKeep: true, cite: "abilityModifier"},
+			{label: "Constitution", value: getAbilityModifier(state, "con"), isKeep: true, cite: "abilityModifier"});
 		note = "Unarmored Defense (Barbarian)";
 	} else if (mode === "monk") {
 		base = 10 + dexMod + getAbilityModifier(state, "wis");
-		baseParts.push({label: "Unarmored Defense (Monk)", value: 10, isRaw: true},
-			{label: "Dexterity", value: dexMod, isKeep: true},
-			{label: "Wisdom", value: getAbilityModifier(state, "wis"), isKeep: true});
+		baseParts.push({label: "Unarmored Defense (Monk)", value: 10, isRaw: true, cite: "armorClass"},
+			{label: "Dexterity", value: dexMod, isKeep: true, cite: "abilityModifier"},
+			{label: "Wisdom", value: getAbilityModifier(state, "wis"), isKeep: true, cite: "abilityModifier"});
 		note = "Unarmored Defense (Monk)";
 	} else {
 		base = 10 + dexMod;
-		baseParts.push({label: "Unarmored", value: 10, isRaw: true}, {label: "Dexterity", value: dexMod, isKeep: true});
+		baseParts.push({label: "Unarmored", value: 10, isRaw: true, cite: "armorClass"},
+			{label: "Dexterity", value: dexMod, isKeep: true, cite: "abilityModifier"});
 		note = "Unarmored";
 	}
 
@@ -296,9 +395,9 @@ export function deriveArmorClass (state) {
 
 	const parts = _mkParts(
 		...baseParts,
-		{label: "Shield", value: shield},
-		{label: "Magic items", value: otherMagic},
-		{label: "Defense (fighting style)", value: feature},
+		{label: "Shield", value: shield, cite: _citeSoleItem(equipped.filter(it => it.type === "S"))},
+		{label: "Magic items", value: otherMagic, cite: _citeSoleItem(equipped.filter(it => !it.isArmor && it.type !== "S" && it.bonusAc))},
+		{label: "Defense (fighting style)", value: feature, cite: {name: "Defense", source: "PHB", page: PG_OPT_FEATURES}},
 		{label: "Misc", value: misc},
 	);
 
@@ -321,6 +420,19 @@ export function getEquippedMagicBonuses (state) {
 			out.spellAttack += Number(it.bonusSpellAttack) || 0;
 		});
 	return out;
+}
+
+/** The equipped items actually contributing one of those bonuses, so the part can cite them. */
+export function getMagicBonusItems (state, key) {
+	return (state.inventory || []).filter(it => it.equipped && Number(it[key]));
+}
+
+/**
+ * A "Magic items" part can only point somewhere when exactly one item is responsible. With two
+ * contributing there is no single rule to show, and inventing a combined one would be a lie.
+ */
+function _citeSoleItem (items) {
+	return items.length === 1 ? getItemCitation(items[0]) : null;
 }
 
 /**
@@ -368,16 +480,16 @@ export function getWeaponAttack (state, item) {
 		atkBonus: abilMod + pb + bonusAttack + featureAttack + exhaustion,
 		damage,
 		atkParts: _mkParts(
-			{label: abilName, value: abilMod, isKeep: true},
-			{label: "Proficiency", value: pb},
-			{label: "Magic weapon", value: bonusAttack},
-			{label: "Archery (fighting style)", value: featureAttack},
-			{label: `Exhaustion ${getExhaustionLevel(state)}`, value: exhaustion},
+			{label: abilName, value: abilMod, isKeep: true, cite: "abilityModifier"},
+			{label: "Proficiency", value: pb, cite: "proficiency"},
+			{label: "Magic weapon", value: bonusAttack, cite: getItemCitation(item)},
+			{label: "Archery (fighting style)", value: featureAttack, cite: {name: "Archery", source: "PHB", page: PG_OPT_FEATURES}},
+			{label: `Exhaustion ${getExhaustionLevel(state)}`, value: exhaustion, cite: "exhaustion"},
 		),
 		damageParts: _mkParts(
-			{label: item.dmg1 || "", isText: !!item.dmg1},
-			{label: abilName, value: abilMod, isKeep: true},
-			{label: "Magic weapon", value: bonusDamage},
+			{label: item.dmg1 || "", isText: !!item.dmg1, cite: getItemCitation(item)},
+			{label: abilName, value: abilMod, isKeep: true, cite: "abilityModifier"},
+			{label: "Magic weapon", value: bonusDamage, cite: getItemCitation(item)},
 			{label: "Fighting style", value: featureDamage},
 		),
 	};
@@ -394,19 +506,30 @@ export function getUnarmedStrike (state) {
 		atkBonus: strMod + pb + exhaustion,
 		damage: `${Math.max(0, dmg)} bludgeoning`,
 		atkParts: _mkParts(
-			{label: "Strength", value: strMod, isKeep: true},
-			{label: "Proficiency", value: pb},
-			{label: `Exhaustion ${getExhaustionLevel(state)}`, value: exhaustion},
+			{label: "Strength", value: strMod, isKeep: true, cite: "abilityModifier"},
+			{label: "Proficiency", value: pb, cite: "proficiency"},
+			{label: `Exhaustion ${getExhaustionLevel(state)}`, value: exhaustion, cite: "exhaustion"},
 		),
 	};
 }
 
-/** Carried weight from the inventory vs. the standard carrying capacity (Strength × 15). */
+/**
+ * Carried weight from the inventory vs. the carrying capacity (Strength × 15).
+ *
+ * Doubled by **Powerful Build**, which counts a character as one size larger for carrying, pushing,
+ * dragging and lifting — fifteen species have it, and every one of them was being told it could
+ * carry half what it can.
+ */
 export function getEncumbrance (state) {
 	const totalWeightLb = (state.inventory || [])
 		.reduce((acc, it) => acc + ((Number(it.weightLb) || 0) * (Number(it.quantity) || 0)), 0);
+
+	const carryMult = getCarryMultiplier(state.speciesTraitTags);
+
 	return {
 		totalWeightLb: Math.round(totalWeightLb * 100) / 100,
-		capacityLb: (Number(state.abil_str) || 10) * 15,
+		// The effective score: a Belt of Giant Strength is mostly bought for what it lets you carry
+		capacityLb: getAbilityScore(state, "str") * 15 * carryMult,
+		isPowerfulBuild: carryMult > 1,
 	};
 }

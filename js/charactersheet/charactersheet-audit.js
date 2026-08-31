@@ -65,9 +65,16 @@ export function checkMulticlassRequirements (requirements, state) {
  * @param opts.counts `{asiTotal, asiTaken, expertiseTotal, expertiseTaken, masteryTotal,
  *   masteryTaken, preparedLimit, preparedCount}` — whatever the caller could work out; each is
  *   checked only when both halves are present.
+ * @param opts.grantedOriginFeats `[{name, source, displayName, from}]` — the Origin feats the
+ *   species and background grant *by name*. Given rather than read, because only the caller has the
+ *   entities.
+ * @param opts.grantedFeatChoices `[{from, count}]` — the "one of your choice" grants, named by the
+ *   entity that makes them (the 2024 Human's Versatile).
+ * @param opts.openTraitChoices `[{from, trait}]` — "choose one of the following" species traits the
+ *   character has reached the level for and not answered.
  * @return {Array<{severity: string, key: string, message: string, hint: string|null}>}
  */
-export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}} = {}) {
+export function auditCharacter (state, {encumbrance = null, classInfos = [], counts = {}, grantedOriginFeats = [], grantedFeatChoices = [], openTraitChoices = [], isSizeOwed = false} = {}) {
 	const out = [];
 	if (!state) return out;
 
@@ -86,7 +93,7 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 	if (encumbrance && encumbrance.capacityLb && encumbrance.totalWeightLb > encumbrance.capacityLb) {
 		out.push(_mkFinding(AUDIT_BROKEN, "encumbrance",
 			`Carrying ${encumbrance.totalWeightLb} lb. against a capacity of ${encumbrance.capacityLb} lb.`,
-			"Strength × 15 is the carrying capacity."));
+			`Strength × 15 is the carrying capacity${encumbrance.isPowerfulBuild ? ", doubled here by Powerful Build" : ""}.`));
 	}
 
 	const classLevels = classes.reduce((acc, it) => acc + (Number(it.level) || 0), 0);
@@ -134,6 +141,11 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 		"Expertise skill", "Expertise skills", "On the class panel's Expertise card.");
 	addShortfall("mastery", counts.masteryTaken, counts.masteryTotal,
 		"weapon mastery", "weapon masteries", "On the class panel's Weapon Mastery card.");
+	// A caster with no cantrips is not ready to play, and this is where "not ready" is listed
+	addShortfall("cantrips", counts.cantripsTaken, counts.cantripsTotal,
+		"cantrip", "cantrips", "In the spell panel, under Manage Spells.");
+	addShortfall("spellsKnown", counts.spellsKnownTaken, counts.spellsKnownTotal,
+		"spell", "spells", "In the spell panel, under Manage Spells.");
 
 	if (!classes.length) {
 		out.push(_mkFinding(AUDIT_UNCLAIMED, "class", "No class picked yet."));
@@ -144,6 +156,56 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 	if (!state.refBackground && !(state.backgroundText || "").trim()) {
 		out.push(_mkFinding(AUDIT_UNCLAIMED, "background", "No background picked yet."));
 	}
+
+	// The 2024 classes grant a Fighting Style and an Epic Boon through the class table. Unclaimed,
+	// they are simply missing from the character — and nothing was counting them at all.
+	if (counts.classFeatTotal != null && counts.classFeatTotal > (counts.classFeatTaken || 0)) {
+		const owed = counts.classFeatTotal - (counts.classFeatTaken || 0);
+		out.push(_mkFinding(AUDIT_UNCLAIMED, "classfeat",
+			`${owed} class-granted feat${owed === 1 ? "" : "s"} (Fighting Style, Epic Boon) still to choose.`,
+			"Choose them in the class panel."));
+	}
+
+	// A 2024 background hands you a feat. It used to be written into the notes as a line of text,
+	// where nothing counted it and its own choices were never asked; if it was skipped, this is
+	// what says so.
+	const takenFeatKeys = new Set((state.originFeats || []).map(it => `${it.name}|${it.source}`.toLowerCase()));
+	grantedOriginFeats
+		.filter(it => !takenFeatKeys.has(`${it.name}|${it.source}`.toLowerCase()))
+		.forEach(it => out.push(_mkFinding(AUDIT_UNCLAIMED, `originfeat:${it.name}`,
+			`${it.from || state.backgroundText || "Your background"} grants the origin feat ${it.displayName || it.name}, not taken.`,
+			"Take it from the panel that grants it, with its own choices.")));
+
+	// "An Origin feat of your choice" — the 2024 Human's Versatile. Counted against the feats taken
+	// *for the entity that granted it*, which is how the panel counts too: counting all origin feats
+	// against all grants let one entity's feat answer another's, so the two disagreed.
+	grantedFeatChoices.forEach(({from, count}) => {
+		const taken = (state.originFeats || []).filter(it => it.from === from).length;
+		const named = grantedOriginFeats.filter(it => it.from === from).length;
+		const owed = count - Math.max(0, taken - named);
+		if (owed > 0) {
+			out.push(_mkFinding(AUDIT_UNCLAIMED, `originfeat:choice:${from}`,
+				`${from} grants ${owed} origin feat${owed === 1 ? "" : "s"} of your choice, not taken.`,
+				"Take it from the species or background panel."));
+		}
+	});
+
+	// A species that offers "Small or Medium" is asking a question, and the answer changes carrying
+	// capacity, grappling and squeezing
+	if (isSizeOwed) {
+		out.push(_mkFinding(AUDIT_UNCLAIMED, "size",
+			"Your species offers a choice of size, not yet made.",
+			"Choose it from the species panel."));
+	}
+
+	// A "choose one of the following" trait — an Elf's Lineage, a Dragonborn's Ancestry — decides a
+	// cantrip, a damage type, a breath weapon. Unpicked, it reads on the sheet as a trait the
+	// character has, when in fact nothing about it has been settled.
+	openTraitChoices.forEach(({from, trait}) => {
+		out.push(_mkFinding(AUDIT_UNCLAIMED, `traitchoice:${from}:${trait}`,
+			`${from}: ${trait} is not chosen.`,
+			"Choose it from the species panel."));
+	});
 
 	return out;
 }

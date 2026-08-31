@@ -25,7 +25,12 @@ export async function run ({browser, check}) {
 
 	const allClasses = await readClassOptions(page);
 	await closeModal(page);
-	check("both rulesets are offered by default", allClasses.some(c => /PHB'14/.test(c)) && allClasses.some(c => /PHB'24/.test(c)), `n=${allClasses.length}`);
+	// The default is every book, with the newest printing of anything printed twice — so the 2024
+	// classes are offered, the 2014 ones they reprint are not, and a class the new books never
+	// printed is still there. `preferreprints` drives that rule; this only checks the starting point
+	check("the 2024 classes are offered by default", allClasses.some(c => /PHB'24/.test(c)), `n=${allClasses.length}`);
+	check("and the 2014 ones they reprint are not", !allClasses.some(c => /PHB'14/.test(c)), allClasses.filter(c => /PHB'14/.test(c)).join(", ") || "none");
+	check("while a class the 2024 books never printed remains", allClasses.some(c => /Artificer/.test(c)), allClasses.filter(c => /Artificer/.test(c)).join(", ") || "none");
 
 	// ---------- switch to 2024 only ----------
 	await page.click("#cs-btn-sources");

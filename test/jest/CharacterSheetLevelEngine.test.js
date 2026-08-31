@@ -1,29 +1,6 @@
 import * as fs from "fs";
 import "../../js/parser.js";
-import {
-	checkFeatPrerequisites,
-	getAsiCount,
-	getClassResources,
-	getExpertiseSkillCount,
-	getGrantedSpellUids,
-	getDynamicSpellGrants,
-	parseSpellFilter,
-	isSpellMatchingFilter,
-	getSpellGrantGroups,
-	getPreparedSpellCount,
-	getCantripsKnown,
-	getCasterLevelContribution,
-	getHitDieAverage,
-	getLevelUpHp,
-	getMulticlassRequirementsDisplay,
-	getOptionalFeatureCounts,
-	getPactSlots,
-	getPreparedSpellsDisplay,
-	getSingleClassSlots,
-	getSpellcastingMeta,
-	getSpellsKnown,
-	isMulticlassRequirementMet,
-} from "../../js/charactersheet/charactersheet-levelengine.js";
+import {HP_MODE_AVERAGE, HP_MODE_MAX, HP_MODE_ROLLED, checkFeatPrerequisites, getAsiCount, getCantripsKnown, getCasterLevelContribution, getClassResources, getDynamicSpellGrants, getExpertiseSkillCount, getFeatProgressionCounts, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getHitDieAverage, getHitPointMaximum, getLevelUpHp, getMulticlassRequirementsDisplay, getOptionalFeatureCounts, getPactSlots, getPreparedSpellCount, getPreparedSpellsDisplay, getPrimaryAbilities, getResourceCostLabel, matchResourceLabel, getSingleClassSlots, getSpellGrantGroups, getSlotLevelUnlockLevel, getSpellbookSize, getSpellcastingMeta, getSpellsKnown, isMulticlassRequirementMet, isSpellMatchingFilter, parseSpellFilter} from "../../js/charactersheet/charactersheet-levelengine.js";
 
 const loadClassFile = name => JSON.parse(fs.readFileSync(`./data/class/class-${name}.json`, "utf8"));
 
@@ -126,6 +103,70 @@ describe("Leveling engine: multiclass slot stacking (PHB multiclass table)", () 
 		const meta = getSpellcastingMeta([{cls: getClass("fighter"), sc: null, level: 5}]);
 		expect(meta.slots).toBeNull();
 		expect(meta.casterLevel).toBe(0);
+	});
+});
+
+/**
+ * `featProgression` — the field the 2024 classes moved two things into.
+ *
+ * A Fighting Style is a *feat* of category `FS` now, not an optional feature, and every class gains
+ * an Epic Boon at 19. Reading only `optionalfeatureProgression` meant a 2024 Fighter was never once
+ * asked for its Fighting Style.
+ */
+describe("Leveling engine: feats the class table grants", () => {
+	it("Gives the 2024 Fighter its Fighting Style at level 1", () => {
+		const progs = getFeatProgressionCounts(getClass("fighter", "XPHB"), 1);
+		expect(progs.find(it => it.name === "Fighting Style")).toEqual({name: "Fighting Style", categories: ["FS"], count: 1});
+	});
+
+	it("And its Epic Boon only once level 19 arrives", () => {
+		const fighter = getClass("fighter", "XPHB");
+		expect(getFeatProgressionCounts(fighter, 18).find(it => it.name === "Epic Boon")).toBeUndefined();
+		expect(getFeatProgressionCounts(fighter, 19).find(it => it.name === "Epic Boon").count).toBe(1);
+	});
+
+	it("Reads a Paladin's style at 2, not at 1", () => {
+		const paladin = getClass("paladin", "XPHB");
+		expect(getFeatProgressionCounts(paladin, 1).find(it => it.name === "Fighting Style")).toBeUndefined();
+		const at2 = getFeatProgressionCounts(paladin, 2).find(it => it.name === "Fighting Style");
+		// The category list narrows the pool: a Paladin's style, not any style
+		expect(at2.categories).toEqual(["FS", "FS:P"]);
+	});
+
+	it("Reads a subclass's own grant (Champion's extra style at 7)", () => {
+		const champion = getSubclass("fighter", "Champion", "XPHB");
+		expect(getFeatProgressionCounts(champion, 6)).toEqual([]);
+		expect(getFeatProgressionCounts(champion, 7)[0].name).toBe("Fighting Style");
+	});
+
+	it("Says nothing for a class with no such grants", () => {
+		expect(getFeatProgressionCounts(getClass("fighter"), 20)).toEqual([]);
+		expect(getFeatProgressionCounts(null, 5)).toEqual([]);
+	});
+});
+
+/**
+ * The 2024 prepared casters replaced the formula with an exact by-level table. Reading only the
+ * formula left every one of them with no prepared limit at all.
+ */
+describe("Leveling engine: prepared spells, both editions", () => {
+	it("Still reads the 2014 formula", () => {
+		expect(getPreparedSpellCount(getClass("cleric"), 5, 3)).toBe(8);
+	});
+
+	it("Reads the 2024 table, which does not depend on the ability modifier", () => {
+		const cleric = getClass("cleric", "XPHB");
+		expect(getPreparedSpellCount(cleric, 1, 0)).toBe(4);
+		expect(getPreparedSpellCount(cleric, 5, 99)).toBe(9);
+		expect(getPreparedSpellCount(cleric, 20, 0)).toBe(22);
+	});
+
+	it("Describes the 2024 allowance as the number it is", () => {
+		expect(getPreparedSpellsDisplay(getClass("wizard", "XPHB"), 3)).toBe("6 (class table)");
+	});
+
+	it("Says nothing for a class that does not prepare", () => {
+		expect(getPreparedSpellCount(getClass("fighter"), 5)).toBeNull();
 	});
 });
 
@@ -310,7 +351,13 @@ describe("Leveling engine: dynamic spell grants", () => {
 });
 
 describe("Leveling engine: class resources (table columns)", () => {
-	it("Should read dice/number/bonus columns and skip spell columns", () => {
+	/*
+	 * A class table's columns are three different things wearing one shape, and each is read
+	 * differently: something spent (Rages), something the character simply has (Sneak Attack 2d6),
+	 * and a count of choices made elsewhere (Weapon Mastery, Invocations). Reading them as one put
+	 * Eldritch Invocations in the sheet's resource tracker as though a Warlock could spend them.
+	 */
+	it("Should tell a use from a value, and leave counts of choices out", () => {
 		const cls = {
 			classTableGroups: [
 				{colLabels: ["Rages", "Rage Damage", "Weapon Mastery"],
@@ -327,10 +374,27 @@ describe("Leveling engine: class resources (table columns)", () => {
 			],
 		};
 		expect(getClassResources(cls, 2)).toEqual([
-			{label: "Rages", value: "3"},
-			{label: "Rage Damage", value: "+2"},
-			{label: "Weapon Mastery", value: "3"},
-			{label: "Sneak Attack", value: "2d6"},
+			{label: "Rages", value: "3", kind: "uses", rest: "long"},
+			{label: "Rage Damage", value: "+2", kind: "value", rest: null},
+			{label: "Sneak Attack", value: "2d6", kind: "value", rest: null},
+		]);
+	});
+
+	it("Should not offer Eldritch Invocations as something to spend", () => {
+		const cls = {
+			classTableGroups: [
+				{colLabels: ["{@filter Invocations|optionalfeatures|feature type=ei}", "Spell Slots"], rows: [["2", "2"]]},
+			],
+		};
+		expect(getClassResources(cls, 1)).toEqual([]);
+	});
+
+	// Which rest gives it back is curated, because the class tables do not carry it
+	it("Should say which rest returns a use", () => {
+		const cls = {classTableGroups: [{colLabels: ["Second Wind", "Sorcery Points"], rows: [["2", "4"]]}]};
+		expect(getClassResources(cls, 1)).toEqual([
+			{label: "Second Wind", value: "2", kind: "uses", rest: "short"},
+			{label: "Sorcery Points", value: "4", kind: "uses", rest: "long"},
 		]);
 	});
 
@@ -379,8 +443,22 @@ describe("Leveling engine: multiclass requirements", () => {
 });
 
 describe("Leveling engine: feat prerequisites", () => {
-	const ctx = ({abilityScores = {}, totalLevel = 1, classes = [], raceNames = [], backgroundName = null, featNames = [], isSpellcaster = false} = {}) =>
-		({abilityScores, totalLevel, classes, raceNames, backgroundName, featNames, isSpellcaster});
+	const ctx = ({
+		abilityScores = {}, totalLevel = 1, classes = [], raceNames = [], backgroundName = null,
+		featNames = [], featCategories = [], featureNames = [],
+		proficiencies = {armor: [], weapon: []}, isSpellcaster = false,
+	} = {}) => ({
+		abilityScores,
+		totalLevel,
+		classes,
+		raceNames,
+		backgroundName,
+		featNames,
+		featCategories,
+		featureNames,
+		proficiencies,
+		isSpellcaster,
+	});
 
 	it("Should pass when there are no prerequisites", () => {
 		expect(checkFeatPrerequisites(undefined, ctx()).status).toBe("met");
@@ -441,7 +519,60 @@ describe("Leveling engine: feat prerequisites", () => {
 		expect(checkFeatPrerequisites([{campaign: ["Ravenloft"]}], ctx()).status).toBe("unknown");
 		expect(checkFeatPrerequisites([{other: "No other dragonmark"}], ctx()).status).toBe("unknown");
 		// A satisfiable checkable clause plus an unknown one → unknown (don't falsely block)
-		expect(checkFeatPrerequisites([{ability: [{str: 13}], proficiency: [{weapon: "martial"}]}], ctx({abilityScores: {str: 15}})).status).toBe("unknown");
+		expect(checkFeatPrerequisites([{ability: [{str: 13}], campaign: ["Eberron"]}], ctx({abilityScores: {str: 15}})).status).toBe("unknown");
+	});
+
+	/*
+	 * Three prerequisites that used to report "unknown" for want of anything to check them against.
+	 * Twelve feats ask for a proficiency, eleven for a class feature, and fourteen for a feat
+	 * category — the dragonmark rules, which are the only place either category key is used.
+	 */
+	describe("the ones that were unverifiable", () => {
+		it("Checks a proficiency the character now structurally has", () => {
+			const pre = [{proficiency: [{armor: "medium"}]}];
+			expect(checkFeatPrerequisites(pre, ctx({proficiencies: {armor: ["Medium"], weapon: []}})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({proficiencies: {armor: ["Light"], weapon: []}})).status).toBe("unmet");
+		});
+
+		it("Reads the two spellings of a weapon proficiency alike", () => {
+			const held = ctx({proficiencies: {armor: [], weapon: ["Martial"]}});
+			expect(checkFeatPrerequisites([{proficiency: [{weapon: "martial"}]}], held).status).toBe("met");
+			expect(checkFeatPrerequisites([{proficiency: [{weaponGroup: "martial"}]}], held).status).toBe("met");
+		});
+
+		it("Copes with the plural and the spelled-out forms", () => {
+			// A class writes "shield", a species "shields", and the store title-cases both
+			expect(checkFeatPrerequisites([{proficiency: [{armor: "shield"}]}], ctx({proficiencies: {armor: ["Shields"], weapon: []}})).status).toBe("met");
+			expect(checkFeatPrerequisites([{proficiency: [{armor: "heavy"}]}], ctx({proficiencies: {armor: ["Heavy Armor"], weapon: []}})).status).toBe("met");
+		});
+
+		it("Checks a class feature by name, taking any of the alternatives", () => {
+			const pre = [{feature: ["Spellcasting", "Pact Magic"]}];
+			expect(checkFeatPrerequisites(pre, ctx({featureNames: ["Pact Magic", "Eldritch Invocations"]})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featureNames: ["Second Wind"]})).status).toBe("unmet");
+			expect(checkFeatPrerequisites([{feature: ["Fighting Style"]}], ctx({featureNames: ["Fighting Style"]})).status).toBe("met");
+		});
+
+		it("Requires a feat of the named category", () => {
+			const pre = [{featCategory: ["D"]}];
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["D"]})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["O"]})).status).toBe("unmet");
+			expect(checkFeatPrerequisites(pre, ctx()).status).toBe("unmet");
+		});
+
+		it("Counts them when the requirement says how many", () => {
+			const pre = [{featCategory: [{category: "EB", count: 2}]}];
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["EB", "EB"]})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["EB"]})).status).toBe("unmet");
+		});
+
+		it("Forbids a second feat of an exclusive category", () => {
+			// One dragonmark, and only one
+			const pre = [{exclusiveFeatCategory: ["D"]}];
+			expect(checkFeatPrerequisites(pre, ctx()).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["O"]})).status).toBe("met");
+			expect(checkFeatPrerequisites(pre, ctx({featCategories: ["D"]})).status).toBe("unmet");
+		});
 	});
 });
 
@@ -469,5 +600,386 @@ describe("Leveling engine: hit points", () => {
 		const {total, perLevel} = getLevelUpHp({faces: 10, conMod: 1, numLevels: 2, fnRoll: () => 7});
 		expect(perLevel).toEqual([8, 8]);
 		expect(total).toBe(16);
+	});
+});
+
+describe("Leveling engine: the ability a class leans on", () => {
+	const loadClass = (file, source) => JSON.parse(fs.readFileSync(`./data/class/class-${file}.json`, "utf8"))
+		.class.find(it => it.source === source);
+
+	it("Reads it off the class, as an abbreviation", () => {
+		expect(getPrimaryAbilities(loadClass("barbarian", "XPHB"))).toEqual(["str"]);
+		expect(getPrimaryAbilities(loadClass("cleric", "XPHB"))).toEqual(["wis"]);
+	});
+
+	it("Returns both when a class names two", () => {
+		// A few name two; the guide says both rather than picking one for the player
+		const both = getPrimaryAbilities({primaryAbility: [{dex: true}, {wis: true}]});
+		expect(both).toEqual(["dex", "wis"]);
+	});
+
+	it("Ignores a false entry rather than counting the key", () => {
+		expect(getPrimaryAbilities({primaryAbility: [{str: true, cha: false}]})).toEqual(["str"]);
+	});
+
+	it("Says nothing when the class does not", () => {
+		expect(getPrimaryAbilities({})).toEqual([]);
+		expect(getPrimaryAbilities(null)).toEqual([]);
+	});
+});
+
+/*
+ * How a table decides hit points is a table's decision — maximum dice, the fixed average, or roll
+ * and live with it — and the *bonuses* are the same either way. Keeping them in one function is the
+ * point: Constitution is per level, so is Tough, and a total typed into a box is a fossil the
+ * moment either changes.
+ */
+describe("Leveling engine: the hit point maximum, three ways", () => {
+	const FIGHTER_5 = [{name: "Fighter", level: 5, hdFaces: 10}];
+
+	it("Should take the average: maximum at 1st level, the die's average after", () => {
+		// 10 + 4×6 = 34, and +2 Constitution across five levels
+		expect(getHitPointMaximum({classes: FIGHTER_5, conMod: 2, mode: HP_MODE_AVERAGE}).total).toBe(44);
+	});
+
+	it("Should take every die at its maximum", () => {
+		// 5×10 = 50, and +2 Constitution across five levels
+		expect(getHitPointMaximum({classes: FIGHTER_5, conMod: 2, mode: HP_MODE_MAX}).total).toBe(60);
+	});
+
+	it("Should take the dice as they came up", () => {
+		const hp = getHitPointMaximum({classes: FIGHTER_5, conMod: 2, mode: HP_MODE_ROLLED, rolled: 31});
+		expect(hp.total).toBe(41);
+		expect(hp.explanation).toMatch(/31 rolled/);
+	});
+
+	// The bug this exists to stop: a per-level feature counted in one mode and forgotten in the others
+	it("Should add a per-level feature bonus in every mode", () => {
+		const opts = {classes: FIGHTER_5, conMod: 2, perLevelBonus: 2};
+		expect(getHitPointMaximum({...opts, mode: HP_MODE_AVERAGE}).total).toBe(54);
+		expect(getHitPointMaximum({...opts, mode: HP_MODE_MAX}).total).toBe(70);
+		expect(getHitPointMaximum({...opts, mode: HP_MODE_ROLLED, rolled: 31}).total).toBe(51);
+	});
+
+	it("Should count each class's own dice when multiclassed", () => {
+		const classes = [{name: "Rogue", level: 4, hdFaces: 8}, {name: "Warlock", level: 3, hdFaces: 8}];
+		expect(getHitPointMaximum({classes, conMod: 0, mode: HP_MODE_MAX}).total).toBe(56);
+	});
+
+	it("Should never go below one hit point", () => {
+		expect(getHitPointMaximum({classes: [{name: "Wizard", level: 1, hdFaces: 6}], conMod: -5, mode: HP_MODE_AVERAGE}).total).toBe(1);
+	});
+});
+
+/*
+ * The Warlock's Mystic Arcanum. It sits in `spellsKnownProgressionFixedByLevel` rather than in the
+ * ordinary known-spell progression, because a pact caster's slots stop at 5th level and these four
+ * spells are cast at their own level, once per long rest. Nothing read the field, so a Warlock 11+
+ * had none of them.
+ */
+describe("fixed-level spells known", () => {
+	const WARLOCK = {
+		name: "Warlock",
+		spellsKnownProgressionFixedByLevel: {"11": {"6": 1}, "13": {"7": 1}, "15": {"8": 1}, "17": {"9": 1}},
+		classFeatures: [],
+	};
+	WARLOCK.classFeatures[10] = [{name: "Mystic Arcanum (6th Level)"}];
+	WARLOCK.classFeatures[12] = [{name: "Mystic Arcanum (7th Level)"}];
+
+	it("Grants nothing before 11th level", () => {
+		expect(getFixedSpellsKnownGrants(WARLOCK, 10)).toEqual([]);
+	});
+
+	it("Grants one 6th-level spell at 11", () => {
+		const grants = getFixedSpellsKnownGrants(WARLOCK, 11);
+		expect(grants).toHaveLength(1);
+		expect(grants[0]).toMatchObject({type: "choose", count: 1, spellLevel: 6, atLevel: 11});
+	});
+
+	it("Restricts the pick to that spell level and that class", () => {
+		const [grant] = getFixedSpellsKnownGrants(WARLOCK, 11);
+		expect(grant.filter).toEqual({levels: [6], classes: ["warlock"], schools: []});
+	});
+
+	it("Names the grant after the feature that gives it", () => {
+		expect(getFixedSpellsKnownGrants(WARLOCK, 11)[0].groupName).toBe("Mystic Arcanum (6th Level)");
+	});
+
+	it("Accumulates one per level up the ladder", () => {
+		expect(getFixedSpellsKnownGrants(WARLOCK, 20).map(it => it.spellLevel)).toEqual([6, 7, 8, 9]);
+	});
+
+	it("Ignores an ASI when naming, and copes with an unnamed level", () => {
+		const cls = {...WARLOCK, classFeatures: [...WARLOCK.classFeatures]};
+		cls.classFeatures[14] = [{name: "Ability Score Improvement"}];
+		expect(getFixedSpellsKnownGrants(cls, 15).find(it => it.spellLevel === 8).groupName).toBeNull();
+	});
+
+	it("Says nothing for a class without the field", () => {
+		expect(getFixedSpellsKnownGrants({name: "Fighter"}, 20)).toEqual([]);
+		expect(getFixedSpellsKnownGrants(null, 20)).toEqual([]);
+	});
+});
+
+/*
+ * `additionalSpells.innate` wraps its lists in a frequency — `ritual`, `daily`, `rest`, `resource` —
+ * and the plain-uid reader could only see strings, so everything inside a wrapper was dropped. That
+ * cost thirteen subclasses their innate spells; the `resource` ones were the worst, because those
+ * are cast with a class resource rather than a slot and the cost is the point.
+ */
+describe("innate spell grants", () => {
+	const WAY_OF_SHADOW = {
+		name: "Shadow",
+		additionalSpells: [{
+			known: {"3": ["minor illusion#c"]},
+			innate: {"3": {"resource": {"2": ["darkness", "darkvision", "pass without trace", "silence"]}}},
+			resourceName: "Ki",
+			ability: "wis",
+		}],
+	};
+
+	it("Finds the spells a plain-uid read cannot see", () => {
+		expect(getGrantedSpellUids(WAY_OF_SHADOW, 3)).toEqual(["minor illusion"]);
+		expect(getInnateSpellGrants(WAY_OF_SHADOW, 3).map(it => it.uid))
+			.toEqual(["darkness", "darkvision", "pass without trace", "silence"]);
+	});
+
+	it("Reads what casting one costs, and out of which pool", () => {
+		const [grant] = getInnateSpellGrants(WAY_OF_SHADOW, 3);
+		expect(grant).toMatchObject({frequency: "resource", amount: 2, resourceName: "Ki"});
+		expect(getInnateSpellCastingNote(grant)).toBe("costs 2 Ki Points");
+	});
+
+	it("Holds them back until the level that grants them", () => {
+		expect(getInnateSpellGrants(WAY_OF_SHADOW, 2)).toEqual([]);
+	});
+
+	it("Reads a ritual-only grant", () => {
+		const totem = {additionalSpells: [{innate: {"3": {"ritual": ["beast sense", "speak with animals"]}}}]};
+		const grants = getInnateSpellGrants(totem, 3);
+		expect(grants.map(it => it.uid)).toEqual(["beast sense", "speak with animals"]);
+		expect(getInnateSpellCastingNote(grants[0])).toBe("as a ritual only");
+	});
+
+	it("Reads a once-a-day grant", () => {
+		const psiWarrior = {additionalSpells: [{innate: {"18": {"daily": {"1": ["telekinesis"]}}}}]};
+		expect(getInnateSpellCastingNote(getInnateSpellGrants(psiWarrior, 18)[0])).toBe("one time per long rest");
+	});
+
+	it("Reads a grant counted by an ability modifier", () => {
+		const archfey = {additionalSpells: [{innate: {"_": {"daily": {"cha": ["misty step|xphb"]}}}}]};
+		const [grant] = getInnateSpellGrants(archfey, 1);
+		expect(grant).toMatchObject({uid: "misty step|xphb", atLevel: 0, amountAbility: "cha"});
+		expect(getInnateSpellCastingNote(grant)).toBe("a number of times equal to your Charisma modifier per long rest");
+	});
+
+	it("Reads a per-rest grant", () => {
+		const phantom = {additionalSpells: [{innate: {"9": {"rest": {"1": ["speak with dead|xphb"]}}}}]};
+		expect(getInnateSpellCastingNote(getInnateSpellGrants(phantom, 9)[0])).toBe("one time per short or long rest");
+	});
+
+	it("Leaves a plain list unqualified, as the grant it already was", () => {
+		const diviner = {additionalSpells: [{innate: {"10": ["see invisibility|xphb"]}}]};
+		const [grant] = getInnateSpellGrants(diviner, 10);
+		expect(grant.frequency).toBeNull();
+		expect(getInnateSpellCastingNote(grant)).toBeNull();
+	});
+
+	it("Leaves a {choose} entry to the dynamic reader", () => {
+		const moon = {additionalSpells: [{innate: {"3": [{choose: "level=0|class=druid", count: 1}]}}]};
+		expect(getInnateSpellGrants(moon, 3)).toEqual([]);
+		expect(getDynamicSpellGrants(moon, 3)).toHaveLength(1);
+	});
+
+	it("Says nothing for an entity with no innate grants", () => {
+		expect(getInnateSpellGrants({}, 5)).toEqual([]);
+		expect(getInnateSpellGrants(null, 5)).toEqual([]);
+	});
+});
+
+/*
+ * A patron's expanded spells, and everything else keyed by *slot* level rather than class level.
+ * All twelve Warlock patrons state their list as `s1`-`s5`, and the 2024 Bard's Magical Secrets as
+ * `s6`-`s9`, because that is the rule: the list grows as the slot does. A reader that understood
+ * only class levels skipped every one, so a patron contributed nothing at all.
+ */
+describe("spells keyed by slot level", () => {
+	// Pact slots: 1st at level 1, 2nd at 3, 3rd at 5 — the shape that decides when a patron's
+	// spells arrive
+	const WARLOCK = {
+		name: "Warlock",
+		casterProgression: "pact",
+		classTableGroups: [{
+			colLabels: ["Spell Slots", "Slot Level"],
+			rows: [[1, "{@filter 1st|spells|level=1}"], [2, "{@filter 1st|spells|level=1}"], [2, "{@filter 2nd|spells|level=2}"], [2, "{@filter 2nd|spells|level=2}"], [2, "{@filter 3rd|spells|level=3}"]],
+		}],
+	};
+	const ARCHFEY = {
+		name: "Archfey",
+		additionalSpells: [{expanded: {s1: ["faerie fire", "sleep"], s2: ["calm emotions"], s3: ["blink"]}}],
+	};
+
+	const uidsAt = level => getDynamicSpellGrants(ARCHFEY, level, {slotSource: WARLOCK})
+		.filter(it => it.type === "expanded")
+		.flatMap(it => it.from || []);
+
+	it("Reads the class level at which a slot arrives", () => {
+		expect(getSlotLevelUnlockLevel(WARLOCK, 1)).toBe(1);
+		expect(getSlotLevelUnlockLevel(WARLOCK, 2)).toBe(3);
+		expect(getSlotLevelUnlockLevel(WARLOCK, 3)).toBe(5);
+	});
+
+	it("Says nothing for a slot the class never reaches", () => {
+		expect(getSlotLevelUnlockLevel(WARLOCK, 9)).toBeNull();
+	});
+
+	it("Adds a patron's spells as the slot grows", () => {
+		expect(uidsAt(1).sort()).toEqual(["faerie fire", "sleep"]);
+		expect(uidsAt(3).sort()).toEqual(["calm emotions", "faerie fire", "sleep"]);
+		expect(uidsAt(5)).toContain("blink");
+	});
+
+	it("Holds back a list whose slot has not arrived", () => {
+		expect(uidsAt(2)).not.toContain("calm emotions");
+	});
+
+	it("Widens the learnable list rather than granting the spells", () => {
+		// An expanded spell is one the character may learn. A Genie warlock is not walking around
+		// always prepared to cast Wish
+		expect(getGrantedSpellUids(ARCHFEY, 20)).toEqual([]);
+		expect(getGrantedSpellUids({additionalSpells: [{expanded: {9: ["wish"]}}]}, 9)).toEqual([]);
+		expect(getDynamicSpellGrants(ARCHFEY, 5, {slotSource: WARLOCK}).every(it => it.type === "expanded")).toBe(true);
+	});
+
+	it("Reads a full caster's slot table the same way", () => {
+		const bard = {name: "Bard",
+			casterProgression: "full",
+			classTableGroups: [{rowsSpellProgression: [
+				[2], [3], [4, 2], [4, 3], [4, 3, 2],
+			]}]};
+		expect(getSlotLevelUnlockLevel(bard, 1)).toBe(1);
+		expect(getSlotLevelUnlockLevel(bard, 2)).toBe(3);
+		expect(getSlotLevelUnlockLevel(bard, 3)).toBe(5);
+	});
+});
+
+/*
+ * The Wizard's spellbook. `spellsKnownProgressionFixed` is what each level *adds* — six at 1st and
+ * two per level after — and it is not the prepared count, which is a different number doing a
+ * different job. Only the prepared one was read, so the book had no size.
+ */
+describe("the spellbook", () => {
+	const WIZARD = {
+		name: "Wizard",
+		spellsKnownProgressionFixed: [6, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+		spellsKnownProgressionFixedAllowLowerLevel: true,
+		preparedSpellsProgression: [4, 5, 6, 7, 9, 10, 11, 12, 14, 15],
+	};
+
+	it("Is the running total, not the level's own gain", () => {
+		expect(getSpellbookSize(WIZARD, 1)).toBe(6);
+		expect(getSpellbookSize(WIZARD, 2)).toBe(8);
+		expect(getSpellbookSize(WIZARD, 9)).toBe(22);
+		expect(getSpellbookSize(WIZARD, 20)).toBe(44);
+	});
+
+	it("Is a different limit from what may be prepared", () => {
+		expect(getSpellbookSize(WIZARD, 5)).toBe(14);
+		expect(getPreparedSpellCount(WIZARD, 5)).toBe(9);
+	});
+
+	it("Says nothing for a class with no book", () => {
+		expect(getSpellbookSize({name: "Cleric", preparedSpellsProgression: [4]}, 5)).toBeNull();
+		expect(getSpellbookSize(null, 5)).toBeNull();
+	});
+});
+
+/*
+ * What a feature costs. `consumes` is on 137 features and was read by nothing; what stood in its
+ * place was a nine-name map that knew Flurry of Blows and no subclass at all.
+ */
+describe("resource costs", () => {
+	it("Matches a feature's shorthand to the table's own column", () => {
+		const labels = ["Ki Points", "Rages", "Sorcery Points", "Psionic Energy Dice", "Channel Divinity"];
+		expect(matchResourceLabel("Ki", labels)).toBe("Ki Points");
+		expect(matchResourceLabel("Sorcery Point", labels)).toBe("Sorcery Points");
+		expect(matchResourceLabel("Psionic Energy Die", labels)).toBe("Psionic Energy Dice");
+		expect(matchResourceLabel("Channel Divinity", labels)).toBe("Channel Divinity");
+	});
+
+	it("Finds nothing when the character holds no such pool", () => {
+		expect(matchResourceLabel("Ki", ["Rages"])).toBeNull();
+		expect(matchResourceLabel(null, ["Rages"])).toBeNull();
+	});
+
+	it("Says a pool cost in units of the pool", () => {
+		expect(getResourceCostLabel({resource: "Ki", amount: 1})).toBe("1 Ki Point");
+		expect(getResourceCostLabel({resource: "Ki", amount: 2})).toBe("2 Ki Points");
+		expect(getResourceCostLabel({resource: "Psionic Energy Die", amount: 2})).toBe("2 Psionic Energy Dice");
+	});
+
+	it("Says a self-limiting feature's cost in uses of itself", () => {
+		expect(getResourceCostLabel({resource: "Channel Divinity", amount: 1})).toBe("1 use of Channel Divinity");
+		expect(getResourceCostLabel({resource: "Wild Shape", amount: 2})).toBe("2 uses of Wild Shape");
+	});
+
+	it("Says a range as a range", () => {
+		expect(getResourceCostLabel({resource: "Sorcery Point", amount: 1, amountMin: 1, amountMax: 5}))
+			.toBe("1–5 Sorcery Points");
+	});
+});
+
+/*
+ * The Psi Warrior and the Soulknife have a subclass table headed "Die Size" and "Number", neither
+ * of which names the pool — so both columns were skipped and fifteen features spent a resource the
+ * character did not have. The name is in the features that spend it.
+ */
+describe("a pool the table does not name", () => {
+	const PSI_WARRIOR = {
+		name: "Psi Warrior",
+		subclassTableGroups: [{
+			colLabels: ["Die Size", "Number"],
+			rows: [["{@dice D6}", 4], ["{@dice D6}", 4], ["{@dice D8}", 6]],
+		}],
+		subclassFeatures: [[{name: "Psionic Strike", consumes: {name: "Psionic Energy Die"}}]],
+	};
+
+	it("Names it from the features that spend it", () => {
+		const res = getClassResources(PSI_WARRIOR, 3);
+		expect(res).toContainEqual({label: "Psionic Energy Dice", value: "6", kind: "uses", rest: "long"});
+	});
+
+	it("Still leaves the unnamed columns out of the list", () => {
+		expect(getClassResources(PSI_WARRIOR, 3).map(it => it.label)).toEqual(["Psionic Energy Dice"]);
+	});
+
+	it("Leaves an ordinary table alone", () => {
+		const monk = {classTableGroups: [{colLabels: ["Ki Points"], rows: [[2], [3]]}]};
+		expect(getClassResources(monk, 2)).toEqual([{label: "Ki Points", value: "3", kind: "uses", rest: "short"}]);
+	});
+});
+
+/*
+ * A cantrip "slot". The ten Ravnica guild backgrounds and the five Strixhaven colleges open their
+ * expanded lists with `s0`, which is not a slot the class table has — every caster has cantrips
+ * from its first level.
+ */
+describe("the cantrip slot key", () => {
+	const BARD = {name: "Bard", casterProgression: "full", classTableGroups: [{rowsSpellProgression: [[2], [3], [4, 2]]}]};
+
+	it("Unlocks at first level", () => {
+		expect(getSlotLevelUnlockLevel(BARD, 0)).toBe(1);
+	});
+
+	it("Brings a background's cantrips into the pool straight away", () => {
+		const guild = {additionalSpells: [{expanded: {s0: ["friends#c", "message#c"], s2: ["hold person"]}}]};
+		const at1 = getDynamicSpellGrants(guild, 1, {slotSource: BARD}).flatMap(it => it.from || []);
+		expect(at1.sort()).toEqual(["friends", "message"]);
+		expect(getDynamicSpellGrants(guild, 3, {slotSource: BARD}).flatMap(it => it.from || [])).toContain("hold person");
+	});
+
+	it("Still says nothing for a slot the class never reaches", () => {
+		expect(getSlotLevelUnlockLevel(BARD, 9)).toBeNull();
+		expect(getSlotLevelUnlockLevel(BARD, null)).toBeNull();
 	});
 });

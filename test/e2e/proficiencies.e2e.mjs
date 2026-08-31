@@ -11,7 +11,19 @@ const readGroups = page => page.evaluate(() => [...document.querySelectorAll("#c
 })));
 
 export async function run ({browser, check}) {
-	const page = await openPage(browser);
+	/*
+	 * With the newest printing preferred — the default — the 2014 Fighter and the ToA Archaeologist
+	 * are superseded and never offered. This suite is about proficiency plumbing across the 2014-era
+	 * content that exercises it (a Kaladesh Dwarf's artisan's-tool choice, a background's tool and
+	 * language choices), so it asks for every printing rather than swapping in entries that grant
+	 * nothing to choose.
+	 */
+	const stored = JSON.stringify({
+		storeVersion: 1,
+		currentId: "e2e",
+		characters: {e2e: {version: 2, state: {name: "Prof Tester", level: 1, sourceFilter: {mode: "all", sources: {}, isPreferReprints: false}}}},
+	});
+	const page = await openPage(browser, {state: stored});
 	const byLabel = (groups, label) => groups.find(g => g.label === label);
 
 	check("the empty state says where these come from", /picking content/i.test(await page.textContent("#cs-prof-list")));

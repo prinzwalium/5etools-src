@@ -35,6 +35,11 @@ Failures print the check that failed, and every open page is screenshotted into
 | `turnhelper` | The Actions panel greys out what live state has taken away — slots, charges, ammunition, concentration, conditions |
 | `audit` | The Build Check reports a broken rule and an unclaimed choice, and says so when there is neither |
 | `cards` | The Cards button builds a printable deck of the character's own spells and attacks, then puts the page back |
+| `citations` | A breakdown names the rule behind each contribution, and shows the book's own text, source and page |
+| `journal` | Play is recorded and written up per session, splits where asked, and reloading the sheet records nothing |
+| `appearance` | The portrait is downscaled, stored, cleared and survives a reload; the brew utilities are initialised |
+| `smokes` | Magic-item bonuses, Expertise offered and claimed, a background's origin feat, and the store round-trip |
+| `sync` | With no account system deployed, the seam is inert: nothing loaded, nothing logged, storage still local |
 | `defenses` | Resistances/immunities/senses come from species, trait picks and worn gear, credited to each, and gear's go when it comes off |
 | `sidekick` | Both sidekick rulesets: an Essentials Kit type + role with its level table and level-up box, and any stat block + a Tasha's class; traits as editable rows |
 

@@ -1,4 +1,5 @@
 import {CHAR_SHEET_SKILLS, getSkillKeyByName, getSkillNameByKey} from "./charactersheet-consts.js";
+import {getEntityProficiencies, PROF_KIND_LANGUAGE, PROF_KIND_TOOL} from "./charactersheet-proficiencies.js";
 
 /**
  * The "choice queue": pure extraction of unresolved choices (skill/language/tool picks) from
@@ -19,8 +20,11 @@ export const ARTISANS_TOOLS = [
 export const OTHER_TOOLS = ["Disguise kit", "Forgery kit", "Herbalism kit", "Navigator's tools", "Poisoner's kit", "Thieves' tools", "Vehicles (land)", "Vehicles (water)"];
 
 export const CHOICE_TYPE_SKILL = "skill";
+export const CHOICE_TYPE_WEAPON = "weapon";
 export const CHOICE_TYPE_LANGUAGE = "language";
 export const CHOICE_TYPE_TOOL = "tool";
+/** One pick that may be spent on a skill, a tool *or* a language — see `getSkillToolLanguageChoices`. */
+export const CHOICE_TYPE_SKILL_TOOL_LANGUAGE = "skillToolLanguage";
 export const CHOICE_TYPE_ABILITY = "ability";
 export const CHOICE_TYPE_EXPERTISE = "expertise";
 
@@ -50,7 +54,105 @@ export function getProfListDisplay (arr, {isFixedOnly = false, isChoiceOnly = fa
 	return out.join(", ");
 }
 
+/**
+ * A stable name for one choice, so that "has this been answered?" has an answer.
+ *
+ * The `id`s handed out above are per-render and cannot be stored; what identifies a choice across
+ * sessions is where it came from and what it asks. Everything that resolves a choice — the guided
+ * setup, the species and background pickers — records it under this key, and everything that asks
+ * what is left reads the same one. Without it the guide and the panels each kept their own idea of
+ * what had been done, and disagreed.
+ */
+export function getChoiceSignature (choice) {
+	return `${choice?.sourceName || ""}|${choice?.type || ""}|${choice?.label || ""}`;
+}
+
 const _ALL_SKILL_NAMES = () => CHAR_SHEET_SKILLS.map(({name}) => name);
+
+/**
+ * What the character already holds, keyed by the choice type that could offer it again.
+ *
+ * Nothing is gained by taking the same proficiency twice, and the sheet cannot say so afterwards: a
+ * skill records a state, not a count, so a second grant lands on a box that is already ticked and
+ * the pick is simply lost. A Human Fighter offered Acrobatics by both its species and its class can
+ * spend two of its three skills on one. So every chooser subtracts this set first.
+ */
+export function getHeldProficiencyNames (state) {
+	const out = {
+		[CHOICE_TYPE_SKILL]: new Set(),
+		[CHOICE_TYPE_TOOL]: new Set(),
+		[CHOICE_TYPE_LANGUAGE]: new Set(),
+	};
+
+	CHAR_SHEET_SKILLS.forEach(({key, name}) => {
+		if (Number(state?.[`skill_${key}`]) > 0) out[CHOICE_TYPE_SKILL].add(name);
+	});
+
+	(state?.proficiencies || []).forEach(prof => {
+		const bucket = prof?.kind === PROF_KIND_TOOL
+			? out[CHOICE_TYPE_TOOL]
+			: prof?.kind === PROF_KIND_LANGUAGE ? out[CHOICE_TYPE_LANGUAGE] : null;
+		if (!bucket) return;
+		(Array.isArray(prof.entries) ? prof.entries : []).forEach(name => bucket.add(name));
+	});
+
+	return out;
+}
+
+/**
+ * The same, for entities that are *picked but not yet applied* — the guided setup's draft. Its
+ * choices are all answered before anything reaches the sheet, so the character cannot yet tell the
+ * class chooser that the background hands it Stealth outright.
+ */
+export function getFixedProficiencyNames ({race = null, background = null, cls = null} = {}) {
+	const out = {
+		[CHOICE_TYPE_SKILL]: new Set(),
+		[CHOICE_TYPE_TOOL]: new Set(),
+		[CHOICE_TYPE_LANGUAGE]: new Set(),
+	};
+
+	[race, background, cls].filter(Boolean).forEach(ent => {
+		(ent.skillProficiencies || []).forEach(grp => {
+			Object.entries(grp).forEach(([k, v]) => {
+				if (v !== true) return;
+				const name = getSkillNameByKey(getSkillKeyByName(k));
+				if (name) out[CHOICE_TYPE_SKILL].add(name);
+			});
+		});
+
+		getEntityProficiencies(ent).forEach(prof => {
+			if (prof.kind === PROF_KIND_TOOL) out[CHOICE_TYPE_TOOL].add(prof.name);
+			else if (prof.kind === PROF_KIND_LANGUAGE) out[CHOICE_TYPE_LANGUAGE].add(prof.name);
+		});
+	});
+
+	return out;
+}
+
+/** The union of two such maps. */
+export function mergeHeldProficiencyNames (...maps) {
+	const out = {
+		[CHOICE_TYPE_SKILL]: new Set(),
+		[CHOICE_TYPE_TOOL]: new Set(),
+		[CHOICE_TYPE_LANGUAGE]: new Set(),
+	};
+	maps.filter(Boolean).forEach(map => {
+		Object.entries(out).forEach(([type, set]) => (map[type] || []).forEach(name => set.add(name)));
+	});
+	return out;
+}
+
+/**
+ * A choice with everything the character already has taken out of it, and its count clipped to what
+ * is left. Returns `null` when nothing remains to offer — the grant is spent, not owed.
+ */
+export function getChoiceWithoutHeld (choice, held) {
+	const taken = held?.[choice?.type];
+	if (!taken?.size || !Array.isArray(choice?.from)) return choice;
+	const from = choice.from.filter(name => !taken.has(name));
+	if (!from.length) return null;
+	return {...choice, from, count: Math.min(choice.count || 1, from.length)};
+}
 
 /** Skill choices from a `skillProficiencies`-style group array. Option values are display names. */
 export function getSkillChoices ({groups, sourceName}) {
@@ -144,8 +246,85 @@ export function getLanguageChoices ({groups, sourceName}) {
 	return out;
 }
 
-/** The `{anyX: n}` tool keys, and what each draws from. */
-const _ALL_TOOLS = [...ARTISANS_TOOLS, ...GAMING_SETS, ...MUSICAL_INSTRUMENTS, ...OTHER_TOOLS].sort();
+/**
+ * Every tool a "choose any tool" may draw from.
+ *
+ * A static fallback, not the truth: the real list is the item data, read by
+ * `CharacterSheetClassData.pGetToolProficiencyNames`. This is what callers that cannot await get,
+ * and what applies when the item data will not load.
+ */
+export const ALL_TOOL_NAMES = [...ARTISANS_TOOLS, ...GAMING_SETS, ...MUSICAL_INSTRUMENTS, ...OTHER_TOOLS].sort();
+const _ALL_TOOLS = ALL_TOOL_NAMES;
+
+/**
+ * `skillToolLanguageProficiencies` — one pick spendable across the three kinds.
+ *
+ * The books' "any combination of three skills or tools of your choice" (Skilled, a Half-Elf's Skill
+ * Versatility) is not three skill picks *and* three tool picks; it is three picks from one pool. The
+ * data says exactly that, in its own field, with `anySkill` / `anyTool` / `anyLanguage` as the pool
+ * tokens — which is why nothing was found by reading `skillProficiencies` alone.
+ *
+ * Two shapes appear:
+ *  - `{choose: [{from: ["anySkill", "anyTool"], count: 3}]}` — the mixed pool;
+ *  - a bare `{anyTool: 1}` or `{anyLanguage: 1, anyTool: 1}` group, which is the same thing with one
+ *    token per key.
+ *
+ * `toolNames` is injected rather than read here, so this stays pure and testable: callers that can
+ * await pass the real item-data list, and the rest get the static fallback.
+ *
+ * @return {Array} choices whose `pools` say which kind each option in `from` belongs to.
+ */
+export function getSkillToolLanguageChoices ({groups, sourceName, toolNames = ALL_TOOL_NAMES} = {}) {
+	const out = [];
+	const _WHAT = {[CHOICE_TYPE_SKILL]: "skill", [CHOICE_TYPE_TOOL]: "tool", [CHOICE_TYPE_LANGUAGE]: "language"};
+
+	const mkPools = tokens => {
+		const pools = {[CHOICE_TYPE_SKILL]: [], [CHOICE_TYPE_TOOL]: [], [CHOICE_TYPE_LANGUAGE]: []};
+		tokens.forEach(token => {
+			switch (token) {
+				case "anySkill": pools[CHOICE_TYPE_SKILL] = _ALL_SKILL_NAMES(); break;
+				case "anyTool": pools[CHOICE_TYPE_TOOL] = [...toolNames]; break;
+				case "anyLanguage": pools[CHOICE_TYPE_LANGUAGE] = (Parser.LANGUAGES_ALL || []).map(_titleCase); break;
+				case "anyStandardLanguage": pools[CHOICE_TYPE_LANGUAGE] = (Parser.LANGUAGES_STANDARD || []).map(_titleCase); break;
+				// An unknown token would silently shrink the pool, so it is skipped rather than guessed at
+			}
+		});
+		return pools;
+	};
+
+	const push = ({tokens, count}) => {
+		const pools = mkPools(tokens);
+		const from = [...pools[CHOICE_TYPE_SKILL], ...pools[CHOICE_TYPE_TOOL], ...pools[CHOICE_TYPE_LANGUAGE]];
+		if (!from.length) return;
+		const n = count || 1;
+		// "3 skills or tools", not "3 skill or tools" — each kind carries the plural
+		const kinds = Object.entries(pools)
+			.filter(([, list]) => list.length)
+			.map(([type]) => `${_WHAT[type]}${n > 1 ? "s" : ""}`);
+		out.push({
+			id: _nextId(),
+			type: CHOICE_TYPE_SKILL_TOOL_LANGUAGE,
+			sourceName,
+			count: n,
+			from,
+			pools,
+			label: `Choose ${n} ${kinds.join(" or ")}`,
+		});
+	};
+
+	(groups || []).forEach(grp => {
+		Object.entries(grp || {}).forEach(([k, v]) => {
+			if (k === "choose") {
+				[v].flat().filter(Boolean).forEach(c => push({tokens: [c.from].flat().filter(Boolean), count: c.count}));
+				return;
+			}
+			if (typeof v === "number") push({tokens: [k], count: v});
+		});
+	});
+
+	return out;
+}
+
 const _TOOL_ANY_KEYS = {
 	anyGamingSet: {from: GAMING_SETS, what: "gaming set"},
 	anyMusicalInstrument: {from: MUSICAL_INSTRUMENTS, what: "musical instrument"},
@@ -281,17 +460,42 @@ export function getResistChoices ({groups, sourceName}) {
 }
 
 /** Granted-feat entries (`feats` on 2024-style backgrounds/races) are `{"name|source": true}` maps. */
-export function getGrantedFeats (feats) {
+/**
+ * Whether a background's feature offers a *choice* of feats rather than granting them all.
+ *
+ * "You gain the Lucky, Magic Initiate, or Skilled feat (your choice)" is written as three entries
+ * in `feats`, which read naively grants all three — the Rewarded and Ruined backgrounds handed over
+ * three feats each where the book gives one.
+ *
+ * What separates them from a background that genuinely grants two things is `fromFeature`: it marks
+ * a grant as coming from the background's *feature*, and a feature naming more than one feat is
+ * offering a menu. Haunted One grants Survivor **and** a Dark Gift, has no `fromFeature`, and is
+ * correctly left alone.
+ */
+function _isFeatChoice (feats, fromFeature) {
+	if (!fromFeature?.feats) return false;
+	return _getNamedFeats(feats).length > 1;
+}
+
+/** The named feats in a `feats` array, before deciding whether they are grants or a menu. */
+function _getNamedFeats (feats) {
 	const out = [];
 	(feats || []).forEach(grp => {
 		Object.entries(grp).forEach(([uid, v]) => {
 			if (v !== true) return;
-			const [name, source] = uid.split("|");
+			const [uidName, source] = uid.split("|");
+			if (!uidName) return;
+			// A uid may narrow the feat as well as name it — `"magic initiate; cleric|xphb"` is the
+			// Magic Initiate feat, taken with the Cleric list. Only the part before the semicolon is
+			// the feat's real name, and that is what a taken feat is stored under; keeping the whole
+			// string here is what left an Acolyte's granted feat looking untaken forever.
+			const [name, ...subs] = uidName.split(";").map(pt => pt.trim()).filter(Boolean);
 			if (!name) return;
 			out.push({
 				name,
 				source: source || "PHB",
-				displayName: name.split(";").map(pt => _titleCase(pt.trim())).join(" — "),
+				subChoice: subs.join(", ") || null,
+				displayName: [name, ...subs].map(pt => _titleCase(pt)).join(" — "),
 			});
 		});
 	});
@@ -299,11 +503,79 @@ export function getGrantedFeats (feats) {
 }
 
 /**
- * All pending choices for a set of picked entities, in creation-flow order.
- * `cls` skill choices come from `startingProficiencies`; class tools/languages are
- * rendered text in the data, not structured choices, so they are not queued.
+ * The feats an entity grants outright.
+ *
+ * @param [opts.fromFeature] the entity's `fromFeature`; without it a feature's *menu* of feats reads
+ *   as three separate grants.
  */
-export function getPendingChoices ({race = null, background = null, cls = null} = {}) {
+export function getGrantedFeats (feats, {fromFeature = null} = {}) {
+	if (_isFeatChoice(feats, fromFeature)) return [];
+	return _getNamedFeats(feats);
+}
+
+/**
+ * The one feat an entity's feature lets the player pick from a named few, or null.
+ * @return {?{count: number, from: Array<{name, source, subChoice, displayName}>}}
+ */
+export function getGrantedFeatChoice (feats, {fromFeature = null} = {}) {
+	if (!_isFeatChoice(feats, fromFeature)) return null;
+	return {count: 1, from: _getNamedFeats(feats)};
+}
+
+/**
+ * Feats an entity grants as a *category* rather than by name — "you gain an Origin feat of your
+ * choice", which is how the 2024 Human's Versatile is written and how several backgrounds work.
+ *
+ * Separate from `getGrantedFeats` because the two need different treatment: one is a feat to take,
+ * the other is a choice to make. Missing this shape entirely is why a Human's Versatile granted
+ * nothing at all.
+ *
+ * @return {Array<{category: string, count: number}>}
+ */
+export function getGrantedFeatCategories (feats) {
+	const out = [];
+	(feats || []).forEach(grp => {
+		const any = grp?.anyFromCategory;
+		if (!any) return;
+		const categories = [any.category].flat().filter(Boolean);
+		categories.forEach(category => out.push({category: String(category).toUpperCase(), count: any.count || 1}));
+	});
+	return out;
+}
+
+/**
+ * Every character's languages, which no entity grants.
+ *
+ * The 2024 rules put them in character creation rather than on a species or a background: you know
+ * Common and two more of your choice. Nothing in the data carries that, so nothing asked — a
+ * Human Sailor was offered no language at all, because neither the species nor the background has a
+ * `languageProficiencies` field to read. Curated, and the only rule here that is.
+ *
+ * The 2014 rules do put them on the species, where `getPendingChoices` already finds them.
+ *
+ * @return {?object} the choice, or `null` under the 2014 rules where the species answers it.
+ */
+export function getRulesLanguageChoice ({isClassic = false, count = 2} = {}) {
+	if (isClassic) return null;
+	return {
+		id: _nextId(),
+		type: CHOICE_TYPE_LANGUAGE,
+		sourceName: "Languages",
+		count,
+		from: Parser.LANGUAGES_STANDARD.filter(it => it !== "Common").map(_titleCase),
+		label: `Choose ${count} language${count > 1 ? "s" : ""} besides Common`,
+	};
+}
+
+/**
+ * All pending choices for a set of picked entities, in creation-flow order.
+ *
+ * A class's are its starting proficiencies: the skills it offers, and the tools and languages it
+ * offers *structurally* — `toolProficiencies` beside the prose `tools`, which is the pair the data
+ * keeps. Reading only the prose is why a Rogue was never asked for its four skills and a Bard was
+ * never asked which three instruments.
+ */
+export function getPendingChoices ({race = null, background = null, cls = null, toolNames = ALL_TOOL_NAMES} = {}) {
 	const out = [];
 
 	if (race) {
@@ -312,11 +584,16 @@ export function getPendingChoices ({race = null, background = null, cls = null} 
 		out.push(...getSkillChoices({groups: race.skillProficiencies, sourceName}));
 		out.push(...getLanguageChoices({groups: race.languageProficiencies, sourceName}));
 		out.push(...getToolChoices({groups: race.toolProficiencies, sourceName}));
+		out.push(...getSkillToolLanguageChoices({groups: race.skillToolLanguageProficiencies, sourceName, toolNames}));
 	}
 
 	if (cls) {
 		const sourceName = `Class: ${cls.name}`;
-		out.push(...getSkillChoices({groups: cls.startingProficiencies?.skills, sourceName}));
+		const sp = cls.startingProficiencies || {};
+		out.push(...getSkillChoices({groups: sp.skills, sourceName}));
+		out.push(...getToolChoices({groups: sp.toolProficiencies, sourceName}));
+		out.push(...getLanguageChoices({groups: sp.languageProficiencies, sourceName}));
+		out.push(...getSkillToolLanguageChoices({groups: sp.skillToolLanguageProficiencies, sourceName, toolNames}));
 	}
 
 	if (background) {
@@ -325,7 +602,53 @@ export function getPendingChoices ({race = null, background = null, cls = null} 
 		out.push(...getSkillChoices({groups: background.skillProficiencies, sourceName}));
 		out.push(...getLanguageChoices({groups: background.languageProficiencies, sourceName}));
 		out.push(...getToolChoices({groups: background.toolProficiencies, sourceName}));
+		out.push(...getSkillToolLanguageChoices({groups: background.skillToolLanguageProficiencies, sourceName, toolNames}));
 	}
+
+	return out;
+}
+
+/* -------------------------------------------- weapon proficiency choices -------------------------------------------- */
+
+/**
+ * Weapon proficiencies a feat asks the player to pick.
+ *
+ * One feat writes its choice this way — Weapon Master's "choose four martial or mundane weapons",
+ * as `{choose: {fromFilter: "type=martial weapon;mundane weapon|miscellaneous=mundane", count: 4}}`.
+ * Nothing read `fromFilter`, so the four picks were silently dropped.
+ *
+ * The filter is not evaluated as a filter: it names weapon *categories*, and every base weapon
+ * carries its own `weaponCategory`, so what comes back is the categories to offer. "Mundane" is not
+ * a category but the exclusion of magic items, which asking for base weapons already achieves.
+ *
+ * @return {Array<{count: number, categories: ?Array<string>, label: string}>}
+ */
+export function getWeaponChoices ({groups, sourceName}) {
+	const out = [];
+
+	(groups || []).forEach(grp => {
+		const choose = grp?.choose;
+		if (!choose) return;
+
+		const count = Number(choose.count) || 1;
+		const types = String(choose.fromFilter || "")
+			.split("|")
+			.map(part => part.split("="))
+			.filter(([k]) => k?.trim().toLowerCase() === "type")
+			.flatMap(([, v]) => String(v).split(";"))
+			.map(it => it.trim().toLowerCase().replace(/ weapons?$/, ""));
+
+		const categories = types.filter(it => it === "martial" || it === "simple");
+
+		out.push({
+			id: _nextId(),
+			type: CHOICE_TYPE_WEAPON,
+			sourceName,
+			count,
+			categories: categories.length ? categories : null,
+			label: `Choose ${count} weapon${count > 1 ? "s" : ""}`,
+		});
+	});
 
 	return out;
 }

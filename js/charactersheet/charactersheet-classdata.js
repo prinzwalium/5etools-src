@@ -6,6 +6,13 @@
  * arrays, producing a by-level array of resolved feature entries (with `gainSubclassFeature` markers
  * preserved). Everything here builds on that, rather than re-implementing uid parsing.
  */
+import {ALL_TOOL_NAMES} from "./charactersheet-choices.js";
+import {annotateVariantFeatures, filterActiveFeatures} from "./charactersheet-features.js";
+import {filterReprinted} from "./charactersheet-sources.js";
+
+/** Artisan's tools, instrument, gaming set, tool — the item types a proficiency can name. */
+const _TOOL_TYPE_ABVS = new Set(["AT", "INS", "GS", "T"]);
+
 export class CharacterSheetClassData {
 	/**
 	 * Active source-filter predicate (`source => boolean`), or null for "everything".
@@ -16,9 +23,26 @@ export class CharacterSheetClassData {
 
 	static setSourceFilter (fn) { this._fnSourceFilter = fn || null; }
 
+	/**
+	 * Whether a later printing supersedes the one it reprints. Set from the character's own filter,
+	 * beside `setSourceFilter`, because both are the same question: what may this character pick?
+	 */
+	static _isPreferReprints = true;
+
+	static setPreferReprints (isPrefer) { this._isPreferReprints = isPrefer !== false; }
+
+	/**
+	 * What a picker may offer: the character's allowed sources, then — unless the character has asked
+	 * otherwise — with anything a later printing supersedes taken out.
+	 *
+	 * The order is the point. Filtering by source *first* means a 2014-only character never loses its
+	 * 2014 content: the 2024 reprint is not in the list to supersede it. And a character with every
+	 * book allowed is offered the 2024 Fighter rather than both Fighters, while the subclasses,
+	 * spells and items the new books never reprinted stay exactly where they were.
+	 */
 	static _filterBySource (arr) {
-		if (!this._fnSourceFilter) return arr;
-		return arr.filter(it => this._fnSourceFilter(it.source));
+		const allowed = this._fnSourceFilter ? arr.filter(it => this._fnSourceFilter(it.source)) : arr;
+		return this._isPreferReprints ? filterReprinted(allowed) : allowed;
 	}
 
 	static _pAllClasses = null;
@@ -123,6 +147,70 @@ export class CharacterSheetClassData {
 		})();
 	}
 
+	static _pToolNames = null;
+
+	/**
+	 * Every tool a character can be proficient with, read from the item data.
+	 *
+	 * By the item's **type code**, never by its name: matching `" Tools"` would find Smith's Tools and
+	 * miss all seven *Supplies* (Alchemist's, Painter's, ...), Cook's Utensils, all 23 instruments and
+	 * all five gaming sets — 28 of the 40 in the base file alone. The codes are `AT` artisan's tools,
+	 * `INS` instrument, `GS` gaming set, `T` tool, and they span two files, so the built list is used
+	 * rather than either file directly.
+	 *
+	 * Magic items carry the same type codes (a *Horn of Valhalla* is an `INS`), so only base items
+	 * count: proficiency is with the kind of tool, not with a particular magical one.
+	 */
+	static pGetToolProficiencyNames () {
+		return this._pToolNames ||= (async () => {
+			try {
+				const all = await Renderer.item.pBuildList();
+				const names = new Set(
+					all
+						.filter(it => _TOOL_TYPE_ABVS.has(String(it.type || "").split("|")[0]))
+						// "Artisan's Tools" and "Gaming Set" are the *category*, not a tool you can be
+						// proficient with — the data marks them as groups
+						.filter(it => !it._isItemGroup)
+						// A *+1 Rhythm-Maker's Drum* is an instrument, but proficiency is with the Drum
+						.filter(it => !it.baseItem && !it.wondrous && !it.reqAttune && (!it.rarity || it.rarity === "none"))
+						// Base gear, or something with a price — which is what separates a tool anyone can
+						// buy from a named treasure that happens to share its type
+						.filter(it => it._isBaseItem || it.value != null)
+						.map(it => it.name)
+						.filter(Boolean),
+				);
+				const out = [...names].sort(SortUtil.ascSortLower);
+				// A filter that matched nothing is a broken read, not an empty world
+				return out.length ? out : ALL_TOOL_NAMES;
+			} catch (e) {
+				return ALL_TOOL_NAMES;
+			}
+		})();
+	}
+
+	static _pAllActions = null;
+
+	/**
+	 * The general actions — Dash, Dodge, Hide, Ready, Two-Weapon Fighting.
+	 *
+	 * From the book's own file, because the two editions differ in ways nobody should be keeping in
+	 * their head: 2024 split Search into Study and Influence, and moved Grapple and Shove onto the
+	 * Unarmed Strike. Brew is included, so a table that has written its own action gets it too.
+	 */
+	static pGetAllActions () {
+		return this._pAllActions ||= (async () => {
+			const page = UrlUtil.PG_ACTIONS;
+			return [
+				...(await DataLoader.pCacheAndGetAllSite(page)),
+				...(await DataLoader.pCacheAndGetAllPrerelease(page)),
+				...(await DataLoader.pCacheAndGetAllBrew(page)),
+			].filter(it => {
+				const hash = UrlUtil.URL_TO_HASH_BUILDER[page](it);
+				return !ExcludeUtil.isExcluded(hash, "action", it.source);
+			});
+		})();
+	}
+
 	static _pAllFeats = null;
 
 	/** All feats (site + prerelease + brew), blocklist-filtered and sorted. */
@@ -158,6 +246,32 @@ export class CharacterSheetClassData {
 		return feats.find(f => f.name.toLowerCase() === baseName && f.source.toLowerCase() === src)
 			|| feats.find(f => f.name.toLowerCase() === baseName)
 			|| null;
+	}
+
+	/**
+	 * A background by name and source.
+	 *
+	 * Unfiltered, like `pGetFeat`: a background the character already has must stay resolvable even
+	 * when the source filter would no longer offer it. Used by the Background panel and the audit,
+	 * both of which describe what the character *has*.
+	 */
+	static pGetBackground ({name, source}) {
+		return this._pGetByHash(UrlUtil.PG_BACKGROUNDS, {name, source});
+	}
+
+	/** A species by name and source. See `pGetBackground`. */
+	static pGetSpecies ({name, source}) {
+		return this._pGetByHash(UrlUtil.PG_RACES, {name, source});
+	}
+
+	static async _pGetByHash (page, {name, source}) {
+		if (!name || !source) return null;
+		try {
+			const hash = UrlUtil.URL_TO_HASH_BUILDER[page]({name, source});
+			return await DataLoader.pCacheAndGet(page, source, hash, {isCopy: true});
+		} catch (e) {
+			return null;
+		}
 	}
 
 	/**
@@ -226,6 +340,26 @@ export class CharacterSheetClassData {
 	}
 
 	/**
+	 * Base weapons — the types, not the thousands of magic variants — optionally narrowed to a
+	 * weapon category ("martial", "simple").
+	 *
+	 * Read from the item data by `weaponCategory`, which every base weapon carries, rather than by
+	 * parsing the `fromFilter` string a feat writes its choice as. The filter says two things
+	 * ("martial or mundane weapons", "mundane only") and the item says both of them itself.
+	 */
+	static async pGetBaseWeapons ({categories = null} = {}) {
+		const all = this._filterBySource(await Renderer.item.pBuildList());
+		const wanted = categories ? new Set(categories.map(it => String(it).toLowerCase())) : null;
+		const seen = new Set();
+		return all
+			.filter(it => it.weapon && it._isBaseItem)
+			.filter(it => !wanted || wanted.has(String(it.weaponCategory).toLowerCase()))
+			.filter(it => { const k = it.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+			.map(it => ({name: it.name, source: it.source, weaponCategory: it.weaponCategory}))
+			.sort((a, b) => SortUtil.ascSortLower(a.name, b.name));
+	}
+
+	/**
 	 * All features a character has from its structured classes/subclasses, up to each class's level.
 	 * @return {Promise<Array<{name: string, feature: object, isSubclassFeature: boolean}>>}
 	 */
@@ -237,7 +371,7 @@ export class CharacterSheetClassData {
 			const sc = entry.subclass
 				? await this.pGetSubclass({className: entry.name, classSource: entry.source, shortName: entry.subclass.shortName, source: entry.subclass.source}).catch(() => null)
 				: null;
-			this.getFeatureTimeline(cls, {subclass: sc, level: entry.level}).forEach(({feature, isSubclassFeature}) => {
+			this.getActiveFeatureTimeline(cls, {subclass: sc, level: entry.level, featureVariants: entry.featureVariants}).forEach(({feature, isSubclassFeature}) => {
 				const {name} = this.getFeatureNameMeta(feature);
 				if (name) out.push({name, feature, isSubclassFeature});
 			});
@@ -289,13 +423,22 @@ export class CharacterSheetClassData {
 		const cats = new Set();
 		const walk = node => {
 			if (Array.isArray(node)) return node.forEach(walk);
-			if (node && typeof node === "object") return walk(node.entries);
+			if (node && typeof node === "object") {
+				// An `options` block is a *menu* — "Eldritch Invocation Options" holds every invocation,
+				// one of which (Lessons of the First Ones) grants an Origin feat. Walking into it would
+				// have the listing itself grant a feat, which is how a chooser turned up on a card that
+				// grants nothing. What an option grants is the option's business, once it is taken.
+				if (node.type === "options") return;
+				return walk(node.entries);
+			}
 			if (typeof node !== "string") return;
 			const re = /\{@filter [^|}]*\|feats\|([^}]*)\}/g;
 			let m;
 			while ((m = re.exec(node))) {
 				const cat = /category=([^|}]+)/.exec(m[1]);
-				if (cat) cats.add(cat[1].trim());
+				// The data writes the category either way round (`category=o`, `category=EB`), and a
+				// feat's own `category` is upper case. Normalised here so one spelling reaches the UI
+				if (cat) cats.add(cat[1].trim().toUpperCase());
 			}
 		};
 		walk(feature?.entries);
@@ -320,9 +463,16 @@ export class CharacterSheetClassData {
 	/**
 	 * The feature timeline for levels 1..`level`, in gain order, with subclass features (when a
 	 * subclass is provided) spliced in at their `gainSubclassFeature` markers.
-	 * @return {Array<{level: number, feature: object, isSubclassFeature: boolean}>}
+	 *
+	 * Tasha's optional features sit in this list beside the features they replace, so every entry is
+	 * annotated with `isVariant` / `isVariantTaken` / `replacedBy` against the class entry's
+	 * `featureVariants`. The builder wants the whole list, to offer the ones not taken; everything
+	 * else wants `getActiveFeatureTimeline`, which is this minus the options nobody took and the
+	 * features a taken option superseded.
+	 *
+	 * @return {Array<{level: number, feature: object, isSubclassFeature: boolean, isVariant: boolean, isVariantTaken: boolean, replacedBy: ?string}>}
 	 */
-	static getFeatureTimeline (cls, {subclass = null, level}) {
+	static getFeatureTimeline (cls, {subclass = null, level, featureVariants = []}) {
 		const out = [];
 
 		for (let lvl = 1; lvl <= level; ++lvl) {
@@ -336,6 +486,11 @@ export class CharacterSheetClassData {
 			});
 		}
 
-		return out;
+		return annotateVariantFeatures(out, featureVariants);
+	}
+
+	/** {@link getFeatureTimeline}, reduced to the features the character actually has. */
+	static getActiveFeatureTimeline (cls, opts) {
+		return filterActiveFeatures(this.getFeatureTimeline(cls, opts));
 	}
 }

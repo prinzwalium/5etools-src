@@ -7,6 +7,67 @@
 		font-style: italic;
 	}
 
+	// The account-system badge. Present only when an account system actually answered, so its mere
+	// existence already says something; the colour says which of the three states it is in.
+	.cs__sync-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		padding: 2px 9px;
+		border: 1px solid transparent;
+		border-radius: 999px;
+		background: transparent;
+		font-size: 0.78em;
+		line-height: 1.6;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.cs__sync-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: currentcolor;
+		flex-shrink: 0;
+	}
+
+	.cs__sync-badge--ok {
+		color: #3c763d;
+		border-color: #c3e0c3;
+		background: #eaf5ea;
+	}
+
+	.cs__sync-badge--warn {
+		color: #8a6d3b;
+		border-color: #ecd9a8;
+		background: #fcf6e6;
+	}
+
+	.cs__sync-badge--bad {
+		color: #a94442;
+		border-color: #e6c3c3;
+		background: #fbeaea;
+	}
+
+	// The pale fills above vanish against a dark page, so night mode gets its own values
+	.ve-night-mode .cs__sync-badge--ok {
+		color: #8fce8f;
+		border-color: #3d5a3d;
+		background: #23301f;
+	}
+
+	.ve-night-mode .cs__sync-badge--warn {
+		color: #e0c07a;
+		border-color: #5c4c2a;
+		background: #322a1c;
+	}
+
+	.ve-night-mode .cs__sync-badge--bad {
+		color: #e39b9b;
+		border-color: #5d3535;
+		background: #331f1f;
+	}
+
 	.cs__lbl {
 		display: block;
 		font-size: 0.72em;
@@ -147,6 +208,40 @@
 		opacity: 0.85;
 	}
 
+	// Tasha's optional class features. A card is one of three things and has to look like which:
+	// offered but not taken, taken, or a base feature a taken option has superseded. Only the name
+	// is struck through — the rules text stays readable, because "what did it say?" is exactly the
+	// question somebody asks before deciding
+	.cs__feat-badge--variant {
+		border-style: dashed;
+		text-transform: none;
+		font-weight: normal;
+		opacity: 0.7;
+	}
+
+	.cs__feat-card--unused,
+	.cs__feat-card--replaced {
+		border-style: dashed;
+		background: none;
+	}
+
+	.cs__feat-card--replaced > summary .cs__feat-name {
+		text-decoration: line-through;
+		opacity: 0.6;
+	}
+
+	// A species' `traitTags`, one chip each. Quieter than a badge: these summarise, and one of them
+	// (Powerful Build) is emphasised in markup because it changes a number.
+	.cs__tag {
+		flex: 0 0 auto;
+		font-size: 0.75em;
+		padding: 1px 7px;
+		margin-bottom: 2px;
+		border-radius: 999px;
+		border: 1px solid currentcolor;
+		opacity: 0.7;
+	}
+
 	.cs__feat-body {
 		padding: 0 12px 10px;
 		font-size: 0.9em;
@@ -228,6 +323,15 @@
 		font-weight: normal;
 	}
 
+	// What a *taken* option grants, asked for under the option rather than under the list it came
+	// from: an invocation that hands you an Origin feat, and nothing else so far
+	.cs__feat-choice--nested {
+		flex-flow: row wrap;
+		align-items: center;
+		margin-left: 12px;
+		border-style: dashed;
+	}
+
 	.ve-night-mode .cs__feat-choice {
 		border-color: rgb(120 170 240 / 35%);
 		background: rgb(120 170 240 / 8%);
@@ -252,6 +356,21 @@
 		text-decoration-color: rgb(255 255 255 / 30%);
 	}
 
+	// Values that carry a breakdown are focusable, so they have to show it. `:focus-visible` keeps
+	// the ring for the keyboard without ringing every click.
+	.cs__has-breakdown:focus-visible,
+	.cs__death-dot:focus-visible,
+	.cs__sync-badge:focus-visible {
+		outline: 2px solid #337ab7;
+		outline-offset: 2px;
+	}
+
+	.ve-night-mode .cs__has-breakdown:focus-visible,
+	.ve-night-mode .cs__death-dot:focus-visible,
+	.ve-night-mode .cs__sync-badge:focus-visible {
+		outline-color: #7db6e8;
+	}
+
 	input.cs__has-breakdown {
 		text-decoration: none;
 	}
@@ -273,6 +392,157 @@
 		border-color: rgb(255 255 255 / 25%);
 		background: #2a2a2a;
 		color: #ddd;
+	}
+
+	// A breakdown lists one contribution per line, so the rule behind each has somewhere to sit
+	.cs__breakdown-head {
+		font-weight: bold;
+		margin-bottom: 4px;
+	}
+
+	.cs__breakdown-row {
+		display: flex;
+		align-items: baseline;
+		gap: 6px;
+	}
+
+	.cs__breakdown-row--rule {
+		margin-top: 4px;
+		padding-top: 4px;
+		border-top: 1px solid rgb(0 0 0 / 12%);
+	}
+
+	.ve-night-mode .cs__breakdown-row--rule {
+		border-top-color: rgb(255 255 255 / 18%);
+	}
+
+	.cs__breakdown-label {
+		flex: 1 1 auto;
+	}
+
+	.cs__breakdown-value {
+		flex: 0 0 auto;
+		font-variant-numeric: tabular-nums;
+	}
+
+	// Looks and behaves like the entity links elsewhere on the sheet, because it does the same thing.
+	// This file is compiled without the shared variables, so the link blues are written out, as the
+	// rest of the sheet's colours are.
+	.cs__cite-btn {
+		flex: 0 0 auto;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: #337ab7;
+		font: inherit;
+		text-decoration: underline dotted;
+		cursor: pointer;
+
+		&:hover { text-decoration: underline; }
+	}
+
+	.ve-night-mode .cs__cite-btn {
+		color: #7db6e8;
+	}
+
+	.cs__cite-body {
+		p:last-child { margin-bottom: 0; }
+	}
+
+	.cs__cite-source {
+		margin-top: 8px;
+		font-size: 0.85em;
+		font-style: italic;
+		opacity: 0.75;
+	}
+
+	.cs__journal-controls {
+		display: flex;
+		gap: 6px;
+		margin-bottom: 6px;
+	}
+
+	.cs__journal-session {
+		padding: 5px 0;
+
+		& + & { border-top: 1px solid rgb(0 0 0 / 10%); }
+	}
+
+	.ve-night-mode .cs__journal-session + .cs__journal-session {
+		border-top-color: rgb(255 255 255 / 15%);
+	}
+
+	.cs__journal-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 8px;
+	}
+
+	.cs__journal-num {
+		font-weight: bold;
+	}
+
+	.cs__journal-date {
+		font-size: 0.85em;
+		opacity: 0.7;
+	}
+
+	.cs__journal-text {
+		font-size: 0.95em;
+	}
+
+	.cs__journal-empty {
+		font-style: italic;
+		font-size: 0.9em;
+	}
+
+	.cs__appearance {
+		display: flex;
+		gap: 10px;
+		align-items: flex-start;
+	}
+
+	.cs__portrait-wrp {
+		flex: 0 0 auto;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		align-items: center;
+	}
+
+	.cs__portrait {
+		width: 96px;
+		height: 96px;
+		object-fit: cover;
+		border: 1px solid rgb(0 0 0 / 20%);
+		border-radius: 3px;
+	}
+
+	.ve-night-mode .cs__portrait {
+		border-color: rgb(255 255 255 / 25%);
+	}
+
+	.cs__portrait--empty {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.75em;
+		font-style: italic;
+		opacity: 0.6;
+		text-align: center;
+	}
+
+	.cs__portrait-controls {
+		display: flex;
+		gap: 4px;
+	}
+
+	.cs__appearance-fields {
+		flex: 1 1 auto;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 4px 8px;
 	}
 
 	.cs__hdr-name .cs__ipt-name {
@@ -1031,6 +1301,12 @@
 	// "Print" in a browser is also "Save as PDF", which is the export: no dependency, no layout
 	// engine of our own, and it follows the sheet automatically as the sheet changes.
 	@media print {
+		// Browsers default to about 20mm, which on a character sheet costs a whole panel per page.
+		// 12mm is inside what a domestic printer can reach and buys back most of a page.
+		@page {
+			margin: 12mm;
+		}
+
 		.cs__toolbar,
 		.cs__toolbar-note {
 			display: none !important;
@@ -1098,6 +1374,120 @@
 
 		.cs__has-breakdown {
 			text-decoration: none !important;
+		}
+
+		// The page is a sheet, not a screen: the padding that separates panels on a monitor is a
+		// third of a page across a whole character
+		.cs__panel {
+			padding: 3px 0 0;
+			margin-bottom: 5px;
+			border: 0 !important;
+			border-top: 1px solid rgb(0 0 0 / 30%) !important;
+			border-radius: 0;
+		}
+
+		.cs__panel-title {
+			margin-bottom: 2px;
+			padding-bottom: 0;
+		}
+
+		// Six across, the way every printed stat block puts them — a column of six costs a fifth of
+		// the page for six numbers
+		.cs__abilities {
+			grid-template-columns: repeat(6, 1fr);
+			gap: 4px;
+		}
+
+		.cs__ability {
+			border: 0;
+			padding: 1px 0;
+			text-align: center;
+		}
+
+		.cs__ability-mod {
+			font-size: 1.2em;
+		}
+
+		// Eighteen skills down a single column is most of a page for one line each
+		#cs-skills,
+		#cs-saves {
+			columns: 2;
+			column-gap: 14px;
+		}
+
+		.cs__list-row {
+			padding: 0 2px;
+		}
+
+		// A log of past sessions is not part of the sheet somebody plays from, and it is the one
+		// panel that grows without limit
+		#cs-journal-panel {
+			display: none !important;
+		}
+
+		// A hint printed into an empty field reads as a mistake rather than a hint: an attack row
+		// nobody filled in should be a blank line to write on, not the words "e.g. Longsword"
+		.ve-form-control::placeholder {
+			color: transparent !important;
+		}
+
+		// The feature timeline is reference text on paper, so its *choosing* apparatus goes: the
+		// pencil meaning "options here", the tick boxes, the running count, and the note explaining
+		// how to choose. (The buttons already carry `no-print`.) What was chosen is text, and stays.
+		.cs__feat-mark,
+		.cs__feat-choice-opts input,
+		.cs__exp-count,
+		.cs__wm-count,
+		.cs__feat-choice > div.ve-muted {
+			display: none !important;
+		}
+
+		// An option nobody picked is not a fact about this character, and a list of unpicked options
+		// with their boxes hidden reads as though they had all been taken
+		.cs__feat-choice-opts label:not(:has(input:checked)) {
+			display: none !important;
+		}
+
+		// A choice still waiting to be made has nothing to say on paper: an empty box tells somebody
+		// holding a pen that something goes here, which is exactly what they cannot do about it
+		.cs__feat-choice:has(.cs__feat-choice-lbl--todo),
+		.cs__feat-choice:not(:has(input:checked, .bold)) {
+			display: none !important;
+		}
+
+		// A heading is no use at the foot of a page with its panel overleaf
+		.cs__panel-title,
+		.cs__panel-title-row {
+			break-after: avoid;
+		}
+
+		// A panel taller than a page cannot be kept whole, and asking for it wastes the rest of the
+		// page it would have started on. The feature timeline is always that panel.
+		.cs__panel:has(#cs-class-panel) {
+			break-inside: auto;
+		}
+
+		// Rows are a line or two each, and half a row across a page break is worse than a gap
+		.cs__list-row,
+		.cs__act-row,
+		.cs__atk-row,
+		.cs__inv-table tr,
+		.cs__hp-row,
+		.cs__hd-row,
+		.cs__death-row,
+		.cs__sp-lvl,
+		.cs__defense-group,
+		.cs__prof-group {
+			break-inside: avoid;
+		}
+
+		// The deliberate break: everything before this column is what a turn needs — abilities,
+		// saves, skills, combat, attacks, spells, actions, conditions — and everything in it is
+		// reference to read between turns. One page to keep in front of you, the rest behind it.
+		// Only the play sheet: the builder is not a thing anybody prints to use at a table, and a
+		// sidekick prints as a single stat-block card that must not be split at all.
+		.cs__col--reference {
+			break-before: page;
 		}
 	}
 
@@ -1381,6 +1771,59 @@
 
 		.cs__card-higher {
 			font-style: italic;
+		}
+	}
+
+	/* -------------------------------------------- Per-character accents -------------------------------------------- */
+
+	/*
+	 * A character's own tint, chosen per character and stored with it (`charactersheet-theme.js`).
+	 *
+	 * Deliberately shallow: a hue on the sheet's own chrome — panel edges and grounds, section
+	 * labels, the roll buttons — and nothing on the site's furniture, so a theme can never make the
+	 * navbar or a modal unreadable. Brightness is not here at all; that rides the site's night mode,
+	 * because the rest of this file is built on it.
+	 */
+	.cs-theme--parchment {
+		--cs-accent: #8a6a34;
+		--cs-accent-soft: rgb(180 140 70 / 14%);
+	}
+
+	.cs-theme--arcane {
+		--cs-accent: #8f7fd6;
+		--cs-accent-soft: rgb(143 127 214 / 16%);
+	}
+
+	.cs-theme--verdant {
+		--cs-accent: #4f9161;
+		--cs-accent-soft: rgb(79 145 97 / 16%);
+	}
+
+	.cs-theme--crimson {
+		--cs-accent: #b05353;
+		--cs-accent-soft: rgb(176 83 83 / 16%);
+	}
+
+	// One block, four themes: each only sets the two custom properties above
+	[class*="cs-theme--"] {
+		.cs__panel {
+			border-color: var(--cs-accent-soft);
+			background: var(--cs-accent-soft);
+		}
+
+		.cs__lbl,
+		.cs__panel-title {
+			color: var(--cs-accent);
+		}
+
+		.cs__feat-badge--variant,
+		.cs__tag {
+			border-color: var(--cs-accent);
+			color: var(--cs-accent);
+		}
+
+		.cs__roll {
+			color: var(--cs-accent);
 		}
 	}
 }

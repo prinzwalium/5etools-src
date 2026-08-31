@@ -23,6 +23,13 @@ concurrency:
 
 jobs:
    build-image:
+      # A pull request whose branch lives in *this* repository is already built by the `push`
+      # trigger above, on the same commit — and this run publishes nothing, since `push:` below is
+      # false for a pull request. Two builds of one commit means two simultaneous pulls of the base
+      # image's 6.6 GB layer, which is how a green build turned into `429 Too Many Requests` from
+      # ghcr.io. A pull request from a *fork* has no push build behind it, so that one still runs:
+      # it is the only case where this event proves anything the push event has not.
+      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
       runs-on: ubuntu-latest
       permissions:
          contents: read

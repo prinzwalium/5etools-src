@@ -1,5 +1,5 @@
 import "../../js/parser.js";
-import {deriveArmorClass, deriveCharacterSheet, formatBreakdown, getAbilityScoreParts, getConcentrationSaveDc, getEquippedMagicBonuses, getProfBonus, getTotalLevel, getUnarmedStrike, getWeaponAttack, hasSpellcasting} from "../../js/charactersheet/charactersheet-derive.js";
+import {deriveArmorClass, deriveCharacterSheet, formatBreakdown, getAbilityScore, getAbilityScoreParts, getConcentrationSaveDc, getEquippedMagicBonuses, getItemAbilityEffects, getProfBonus, getTotalLevel, getUnarmedStrike, getWeaponAttack, hasSpellcasting} from "../../js/charactersheet/charactersheet-derive.js";
 
 const getBaseState = (overrides = {}) => ({
 	level: 1,
@@ -446,5 +446,151 @@ describe("Derive: the concentration save after damage", () => {
 	it("Tolerates nonsense", () => {
 		expect(getConcentrationSaveDc(0)).toBe(10);
 		expect(getConcentrationSaveDc(null)).toBe(10);
+	});
+});
+
+describe("Derive: every part names the rule behind it", () => {
+	const citeOf = (parts, label) => parts.find(p => p.label === label)?.cite;
+
+	it("Cites the ability rule, the proficiency rule, and the item itself on a save", () => {
+		const cloak = {name: "Cloak of Protection", source: "DMG", equipped: true, bonusSavingThrow: 1};
+		const state = getBaseState({level: 5, abil_dex: 16, save_dex: true, inventory: [cloak]});
+		const {parts} = deriveCharacterSheet(state).saves.dex;
+		expect(citeOf(parts, "Dexterity")).toBe("abilityModifier");
+		expect(citeOf(parts, "Proficiency")).toBe("proficiency");
+		// The magic bonus points at the thing granting it, not at a generic rule
+		expect(citeOf(parts, "Magic items")).toEqual({name: "Cloak of Protection", source: "DMG", page: "items.html"});
+	});
+
+	it("Leaves a magic bonus uncited when two items share the credit", () => {
+		const inv = [
+			{name: "Cloak of Protection", source: "DMG", equipped: true, bonusSavingThrow: 1},
+			{name: "Ring of Protection", source: "DMG", equipped: true, bonusSavingThrow: 1},
+		];
+		const {parts} = deriveCharacterSheet(getBaseState({inventory: inv})).saves.dex;
+		expect(citeOf(parts, "Magic items")).toBeNull();
+	});
+
+	it("Cites the worn armour for its own AC, and the AC rule when unarmored", () => {
+		const armor = {name: "Chain Mail", source: "PHB", equipped: true, isArmor: true, type: "HA", baseAc: 16};
+		const worn = deriveArmorClass(getBaseState({inventory: [armor]}));
+		expect(citeOf(worn.parts, "Chain Mail")).toEqual({name: "Chain Mail", source: "PHB", page: "items.html"});
+
+		const bare = deriveArmorClass(getBaseState({abil_dex: 14}));
+		expect(citeOf(bare.parts, "Unarmored")).toBe("armorClass");
+		expect(citeOf(bare.parts, "Dexterity")).toBe("abilityModifier");
+	});
+
+	it("Cites the exhaustion condition wherever exhaustion is subtracted", () => {
+		const derived = deriveCharacterSheet(getBaseState({exhaustion: 2, save_dex: true}));
+		expect(citeOf(derived.saves.dex.parts, "Exhaustion 2")).toBe("exhaustion");
+		expect(citeOf(derived.skills.stealth.parts, "Exhaustion 2")).toBe("exhaustion");
+		expect(citeOf(derived.initiativeParts, "Exhaustion 2")).toBe("exhaustion");
+	});
+
+	it("Cites the fighting style, not the weapon, for the Archery bonus", () => {
+		const item = {name: "Longbow", source: "PHB", type: "R", dmg1: "1d8"};
+		const state = getBaseState({classes: [{optionalFeatures: [{name: "Archery"}]}]});
+		const {atkParts} = getWeaponAttack(state, item);
+		expect(citeOf(atkParts, "Archery (fighting style)"))
+			.toEqual({name: "Archery", source: "PHB", page: "optionalfeatures.html"});
+	});
+
+	it("Leaves a part with no rule behind it uncited rather than inventing one", () => {
+		const {initiativeParts} = deriveCharacterSheet(getBaseState({initMisc: 2}));
+		expect(citeOf(initiativeParts, "Misc")).toBeUndefined();
+	});
+});
+
+/*
+ * A Belt of Giant Strength does not "give +5 Strength" — it says your Strength *is* 21, and does
+ * nothing at all to somebody already stronger. The distinction is the whole of this family of
+ * items, and a sheet that showed the raised number beside an unraised Athletics check would be
+ * worse than one that ignored the belt entirely.
+ */
+describe("Character sheet derivation: what worn gear does to an ability score", () => {
+	const withItem = (item, overrides = {}) => getBaseState({
+		inventory: [{id: "i1", name: "Test Item", quantity: 1, equipped: true, ...item}],
+		...overrides,
+	});
+
+	it("Should set a score to the item's number", () => {
+		const state = withItem({requiresAttunement: true, attuned: true, ability: {static: {str: 21}}}, {abil_str: 8});
+		expect(getAbilityScore(state, "str")).toBe(21);
+		expect(deriveCharacterSheet(state).abilities.str.mod).toBe(5);
+	});
+
+	// "The item has no effect on you if your Strength is already equal to or greater than this"
+	it("Should do nothing to a character already past it", () => {
+		const state = withItem({requiresAttunement: true, attuned: true, ability: {static: {str: 19}}}, {abil_str: 20});
+		expect(getAbilityScore(state, "str")).toBe(20);
+		expect(getAbilityScoreParts(state, "str").some(it => /Test Item/.test(it.label))).toBe(false);
+	});
+
+	it("Should cap a flat increase at 20, as every one of them prints", () => {
+		expect(getAbilityScore(withItem({ability: {con: 2}}, {abil_con: 14}), "con")).toBe(16);
+		expect(getAbilityScore(withItem({ability: {con: 2}}, {abil_con: 19}), "con")).toBe(20);
+	});
+
+	// Both halves matter: a belt in the pack, and a belt worn but not attuned to
+	it("Should count only what is worn, and attuned to when it asks", () => {
+		expect(getAbilityScore(withItem({equipped: false, ability: {static: {str: 21}}}), "str")).toBe(10);
+		expect(getAbilityScore(withItem({requiresAttunement: true, attuned: false, ability: {static: {str: 21}}}), "str")).toBe(10);
+	});
+
+	it("Should say where the number came from, and still add up", () => {
+		const state = withItem({requiresAttunement: true, attuned: true, ability: {static: {int: 19}}}, {abil_int: 12});
+		const parts = getAbilityScoreParts(state, "int");
+		expect(formatBreakdown(parts, getAbilityScore(state, "int"), {isTotalValue: true}))
+			.toBe("Base 12, Test Item (sets to 19) +7 = 19");
+	});
+
+	it("Should carry the effect through to everything read off the score", () => {
+		const state = withItem(
+			{requiresAttunement: true, attuned: true, ability: {static: {str: 21}}},
+			{abil_str: 8, skill_athletics: 1, save_str: true, level: 1},
+		);
+		const d = deriveCharacterSheet(state);
+		expect(d.skills.athletics.mod).toBe(7); // +5 Strength, +2 proficiency
+		expect(d.saves.str.mod).toBe(7);
+		expect(d.encumbrance.capacityLb).toBe(315); // 21 × 15, which is mostly what the belt is for
+	});
+
+	it("Should apply an increase before a floor, whichever order they are worn in", () => {
+		const state = getBaseState({
+			abil_str: 17,
+			inventory: [
+				{id: "i1", name: "Belt", quantity: 1, equipped: true, requiresAttunement: true, attuned: true, ability: {static: {str: 19}}},
+				{id: "i2", name: "Stone", quantity: 1, equipped: true, ability: {str: 2}},
+			],
+		});
+		// 17 + 2 = 19, and the belt's floor of 19 then adds nothing
+		expect(getAbilityScore(state, "str")).toBe(19);
+		expect(getItemAbilityEffects(state, "str").map(it => it.kind)).toEqual(["add", "set"]);
+	});
+});
+
+/*
+ * A Swashbuckler adds Charisma to Initiative, and a Bard half its proficiency. Both were in the
+ * curated map and neither reached the number: the function that reads them was exported and called
+ * by nothing, so `getFeatureInitiativeBonus` was dead code for as long as it existed.
+ */
+describe("Character sheet derivation: Initiative from features", () => {
+	it("Should add a gained subclass feature's ability to Initiative, and name it", () => {
+		const state = getBaseState({abil_dex: 14, abil_cha: 18, level: 3});
+		const d = deriveCharacterSheet(state, {featureNames: ["Rakish Audacity"]});
+
+		expect(d.initiative).toBe(6); // +2 Dexterity, +4 Charisma
+		expect(formatBreakdown(d.initiativeParts, d.initiative)).toBe("Dexterity +2, Rakish Audacity +4 = +6");
+	});
+
+	it("Should add half proficiency for Jack of All Trades", () => {
+		const state = getBaseState({abil_dex: 10, level: 5});
+		expect(deriveCharacterSheet(state, {featureNames: ["Jack of All Trades"]}).initiative).toBe(1);
+	});
+
+	it("Should leave Initiative alone for a character with neither", () => {
+		const state = getBaseState({abil_dex: 14});
+		expect(deriveCharacterSheet(state, {featureNames: ["Extra Attack"]}).initiative).toBe(2);
 	});
 });

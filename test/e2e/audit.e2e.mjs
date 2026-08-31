@@ -50,7 +50,7 @@ export async function run ({browser, check}) {
 	await page.waitForTimeout(1200);
 
 	audit = await readAudit(page);
-	check("picking a class clears that finding", !findRow(audit, /class/i), JSON.stringify(audit.rows.map(it => it.text)));
+	check("picking a class clears that finding", !findRow(audit, /No class picked/i), JSON.stringify(audit.rows.map(it => it.text)));
 	check("and so do a species and background", !findRow(audit, /species|background/i));
 
 	// ---------- an unclaimed weapon mastery, which the class grants ----------
@@ -127,6 +127,9 @@ export async function run ({browser, check}) {
 						speciesText: "Human",
 						backgroundText: "Soldier",
 						weaponMasteries: ["Longsword", "Greataxe", "Shortsword"],
+						// The 2024 Fighter's class table grants a Fighting Style at level 1; a character
+						// that has not taken one is not finished, whatever else it has
+						featureFeats: [{id: "f", entryId: "a", featureKey: "Fighting Style@1", category: "FS", name: "Archery", source: "XPHB", bonuses: {}}],
 					},
 				},
 			},

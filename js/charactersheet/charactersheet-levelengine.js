@@ -100,8 +100,17 @@ const _getProgressionValue = (clsOrSc, prop, level) => {
 export function getCantripsKnown (clsOrSc, level) { return _getProgressionValue(clsOrSc, "cantripProgression", level); }
 export function getSpellsKnown (clsOrSc, level) { return _getProgressionValue(clsOrSc, "spellsKnownProgression", level); }
 
-/** Human-readable form of a `preparedSpells` formula, e.g. "<$level$> + <$wis_mod$>" → "class level + WIS modifier". */
-export function getPreparedSpellsDisplay (cls) {
+/**
+ * Human-readable form of the prepared-spell allowance.
+ *
+ * The 2024 classes give it as a by-level table (`preparedSpellsProgression`) rather than the 2014
+ * formula, so there is nothing to spell out: the number *is* the rule.
+ */
+export function getPreparedSpellsDisplay (cls, level = null) {
+	if (cls?.preparedSpellsProgression) {
+		const n = _getProgressionValue(cls, "preparedSpellsProgression", level ?? 1);
+		return n == null ? null : `${n} (class table)`;
+	}
 	if (!cls?.preparedSpells) return null;
 	return cls.preparedSpells
 		.replace(/<\$level\$>/g, "class level")
@@ -111,11 +120,21 @@ export function getPreparedSpellsDisplay (cls) {
 }
 
 /**
- * Number of spells a prepared caster can prepare, from the `preparedSpells` formula.
- * Handles the level/half-level tokens and the ability-modifier token; returns at least 1
- * (you always prepare something), or `null` when the class does not prepare spells.
+ * Number of spells a prepared caster can prepare.
+ *
+ * Two shapes, one per edition. 2014 gives a **formula** (`preparedSpells`, "class level + WIS
+ * modifier"); 2024 replaced it with an exact **by-level table** (`preparedSpellsProgression`) that
+ * no longer depends on the ability modifier at all. Reading only the formula left every 2024
+ * prepared caster — Cleric, Druid, Wizard, Bard, Paladin, Ranger, Sorcerer, Warlock — with no
+ * prepared limit whatsoever, so nothing could say how many spells they were owed.
+ *
+ * Returns at least 1 (you always prepare something), or `null` when the class does not prepare.
  */
 export function getPreparedSpellCount (cls, level, abilityMod = 0) {
+	if (cls?.preparedSpellsProgression) {
+		const n = _getProgressionValue(cls, "preparedSpellsProgression", level);
+		return n == null ? null : Math.max(1, n);
+	}
 	if (!cls?.preparedSpells) return null;
 	level = _clampLevel(level);
 	const expr = String(cls.preparedSpells)
@@ -126,6 +145,16 @@ export function getPreparedSpellCount (cls, level, abilityMod = 0) {
 	const parts = expr.split("+").map(s => Number(s.trim()));
 	if (parts.some(n => isNaN(n))) return null;
 	return Math.max(1, parts.reduce((a, b) => a + b, 0));
+}
+
+/**
+ * How many prepared spells may be swapped when this class gains a level (2024 `preparedSpellsChange`).
+ * `null` when the class does not say — which is every 2014 class.
+ */
+export function getPreparedSpellsChange (cls, level) {
+	if (!cls?.preparedSpellsChange) return null;
+	const n = _getProgressionValue(cls, "preparedSpellsChange", level);
+	return n || null;
 }
 
 /**
@@ -176,11 +205,18 @@ export function getSpellcastingMeta (classEntries) {
 
 /**
  * Cumulative optional-feature picks (Fighting Styles, Invocations, Maneuvers, ...) available at `level`.
- * Reads `optionalfeatureProgression`, whose `progression` is either a 20-entry array of cumulative
- * counts or a `{level: cumulativeCount}` object.
+ *
+ * Reads `optionalfeatureProgression`, whose `progression` is a 20-entry array of cumulative counts,
+ * a `{level: cumulativeCount}` object, or — on the four **feats** written this way (Martial Adept,
+ * Metamagic Adept, Eldritch Adept, Fighting Initiate) — `{"*": n}`, meaning "n of them, whatever
+ * your level". A feat has no levels to index, and `Number("*")` is NaN, so a reader that only
+ * compared level keys returned nothing at all for every one of them.
+ *
+ * @param [level] the character's level in the class; irrelevant to a `"*"` progression, so a feat
+ *   can be read without one.
  * @return {Array<{name: string, featureTypes: Array<string>, count: number}>}
  */
-export function getOptionalFeatureCounts (clsOrSc, level) {
+export function getOptionalFeatureCounts (clsOrSc, level = 1) {
 	level = _clampLevel(level);
 	return (clsOrSc?.optionalfeatureProgression || [])
 		.map(({name, featureType, progression}) => {
@@ -188,12 +224,58 @@ export function getOptionalFeatureCounts (clsOrSc, level) {
 			if (Array.isArray(progression)) count = Number(progression[level - 1]) || 0;
 			else {
 				Object.entries(progression || {}).forEach(([lvl, cnt]) => {
-					if (Number(lvl) <= level) count = Math.max(count, Number(cnt) || 0);
+					if (lvl === "*" || Number(lvl) <= level) count = Math.max(count, Number(cnt) || 0);
 				});
 			}
 			return {name, featureTypes: featureType || [], count};
 		})
 		.filter(it => it.count > 0);
+}
+
+/**
+ * Feats a class grants by level, as *categories* to choose from.
+ *
+ * The 2024 classes moved two things out of `optionalfeatureProgression` and into `featProgression`:
+ * a **Fighting Style** (Fighter 1, Paladin 2, Ranger 2, Champion 7) — which is a feat of category
+ * `FS` now, not an optional feature — and an **Epic Boon** at 19, for all thirteen. Reading only
+ * `optionalfeatureProgression` meant a 2024 Fighter was never once asked for its Fighting Style.
+ *
+ * The shape matches `optionalfeatureProgression` deliberately, so the panels can treat the two
+ * alike; `categories` replaces `featureTypes`, and names a feat category rather than a feature type.
+ *
+ * @return {Array<{name, categories: Array<string>, count: number}>}
+ */
+export function getFeatProgressionCounts (clsOrSc, level) {
+	level = _clampLevel(level);
+	return (clsOrSc?.featProgression || [])
+		.map(({name, category, progression}) => {
+			let count = 0;
+			if (Array.isArray(progression)) count = Number(progression[level - 1]) || 0;
+			else {
+				// Cumulative by level, as the class tables read: the highest entry at or below `level`
+				Object.entries(progression || {}).forEach(([lvl, cnt]) => {
+					if (Number(lvl) <= level) count = Math.max(count, Number(cnt) || 0);
+				});
+			}
+			return {name, categories: [category].flat().filter(Boolean).map(it => String(it).toUpperCase()), count};
+		})
+		.filter(it => it.count > 0);
+}
+
+/**
+ * The abilities the class says matter most, as abbreviations.
+ *
+ * `primaryAbility` is a list of `{str: true}`-style maps — a list because a few classes name two,
+ * and 2024 Ranger names one of two. It is the answer to the question every new player asks at the
+ * ability-score step ("where does the 15 go?"), and it was sitting in the data unread.
+ */
+export function getPrimaryAbilities (cls) {
+	const out = [];
+	[cls?.primaryAbility].flat().filter(Boolean).forEach(grp => {
+		if (typeof grp === "string") { out.push(grp.toLowerCase()); return; }
+		Object.entries(grp).forEach(([abv, isPrimary]) => { if (isPrimary === true) out.push(abv.toLowerCase()); });
+	});
+	return [...new Set(out)];
 }
 
 /**
@@ -218,7 +300,41 @@ export function getExpertiseSkillCount (cls, level) {
 		.reduce((acc, lvlFeatures) => acc + (lvlFeatures || []).filter(f => f.name === "Expertise").length, 0) * 2;
 }
 
-const _RESOURCE_SKIP_LABEL = /cantrip|spells known|prepared spells|spell slots|slot level|^\d+(st|nd|rd|th)$/i;
+/*
+ * A class table's columns are three different things wearing one shape, and reading them as one was
+ * wrong in both directions: Eldritch Invocations appeared as something a Warlock could *spend*, and
+ * a Rogue's Sneak Attack appeared as nothing at all.
+ *
+ * - **Uses** are spent and given back: Rages, Channel Divinity, Second Wind, Ki, Sorcery Points.
+ * - **Values** are a number the character *has*: Sneak Attack 2d6, Martial Arts d6, Rage Damage +2,
+ *   Unarmored Movement +10 ft. They are read off the sheet, never ticked off it.
+ * - **Counts of choices** — Invocations, Infusions, Weapon Mastery, anything "Known" — are answered
+ *   in the builder and belong to the pickers that ask them, not to the resource list.
+ *
+ * The shape of the cell decides the first two: a plain integer is a use, a die or a bonus is a
+ * value. The third has to be named, because "Invocations: 5" and "Rages: 5" are the same cell.
+ */
+const _RESOURCE_SKIP_LABEL = /cantrip|spells known|prepared spells|spells prepared|spell slots|slot level|known$|^\d+(st|nd|rd|th)$/i;
+
+/** Something spent and given back by a rest. */
+export const RESOURCE_KIND_USES = "uses";
+/** A number the character has — Sneak Attack 2d6, Rage Damage +2. Read, never ticked. */
+export const RESOURCE_KIND_VALUE = "value";
+
+/** Columns that count choices rather than uses, and are answered elsewhere. */
+const _RESOURCE_CHOICE_LABEL = /^(invocations|infusions|infused items|weapon mastery|magic items|plans|psi limit|die size|number)$/i;
+
+/**
+ * Which rest gives a resource back.
+ *
+ * Curated, because the class tables do not carry it — the rule lives in the feature's prose. Only
+ * the unambiguous ones; anything unlisted is assumed to return on a long rest, which is both the
+ * commoner case and the safer guess to be wrong about.
+ */
+const _RESOURCE_SHORT_REST = new Set([
+	"second wind", "action surge", "channel divinity", "ki points", "focus points",
+	"superiority dice", "bardic inspiration", "wild shape", "arcane recovery",
+]);
 
 /** Format a class-table cell (string / number / `{type:"dice"|"bonus"|"bonusSpeed"}`) to display text, or null. */
 function _fmtResourceCell (cell) {
@@ -253,28 +369,246 @@ export function getWeaponMasteryCount (cls, level) {
 }
 
 /**
+ * How many spells a class's book holds at `level`, from `spellsKnownProgressionFixed`.
+ *
+ * The Wizard, and only the Wizard: `[6, 2, 2, …]` is what each level *adds* — six at 1st and two
+ * per level after — so the book is the running total, twenty-two spells at 9th. It is not the
+ * prepared count and never was; a Wizard prepares from the book, and the two limits are different
+ * numbers doing different jobs. Only the prepared one was read, so the book had no size at all and
+ * the two spells a level brings were never asked for.
+ *
+ * `spellsKnownProgressionFixedAllowLowerLevel` says a pick may be of any level the class can cast
+ * rather than only the newest — true for the Wizard, and the reason this is a plain count rather
+ * than a per-spell-level allowance.
+ *
+ * @return {?number} null for a class with no book.
+ */
+export function getSpellbookSize (cls, level) {
+	const byLevel = cls?.spellsKnownProgressionFixed;
+	if (!Array.isArray(byLevel) || !byLevel.length) return null;
+
+	return byLevel
+		.slice(0, _clampLevel(level))
+		.reduce((acc, n) => acc + (Number(n) || 0), 0);
+}
+
+/**
+ * The class level at which a class first has a spell slot of `slotLevel`.
+ *
+ * `additionalSpells` keys some of its lists by *slot* level rather than class level — `s1` to `s5`
+ * on all twelve Warlock patrons, `s6` to `s9` on the 2024 Bard's Magical Secrets — because that is
+ * how the books state the rule: the patron's spells arrive as the pact slot grows, not on a
+ * schedule of their own. A reader that only understood class levels skipped every one of them, so
+ * a patron contributed nothing at all to what a Warlock could learn.
+ *
+ * Answered from the class's own slot table, so it stays right for a pact caster (whose slots climb
+ * one level at a time) and a full caster alike.
+ *
+ * @return {?number} the class level, or null if the class never gets a slot that high.
+ */
+export function getSlotLevelUnlockLevel (cls, slotLevel) {
+	if (slotLevel == null || slotLevel === "") return null;
+	const want = Number(slotLevel);
+	if (isNaN(want) || want < 0) return null;
+	// `s0` is the cantrip "slot", which every caster has from its first level — the Ravnica guild
+	// backgrounds open their lists with one
+	if (want === 0) return 1;
+
+	for (let lvl = 1; lvl <= 20; ++lvl) {
+		const pact = getPactSlots(cls, lvl);
+		if (pact?.count && pact.level >= want) return lvl;
+
+		const slots = getSingleClassSlots(cls, lvl);
+		if (slots && (Number(slots[want - 1]) || 0) > 0) return lvl;
+	}
+	return null;
+}
+
+/** `"s6"` → 6, for the slot-level keys; null for anything else. */
+const _getSlotLevelKey = lk => {
+	const m = /^s(\d+)$/.exec(String(lk));
+	return m ? Number(m[1]) : null;
+};
+
+/**
  * Spell uids ("cure wounds|phb") a class/subclass grants automatically via `additionalSpells`
- * (domain/patron/circle spells, always-prepared or expanded lists) up to `level`. Only the
- * numeric class-level keys and plain uid entries are returned; dynamic `{choose}`/`{all}` filter
- * entries and spell-slot-keyed (`s6`) grants are skipped.
+ * (a domain's always-prepared list, a circle's) up to `level`. Only the numeric class-level keys
+ * and plain uid entries are returned; dynamic `{choose}`/`{all}` filter entries are skipped.
+ *
+ * The `expanded` bucket is deliberately **not** read here. An expanded spell is one the class may
+ * *learn*, not one it is given — a Genie warlock does not walk around with Wish always prepared —
+ * so it belongs to the learnable pool, which is {@link getDynamicSpellGrants}' business.
  */
 export function getGrantedSpellUids (clsOrSc, level) {
 	level = _clampLevel(level);
 	const out = [];
 	(clsOrSc?.additionalSpells || []).forEach(grp => {
-		["prepared", "known", "expanded", "innate"].forEach(bucket => {
+		["prepared", "known", "innate"].forEach(bucket => {
 			const byLevel = grp[bucket];
 			if (!byLevel || typeof byLevel !== "object") return;
 			Object.entries(byLevel).forEach(([lk, spells]) => {
 				const lvl = Number(lk);
 				if (isNaN(lvl) || lvl > level) return;
 				(Array.isArray(spells) ? spells : [spells]).forEach(sp => {
-					if (typeof sp === "string") out.push(sp.toLowerCase());
+					// A "#c" suffix marks the grant as a cantrip; it is not part of the uid, and left
+					// on it reached the display as "Minor Illusion#C"
+					if (typeof sp === "string") out.push(sp.split("#")[0].toLowerCase());
 				});
 			});
 		});
 	});
 	return [...new Set(out)];
+}
+
+/**
+ * Spells a class knows *at a fixed spell level*, from `spellsKnownProgressionFixedByLevel`.
+ *
+ * This is the Warlock's Mystic Arcanum, and only the Warlock's:
+ * `{"11": {"6": 1}, "13": {"7": 1}, "15": {"8": 1}, "17": {"9": 1}}` — one 6th-level spell at 11,
+ * one 7th at 13, and so on. It sits outside `spellsKnownProgression` because a pact caster's slots
+ * stop at 5th level, so these are not spells a slot could ever pay for: each is cast once per long
+ * rest, at its own level. Nothing read the field, which left a Warlock 11+ with no Arcanum at all —
+ * the four spells that most define the back half of the class.
+ *
+ * Returned in the shape {@link getDynamicSpellGrants} uses, so the panel's existing chooser resolves
+ * them rather than growing a second one.
+ *
+ * @param cls a loaded class (dereferenced `classFeatures`), used only to name the grant.
+ * @return {Array<{id: string, type: "choose", bucket: string, atLevel: number, spellLevel: number,
+ *                 count: number, filter: object, from: null, groupIndex: number, groupName: ?string}>}
+ */
+export function getFixedSpellsKnownGrants (cls, level) {
+	level = _clampLevel(level);
+	const byLevel = cls?.spellsKnownProgressionFixedByLevel;
+	if (!byLevel || typeof byLevel !== "object") return [];
+
+	const out = [];
+	Object.entries(byLevel).forEach(([lk, bySpellLevel]) => {
+		const atLevel = Number(lk);
+		if (isNaN(atLevel) || atLevel > level || !bySpellLevel || typeof bySpellLevel !== "object") return;
+
+		Object.entries(bySpellLevel).forEach(([sk, count]) => {
+			const spellLevel = Number(sk);
+			const n = Number(count);
+			if (isNaN(spellLevel) || !n) return;
+			for (let i = 0; i < n; ++i) {
+				out.push({
+					id: `fixed:${atLevel}:${spellLevel}:${i}`,
+					type: "choose",
+					bucket: "known",
+					atLevel,
+					spellLevel,
+					count: 1,
+					filter: {levels: [spellLevel], classes: [String(cls?.name || "").toLowerCase()].filter(Boolean), schools: []},
+					from: null,
+					groupIndex: 0,
+					groupName: _getFixedSpellsGrantName(cls, atLevel),
+				});
+			}
+		});
+	});
+	return out.sort((a, b) => a.atLevel - b.atLevel || a.spellLevel - b.spellLevel);
+}
+
+/** What the book calls the feature behind a fixed-level grant ("Mystic Arcanum (6th Level)"). */
+function _getFixedSpellsGrantName (cls, atLevel) {
+	const atThatLevel = [(cls?.classFeatures || [])[atLevel - 1]].flat().filter(Boolean);
+	const named = atThatLevel
+		.map(f => f?.name)
+		.filter(name => name && name !== "Ability Score Improvement");
+	return named[0] || null;
+}
+
+/**
+ * Innate `additionalSpells` grants, with how the book says to cast each one.
+ *
+ * The `innate` bucket is the one that is not a plain list. Under a class level it holds a
+ * *frequency wrapper* — `ritual`, `daily`, `rest`, or `resource` — and everything inside one was
+ * being dropped, because {@link getGrantedSpellUids} only keeps strings and a wrapper is an object.
+ * That silently cost thirteen subclasses their innate spells outright: a Way of Shadow monk had no
+ * Darkness, a Totem Warrior no Speak with Animals, a Psi Warrior no Telekinesis.
+ *
+ * A `resource` wrapper is the interesting one, and the reason a plain uid would not have been
+ * enough: it is keyed by *cost*, and the group's `resourceName` says what is spent. Way of Shadow
+ * casts Darkness for 2 Ki Points, not out of a spell slot, so a sheet that lists it as a known
+ * spell would charge the wrong thing.
+ *
+ * @return {Array<{uid: string, atLevel: number, frequency: ?string, amount: number, amountAbility: ?string,
+ *                 isEach: boolean, resourceName: ?string}>}
+ */
+export function getInnateSpellGrants (clsOrSc, level) {
+	level = _clampLevel(level);
+	const out = [];
+
+	(clsOrSc?.additionalSpells || []).forEach(grp => {
+		const byLevel = grp.innate;
+		if (!byLevel || typeof byLevel !== "object") return;
+
+		Object.entries(byLevel).forEach(([lk, val]) => {
+			// `_` is "from the start", used where the grant is not tied to a class level
+			const atLevel = lk === "_" ? 0 : Number(lk);
+			if (isNaN(atLevel) || atLevel > level) return;
+
+			const push = (uids, meta) => {
+				[uids].flat().forEach(sp => {
+					if (typeof sp !== "string") return; // a `{choose}`, which is a dynamic grant's business
+					out.push({uid: sp.split("#")[0].toLowerCase(), atLevel, amount: 1, amountAbility: null, isEach: false, resourceName: null, ...meta});
+				});
+			};
+
+			// A bare list is simply granted — no frequency, no cost
+			if (Array.isArray(val)) return push(val, {frequency: null});
+			if (!val || typeof val !== "object") return;
+
+			Object.entries(val).forEach(([frequency, inner]) => {
+				if (frequency === "will" || frequency === "ritual") return push(inner, {frequency});
+
+				if (!inner || typeof inner !== "object") return;
+				Object.entries(inner).forEach(([k, uids]) => {
+					if (frequency === "resource") return push(uids, {frequency, amount: Number(k) || 1, resourceName: grp.resourceName || null});
+					// "1", "2" — a count; "1e" — that count for *each* spell; "cha" — an ability modifier
+					const isEach = /e$/.test(k);
+					const n = Number(isEach ? k.slice(0, -1) : k);
+					push(uids, {frequency, amount: isNaN(n) ? 1 : n, amountAbility: isNaN(n) ? k : null, isEach});
+				});
+			});
+		});
+	});
+
+	return out;
+}
+
+/**
+ * How an innate grant is cast, in the book's own terms — the note that goes beside the spell so it
+ * is not mistaken for one cast from a slot.
+ */
+export function getInnateSpellCastingNote (grant) {
+	if (!grant?.frequency) return null;
+
+	const times = grant.amountAbility
+		? `a number of times equal to your ${Parser.attAbvToFull(grant.amountAbility)} modifier`
+		: `${Parser.numberToText(grant.amount)} time${grant.amount === 1 ? "" : "s"}`;
+
+	switch (grant.frequency) {
+		case "ritual": return "as a ritual only";
+		case "will": return "at will";
+		case "resource": return `costs ${grant.amount} ${_getResourceNoun(grant.resourceName, grant.amount)}`;
+		case "rest": return `${times} per short or long rest${grant.isEach ? ", each" : ""}`;
+		case "daily": return `${times} per long rest${grant.isEach ? ", each" : ""}`;
+		default: return null;
+	}
+}
+
+/**
+ * A resource name as a countable noun. `additionalSpells` writes the name in shorthand — "Ki", not
+ * "Ki Points" — where the class table it is spent from writes it in full, so the one name the
+ * shorthand loses is restored here rather than reading a table this function cannot see.
+ */
+function _getResourceNoun (name, amount) {
+	const full = ({"Ki": "Ki Point"})[name] || name || "resource";
+	if (amount === 1 || /s$/.test(full)) return full;
+	// "Psionic Energy Die" → "Psionic Energy Dice"; everything else the books name takes a plain s
+	return /\bdie$/i.test(full) ? full.replace(/die$/i, "Dice") : `${full}s`;
 }
 
 /**
@@ -314,14 +648,21 @@ export function isSpellMatchingFilter (spell, filter) {
  * the learnable pool rather than granting spells outright.
  *
  * `choose` grants (found in the prepared/known/innate buckets) are picks: `count` spells matching
- * `filter`, or chosen from an explicit `from` uid list. `all` grants appear only in the `expanded`
- * bucket, where they mean "these spells become available to learn" (e.g. a Bard's Magical Secrets) —
- * they are reported as `type: "expanded"` and must never be auto-added.
+ * `filter`, or chosen from an explicit `from` uid list. The whole `expanded` bucket means "these
+ * spells become available to learn" — a patron's list, a Bard's Magical Secrets — so everything in
+ * it is reported as `type: "expanded"` and must never be auto-added, whether it is stated as a
+ * filter (`{all}`) or as plain uids.
  *
+ * **Slot-level keys.** `s1`–`s9` key a list by the *spell slot* that unlocks it rather than by
+ * class level, which is how every Warlock patron and the 2024 Bard state their lists. They are
+ * resolved against `slotSource`'s slot table — a subclass has none of its own, so the parent class
+ * is passed in — and skipped only if that class never reaches the slot.
+ *
+ * @param [opts.slotSource] the class whose slot table resolves `s1`–`s9` keys; defaults to `clsOrSc`.
  * @return {Array<{id: string, type: "choose"|"expanded", bucket: string, atLevel: number, count: number,
  *                 filter: object|null, from: string[]|null}>}
  */
-export function getDynamicSpellGrants (clsOrSc, level) {
+export function getDynamicSpellGrants (clsOrSc, level, {slotSource = null} = {}) {
 	level = _clampLevel(level);
 	const out = [];
 	(clsOrSc?.additionalSpells || []).forEach((grp, ixGrp) => {
@@ -329,32 +670,45 @@ export function getDynamicSpellGrants (clsOrSc, level) {
 			const byLevel = grp[bucket];
 			if (!byLevel || typeof byLevel !== "object") return;
 			Object.entries(byLevel).forEach(([lk, spells]) => {
-				// `_` means "always", used by feats and other level-less sources; `s6`-style
-				// spell-slot keys are not class levels and are skipped.
-				const atLevel = lk === "_" ? 0 : Number(lk);
-				if (isNaN(atLevel) || atLevel > level) return;
+				// `_` means "always", used by feats and other level-less sources
+				const slotLevel = _getSlotLevelKey(lk);
+				const atLevel = slotLevel != null
+					? getSlotLevelUnlockLevel(slotSource || clsOrSc, slotLevel)
+					: (lk === "_" ? 0 : Number(lk));
+				if (atLevel == null || isNaN(atLevel) || atLevel > level) return;
+
+				const base = ixSp => ({
+					id: `${ixGrp}:${bucket}:${lk}:${ixSp}`,
+					bucket,
+					atLevel,
+					// Alternative grant groups are distinguished by name (Magic Initiate's
+					// "Bard Spells" / "Cleric Spells" / ...): the player picks one group.
+					groupIndex: ixGrp,
+					groupName: grp.name || null,
+				});
+
+				// Plain uids in the `expanded` bucket are a list of spells this class may now learn.
+				// Reading them as grants is what had a Genie warlock always prepared to cast Wish
+				const uids = _flattenSpellEntries(spells)
+					.filter(sp => typeof sp === "string")
+					.map(sp => sp.split("#")[0].toLowerCase());
+				if (bucket === "expanded" && uids.length) {
+					out.push({...base("uids"), type: "expanded", count: 0, filter: null, from: uids});
+				}
+
 				_flattenSpellEntries(spells).forEach((sp, ixSp) => {
 					if (!sp || typeof sp !== "object") return;
-					const base = {
-						id: `${ixGrp}:${bucket}:${lk}:${ixSp}`,
-						bucket,
-						atLevel,
-						// Alternative grant groups are distinguished by name (Magic Initiate's
-						// "Bard Spells" / "Cleric Spells" / ...): the player picks one group.
-						groupIndex: ixGrp,
-						groupName: grp.name || null,
-					};
 					if (sp.choose != null) {
 						const isList = typeof sp.choose === "object";
 						out.push({
-							...base,
+							...base(ixSp),
 							type: "choose",
 							count: Number(sp.count ?? (isList ? sp.choose.count : null)) || 1,
 							filter: isList ? null : parseSpellFilter(sp.choose),
 							from: isList ? (sp.choose.from || []).map(uid => String(uid).split("#")[0].toLowerCase()) : null,
 						});
 					} else if (sp.all != null) {
-						out.push({...base, type: "expanded", count: 0, filter: parseSpellFilter(sp.all), from: null});
+						out.push({...base(ixSp), type: "expanded", count: 0, filter: parseSpellFilter(sp.all), from: null});
 					}
 				});
 			});
@@ -387,11 +741,17 @@ function _flattenSpellEntries (spells) {
 }
 
 /**
- * Per-level class resources read straight from the class/subclass table columns — e.g. Rages,
- * Rage Damage, Weapon Mastery count, Sneak Attack dice, Martial Arts die, Ki/Focus/Sorcery Points,
- * Channel Divinity, Wild Shape, Bardic Die, Invocations. Spell-slot/known/prepared columns are
- * skipped (handled by the spell panel). Data-driven, so it needs no per-class rules.
- * @return {Array<{label: string, value: string}>}
+ * Per-level class resources read straight from the class/subclass table columns.
+ *
+ * Each carries what kind of thing it is (see `_RESOURCE_SKIP_LABEL` above): `"uses"` for something
+ * spent and given back — Rages, Channel Divinity, Ki — and `"value"` for a number the character
+ * simply has, like Sneak Attack 2d6 or Rage Damage +2. Spell-slot and known/prepared columns are
+ * left to the spell panel, and columns that count *choices* are left to the pickers that ask them.
+ *
+ * `rest` says which rest returns a use, and is the one curated part: the class tables do not carry
+ * it. Data-driven otherwise, so it needs no per-class rules.
+ *
+ * @return {Array<{label: string, value: string, kind: string, rest: string|null}>}
  */
 export function getClassResources (clsOrSc, level) {
 	level = _clampLevel(level);
@@ -402,12 +762,120 @@ export function getClassResources (clsOrSc, level) {
 		if (!row) continue;
 		group.colLabels.forEach((rawLabel, i) => {
 			const label = _stripTags(rawLabel).trim();
-			if (!label || _RESOURCE_SKIP_LABEL.test(label)) return;
+			if (!label || _RESOURCE_SKIP_LABEL.test(label) || _RESOURCE_CHOICE_LABEL.test(label)) return;
+
 			const value = _fmtResourceCell(row[i]);
-			if (value != null) out.push({label, value});
+			if (value == null) return;
+
+			// A plain whole number is something you spend; a die, a bonus or a distance is not
+			const isUses = /^\d+$/.test(value);
+			out.push({
+				label,
+				value,
+				kind: isUses ? RESOURCE_KIND_USES : RESOURCE_KIND_VALUE,
+				rest: isUses ? (_RESOURCE_SHORT_REST.has(label.toLowerCase()) ? "short" : "long") : null,
+			});
 		});
+
+		const pool = _getUnnamedDicePool(clsOrSc, group, row);
+		if (pool) out.push(pool);
 	}
 	return out;
+}
+
+/**
+ * A pool of dice whose table columns do not name it.
+ *
+ * The 2024 Psi Warrior and Soulknife have a two-column subclass table headed "Die Size" and
+ * "Number" — the size of a Psionic Energy Die and how many you have — and neither heading is the
+ * resource's name, so both columns were being skipped as choice counters and the character ended up
+ * with fifteen features that spend a pool they do not have. The name is not missing from the data,
+ * only from the table: the features that spend it say what it is called, in `consumes`.
+ *
+ * Recognised by the shape of the group rather than by which subclass it is, because that is what
+ * the two have in common.
+ */
+function _getUnnamedDicePool (clsOrSc, group, row) {
+	const labels = (group.colLabels || []).map(it => _stripTags(it).trim().toLowerCase());
+	const ixNumber = labels.indexOf("number");
+	if (ixNumber < 0 || labels.indexOf("die size") < 0) return null;
+
+	const value = _fmtResourceCell(row[ixNumber]);
+	if (value == null || !/^\d+$/.test(value)) return null;
+
+	const name = _getConsumedResourceNames(clsOrSc)[0];
+	if (!name) return null;
+
+	return {label: _getResourceNoun(name, 2), value, kind: RESOURCE_KIND_USES, rest: "long"};
+}
+
+/** The distinct resources an entity's own features spend, in the order the data lists them. */
+function _getConsumedResourceNames (clsOrSc) {
+	const out = [];
+	const walk = node => {
+		if (Array.isArray(node)) return node.forEach(walk);
+		if (!node || typeof node !== "object") return;
+		const name = node.consumes?.name;
+		if (name && !out.includes(name)) out.push(name);
+	};
+	walk(clsOrSc?.classFeatures);
+	walk(clsOrSc?.subclassFeatures);
+	return out;
+}
+
+/**
+ * One comparable key for a resource, whichever way it is spelled.
+ *
+ * A feature's `consumes` writes the resource in the singular shorthand the sentence needs — "Ki",
+ * "Sorcery Point", "Psionic Energy Die" — and the class table writes the column heading — "Ki
+ * Points", "Sorcery Points", "Psionic Energy Dice". They are the same pool, and a naive string
+ * match finds none of them. Both sides go through this rather than either side being curated.
+ */
+function _getResourceKey (name) {
+	return String(name || "")
+		.toLowerCase()
+		.replace(/\bdice\b/g, "die")
+		.replace(/\bpoints?\b/g, "")
+		.replace(/s\b/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+/**
+ * The label under which a character actually holds the resource a feature names, or null when they
+ * hold no such pool — a Psi Warrior from Tasha's, whose dice are stated in prose rather than in a
+ * table, has no column to match.
+ *
+ * @param name a `consumes.name`, e.g. "Ki".
+ * @param labels the labels the character's resources are keyed by, e.g. ["Ki Points", "Rages"].
+ */
+export function matchResourceLabel (name, labels) {
+	if (!name) return null;
+	const want = _getResourceKey(name);
+	return (labels || []).find(label => _getResourceKey(label) === want) || null;
+}
+
+/**
+ * What a feature costs, in words.
+ *
+ * Two shapes, because the book uses two: a pool of countable things is spent in units of itself
+ * ("2 Ki Points", "1 Psionic Energy Die"), while a feature that is its own limit is spent in *uses*
+ * of itself ("one use of Channel Divinity"). Which one applies is visible in the name.
+ *
+ * @param cost a `getFeatureCost` result.
+ */
+export function getResourceCostLabel (cost) {
+	if (!cost?.resource) return null;
+
+	// On the noun rather than the raw name, so "Ki" is recognised as the pool of Ki Points it is
+	const isPool = /\b(point|die)$/i.test(_getResourceNoun(cost.resource, 1));
+	const amount = cost.amountMax != null
+		? `${cost.amountMin}–${cost.amountMax}`
+		: `${cost.amount}`;
+	const isPlural = cost.amountMax != null || cost.amount !== 1;
+
+	if (!isPool) return `${amount} use${isPlural ? "s" : ""} of ${cost.resource}`;
+	return `${amount} ${_getResourceNoun(cost.resource, isPlural ? 2 : 1)}`;
 }
 
 /**
@@ -443,9 +911,19 @@ export function getMulticlassRequirementsDisplay (requirements) {
 
 // Prerequisite keys the sheet can meaningfully verify from character state; anything else
 // (campaign, alignment, item, free-text "other", ...) is treated as unverifiable and never blocks.
-const _FEAT_PREREQ_CHECKABLE = new Set(["level", "ability", "race", "feat", "background", "spellcasting", "spellcasting2020", "spellcastingFeature", "psionics"]);
+const _FEAT_PREREQ_CHECKABLE = new Set([
+	"level", "ability", "race", "feat", "background", "spellcasting", "spellcasting2020",
+	"spellcastingFeature", "psionics", "proficiency", "feature", "featCategory", "exclusiveFeatCategory",
+]);
 
 const _normName = str => String(str || "").toLowerCase().trim();
+
+/**
+ * A proficiency name as the prerequisite spells it. Both sides use the same small vocabulary —
+ * light, medium, heavy, shield, simple, martial — but a class writes "shield" and a species
+ * "shields", and the store title-cases everything for display.
+ */
+const _normProf = str => _normName(str).replace(/s$/, "").replace(/ armou?r$/, "").replace(/ weapon$/, "");
 
 /**
  * Evaluate one prerequisite entry against the character.
@@ -501,6 +979,58 @@ function _evalFeatPrereqEntry (entry, ctx) {
 			}
 			case "psionics": {
 				if (!ctx.isSpellcaster) { hasUnknown = true; } // no structured psionics tracking
+				break;
+			}
+
+			/*
+			 * "Proficiency with medium armor" (Heavily Armored), "with a martial weapon" (Fighting
+			 * Initiate). Uncheckable until the sheet held structured armor and weapon proficiencies;
+			 * it does now, so the twelve feats written this way stop reporting "unknown".
+			 * `weaponGroup` is the same question in the 2024 spelling.
+			 */
+			case "proficiency": {
+				const held = {
+					armor: new Set((ctx.proficiencies?.armor || []).map(_normProf)),
+					weapon: new Set((ctx.proficiencies?.weapon || []).map(_normProf)),
+				};
+				const isMet = (val || []).some(req => Object.entries(req).every(([kind, name]) => {
+					const set = kind === "armor" ? held.armor : held.weapon;
+					return set.has(_normProf(name));
+				}));
+				if (!isMet) return "unmet";
+				break;
+			}
+
+			/*
+			 * A class feature by name: "Fighting Style" on every 2024 Fighting Style feat, and
+			 * "Spellcasting" or "Pact Magic" on Spellfire Adept. The alternatives are an OR.
+			 */
+			case "feature": {
+				const held = new Set((ctx.featureNames || []).map(_normName));
+				if (!(val || []).some(name => held.has(_normName(name)))) return "unmet";
+				break;
+			}
+
+			/*
+			 * The dragonmark rules, and only those. `featCategory` requires a feat of that category —
+			 * Potent Dragonmark wants a Dragonmark you already have — while `exclusiveFeatCategory`
+			 * forbids a second one: "Can't Have Another Dragonmark Feat".
+			 */
+			case "featCategory": {
+				const held = ctx.featCategories || [];
+				const isMet = (val || []).some(it => {
+					const category = typeof it === "string" ? it : it?.category;
+					const count = typeof it === "string" ? 1 : (Number(it?.count) || 1);
+					return held.filter(c => _normName(c) === _normName(category)).length >= count;
+				});
+				if (!isMet) return "unmet";
+				break;
+			}
+
+			case "exclusiveFeatCategory": {
+				const held = ctx.featCategories || [];
+				const isBlocked = (val || []).some(category => held.some(c => _normName(c) === _normName(category)));
+				if (isBlocked) return "unmet";
 				break;
 			}
 			default: hasUnknown = true;
@@ -576,6 +1106,72 @@ export function getExpectedHp ({classes = [], conMod = 0} = {}) {
 	}
 
 	return {total, parts};
+}
+
+/* -------------------------------------------- how a maximum is arrived at -------------------------------------------- */
+
+/** The fixed number the rules offer: maximum at 1st level, the die's average after. */
+export const HP_MODE_AVERAGE = "average";
+/** Every die at its maximum — the generous table's house rule, and the one nobody has to track. */
+export const HP_MODE_MAX = "max";
+/** The dice as they actually came up, typed in. */
+export const HP_MODE_ROLLED = "rolled";
+
+/**
+ * A character's hit point maximum, by whichever of the three ways the table decided it.
+ *
+ * One function rather than three, because the *bonuses* are the same in all three cases and that is
+ * where the mistakes were: Constitution is per level, and so is anything else that raises hit points
+ * per level — Tough, a Dwarf's Dwarven Toughness. Typing a total into a box works right up until
+ * Constitution changes, or a level is added, or Tough is taken, and then the number is a fossil
+ * nobody can recompute. Here it is derived from what it is made of, and says so.
+ *
+ * @param opts.mode one of `HP_MODE_*`.
+ * @param opts.rolled the dice total, for `HP_MODE_ROLLED`.
+ * @param opts.perLevelBonus hit points a feature adds per level (`getHpBonusPerLevel`).
+ * @return {{total: number, parts: Array, explanation: string}}
+ */
+export function getHitPointMaximum ({classes = [], conMod = 0, perLevelBonus = 0, mode = HP_MODE_AVERAGE, rolled = null} = {}) {
+	const levels = (classes || []).reduce((acc, c) => acc + (Math.max(0, Number(c.level) || 0)), 0);
+	const perLevel = conMod + perLevelBonus;
+
+	const fmt = n => `${n >= 0 ? "+" : "\u2212"}${Math.abs(n)}`;
+	const bonusParts = [];
+	if (conMod) bonusParts.push({label: `Constitution ${fmt(conMod)} \u00d7 ${levels} level${levels === 1 ? "" : "s"}`, value: conMod * levels});
+	if (perLevelBonus) bonusParts.push({label: `Features ${fmt(perLevelBonus)} \u00d7 ${levels} level${levels === 1 ? "" : "s"}`, value: perLevelBonus * levels});
+
+	if (mode === HP_MODE_ROLLED) {
+		const dice = Math.max(0, Number(rolled) || 0);
+		const total = Math.max(1, dice + perLevel * levels);
+		return {
+			total,
+			parts: [{label: "Rolled", value: dice, isRaw: true}, ...bonusParts],
+			explanation: `${dice} rolled${bonusParts.length ? `, ${bonusParts.map(it => it.label).join(", ")}` : ""} = ${total}.`,
+		};
+	}
+
+	if (mode === HP_MODE_MAX) {
+		const dieParts = (classes || [])
+			.filter(c => Number(c.hdFaces) && Number(c.level))
+			.map(c => ({label: `${c.name} ${c.level} \u00d7 d${c.hdFaces} max`, value: Number(c.hdFaces) * Number(c.level), isRaw: true}));
+		const dice = dieParts.reduce((acc, it) => acc + it.value, 0);
+		const total = Math.max(1, dice + perLevel * levels);
+		return {
+			total,
+			parts: [...dieParts, ...bonusParts],
+			explanation: `${dice} from maximum dice${bonusParts.length ? `, ${bonusParts.map(it => it.label).join(", ")}` : ""} = ${total}.`,
+		};
+	}
+
+	// The average, which is what `getExpectedHp` has always computed — Constitution included, so the
+	// per-level feature bonus is the only thing left to add
+	const expected = getExpectedHp({classes, conMod});
+	const total = Math.max(1, expected.total + perLevelBonus * levels);
+	return {
+		total,
+		parts: [...expected.parts, ...(perLevelBonus ? [{label: `Features ${fmt(perLevelBonus)} \u00d7 ${levels}`, value: perLevelBonus * levels}] : [])],
+		explanation: `Maximum at 1st level, the die's average after${perLevelBonus ? `, plus features` : ""} = ${total}.`,
+	};
 }
 
 export function getLevelUpHp ({faces, conMod = 0, numLevels = 1, fnRoll = null}) {
