@@ -1,4 +1,4 @@
-"use strict";
+import {DeckSpreads} from "./decks/decks-spreads.js";
 
 class DecksSublistManager extends SublistManager {
 	static _getRowTemplate () {
@@ -32,6 +32,7 @@ class DecksSublistManager extends SublistManager {
 			},
 			{
 				hash,
+				page: ent.page,
 				entity: ent,
 				mdRow: [...cellsText],
 			},
@@ -157,6 +158,7 @@ class DecksPage extends ListPage {
 			},
 			{
 				hash,
+				page: ent.page,
 				isExcluded,
 			},
 		);
@@ -165,6 +167,74 @@ class DecksPage extends ListPage {
 		eleLi.addEventListener("contextmenu", (evt) => this._openContextMenu(evt, this._list, listItem));
 
 		return listItem;
+	}
+
+	async _handleClick_pDoOpenSpread (ent, btnSpread, {isSkipAnimation = false} = {}) {
+		try {
+			btnSpread.vee.prop("disabled", true);
+
+			let abortController = null;
+
+			const {eleModalInner} = UiUtil.getShowModal({
+				title: `Spread \u2014 ${ent.name}`,
+				isHeaderBorder: true,
+				isUncappedHeight: true,
+				isHeight100: true,
+				isMaxWidth640p: true,
+				isWidth100: true,
+				zIndex: VeCt.Z_INDEX_BENEATH_CARD_VIEWER,
+				cbClose: () => abortController?.abort(),
+			});
+
+			const wrpOut = veE({tag: "div", clazz: "ve-flex-col ve-w-100"});
+
+			const comp = BaseComponent.fromObject({ixSpread: 0});
+			const selSpread = ComponentUiUtil.getSelEnum(
+				comp,
+				"ixSpread",
+				{
+					values: ent.spreads,
+					fnDisplay: spread => `${spread.name} (${Parser.sourceJsonToAbv(spread.source)})`,
+					isSetIndexes: true,
+					html: `<select class="ve-form-control ve-input-sm ve-w-100 ve-br-0"></select>`,
+				},
+			);
+
+			const pDoRender = async ({isSkipAnimation = false} = {}) => {
+				abortController?.abort();
+				abortController = new AbortController();
+
+				wrpOut.vee.empty();
+
+				const spread = ent.spreads[comp._state.ixSpread];
+				const drawnMetas = await DeckSpreads.pGetSpreadDrawnMetas({spread, deck: ent});
+				if (abortController.signal.aborted) return;
+
+				const {rowMetas} = Renderer.get().withLazyImages(() => {
+					const renderedMeta = DeckSpreads.getWrpRenderedSpreadMeta({spread, drawnMetas});
+					wrpOut
+						.vee.appends(renderedMeta.wrp);
+					return renderedMeta;
+				});
+
+				await DeckSpreads.pRevealSpread({rowMetas, isSkipAnimation, abortSignal: abortController.signal});
+			};
+
+			const btnRedraw = veT`<button class="ve-btn ve-btn-primary ve-btn-sm ve-no-shrink" title="Draw Spread (CTRL to Skip Animation)">Draw</button>`
+				.vee.onn("click", evt => pDoRender({isSkipAnimation: EventUtil.isCtrlMetaKey(evt)}));
+
+			comp._addHookBase("ixSpread", () => pDoRender());
+
+			veT`<div class="ve-flex-col ve-w-100 ve-min-h-0 ve-pt-2">
+				<div class="ve-flex-v-center ve-mb-2 ve-input-group">${selSpread}${btnRedraw}</div>
+				<div class="ve-flex-col ve-w-100 ve-overflow-x-hidden ve-overflow-y-auto ve-pr-1">${wrpOut}</div>
+			</div>`
+				.vee.appendTo(eleModalInner);
+
+			await pDoRender({isSkipAnimation});
+		} finally {
+			btnSpread.vee.prop("disabled", false);
+		}
 	}
 
 	_renderStats_doBuildStatsTab ({ent}) {
@@ -233,10 +303,18 @@ class DecksPage extends ListPage {
 		hkCardLayout();
 		// endregion
 
+		// region Spreads
+		const btnSpread = ent.spreads?.length
+			? veT`<button class="ve-btn ve-btn-xs ve-btn-default ve-bb-0 ve-bbr-0 ve-bbl-0" title="Read a Spread (CTRL to Skip Animation)"><i class="fas fa-fw fa-layer-group"></i></button>`
+				.vee.onn("click", evt => this._handleClick_pDoOpenSpread(ent, btnSpread, {isSkipAnimation: EventUtil.isCtrlMetaKey(evt)}))
+			: null;
+		// endregion
+
 		veT(wrpControls)`<div class="ve-flex">
 			<div class="ve-flex-v-center ve-btn-group">
 				${btnDraw}
 				${btnReset}
+				${btnSpread}
 			</div>
 
 			<div class="ve-flex-v-center ve-btn-group ve-ml-2">

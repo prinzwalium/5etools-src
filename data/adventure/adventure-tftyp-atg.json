@@ -525,6 +525,16 @@
 				"The first stage of the characters' mission is an infiltration and assault of the {@adventure Steading of the Hill Giant Chief|TftYP-AtG|1|Steading of the Hill Giant Chief}. From there, if they succeed, the adventurers can advance to test their mettle against the even more formidable giants of frost and fire, but that is of no concern right now\u2014the steading awaits, and its perils are plentiful.",
 				{
 					"type": "section",
+					"name": "Steading of the Hill Giant Chief",
+					"page": 165,
+					"entries": [
+						"To send them off with every possible advantage, patrons outfit the characters with all standard items needed for both wilderness and dungeon exploration; and each member of the party has likewise been given the finest horse available. Guides are available to help, and the party has a splendid map showing the exact location of the great timber fortress of the chief of the hill giants.",
+						"This chief, one {@creature Chief Nosnra|TftYP|Nosnra}, is a thoroughly despicable creature, sly and vicious, loving ambush and back-stabbing. Furthermore, the party has been cautioned to expect a secret force, some motivational power behind this unusual banding of different races of giants. Finally, the party has been instructed to keep any and all loot they chance upon, this being their reward for the perils they are to face. They are to follow any clues that point toward the sinister hand suspected of guiding the uprising, but are to return at once if they determine exactly the reason or force behind the unholy alliance. Some relic of great evil might be at hand."
+					],
+					"id": "230"
+				},
+				{
+					"type": "section",
 					"name": "Running the Adventures",
 					"page": 165,
 					"entries": [
@@ -1553,7 +1563,7 @@
 					"name": "Upper Level Locations",
 					"page": 167,
 					"entries": [
-						"The following locations are identified on {@adventure map 6.1|TftYP-AtG|1|Map 6.1: Hill Giant Stronghold - Upper Level}.",
+						"The following locations are identified on {@adventure map 6.1|TftYP-AtG|1|Map 6.1: Hill Giant Stronghold\u2014Upper Level}.",
 						{
 							"type": "entries",
 							"name": "1. Front Gate and Foyer",
@@ -6967,7 +6977,8 @@
 													"items": [
 														"{@dice 1d4} young {@creature Giant Lizard||giant lizards} from {@adventure area 21|TftYP-AtG|1|21. Lizards' Lair}",
 														"{@dice 1d3} {@creature Carrion Crawler||carrion crawlers} coming from {@adventure area 22|TftYP-AtG|1|22. Partially Cleared Passage to Cistern} by way of the sinkholes"
-													]
+													],
+													"columns": 3
 												}
 											],
 											"id": "07a"
@@ -16333,7 +16344,7 @@
 					"name": "Upper Level Locations",
 					"page": 181,
 					"entries": [
-						"The following locations are identified on {@adventure map 6.3|TftYP-AtG|1|Map 6.3: Frost Giant Stronghold - Upper Level}.",
+						"The following locations are identified on {@adventure map 6.3|TftYP-AtG|1|Map 6.3: Frost Giant Stronghold\u2014Upper Level}.",
 						{
 							"type": "entries",
 							"name": "1. Guardroom Ice Cavern",
@@ -32173,7 +32184,7 @@
 							"name": "2. Ettin Guards' Chamber",
 							"page": 199,
 							"entries": [
-								"Four {@creature Ettin||ettins} reside here when they are not on duty near the main entrance to the grand hall ({@adventure map 6.5|TftYP-AtG|1|Map 6.5: Hall of the Fire Giant King - Entrance Level}, {@adventure area 2|TftYP-AtG|1|2. Grand Hall}). Two are asleep, their weapons within easy reach, while the other two quite alert. The chamber has a rude table, a bench, two stools, and four cots. Torches light the place. Nine pegs on the walls hold clothing and six {@adventure giants' bags|TftYP-AtG|1|Giants' Bags}.",
+								"Four {@creature Ettin||ettins} reside here when they are not on duty near the main entrance to the grand hall ({@adventure map 6.5|TftYP-AtG|1|Map 6.5: Hall of the Fire Giant King\u2014Entrance Level}, {@adventure area 2|TftYP-AtG|1|2. Grand Hall}). Two are asleep, their weapons within easy reach, while the other two quite alert. The chamber has a rude table, a bench, two stools, and four cots. Torches light the place. Nine pegs on the walls hold clothing and six {@adventure giants' bags|TftYP-AtG|1|Giants' Bags}.",
 								{
 									"type": "entries",
 									"entries": [
@@ -32693,7 +32704,7 @@
 											"page": 205,
 											"entries": [
 												"Many of the items in Eclavdra's chamber are of significant value.",
-												"The priestess's ceremonial garment is set with ten violet garnets (worth 50 gp each), ten topazes (50 gp each), ten black opals (100 gp each), and ten amethysts (100 gp each); it is covered with a plain black wrapper to protect it from dust and damage.",
+												"The priestess's ceremonial garment is set with ten violet garnets (worth 50 gp each), ten topazes (50 gp each), ten black opals (100 gp each), and ten {@item Amethyst||amethysts} (100 gp each); it is covered with a plain black wrapper to protect it from dust and damage.",
 												"A coffer on the low chest between the divans has a {@spell glyph of warding} on the inside of the lid, so if anyone other than Eclavdra opens it, the glyph casts {@spell insect plague} (spell save {@dc 14}). The container holds three {@item Spell Scroll||spell scrolls} ({@spell gate}, {@spell divine word}, and {@spell greater restoration}).",
 												"A coffer near her bed contains six potions: {@item Potion of Poison||poison}, {@item Potion of Mind Control|TftYP|mind control (fire giant)} (see {@adventure appendix A|TftYP-AtG|2}), {@item Potion of Growth||growth}, {@item Potion of Heroism||heroism}, and two {@item Philter of Love||philters of love}.",
 												"On the dressing table are two combs, a brush, four pins, and ten jars that hold unguents and cosmetics. These items are of onyx and silver, set with tiny gems. Each is worth 50 gp.",
@@ -38333,6 +38344,96 @@
 						"{@item Wand of Entangle|TftYP}",
 						"{@item Waythe|TftYP}"
 					]
+				},
+				{
+					"type": "statblock",
+					"name": "Amulet of Protection from Turning",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Balance of Harmony",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Bracelet of Rock Magic",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Eagle Whistle",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Hell Hound Cloak",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Loadstone",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Mirror of the Past",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Night Caller",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Potion of Mind Control",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Robe of Summer",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Shatterspike",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Spear of Backbiting",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Stone of Ill Luck",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Wand of Entangle",
+					"tag": "item",
+					"source": "TftYP"
+				},
+				{
+					"type": "statblock",
+					"name": "Waythe",
+					"tag": "item",
+					"source": "TftYP"
 				}
 			],
 			"id": "1b5"
@@ -38388,6 +38489,821 @@
 						"{@creature Vampiric Mist|MTF}",
 						"{@creature White Maw|TftYP}",
 						"{@creature Yusdrayl|TftYP}"
+					]
+				},
+				{
+					"type": "section",
+					"name": "Animated Table",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Animated Table",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Animated Table",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Barghest",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Barghest",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Barghest",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Centaur Mummy",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Centaur Mummy",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Centaur Mummy",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Champion",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Champion",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Champion",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Choker",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Choker",
+							"prop": "monsterFluff",
+							"source": "MTF",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Choker",
+							"tag": "creature",
+							"source": "MTF",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Conjurer",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Conjurer",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Conjurer",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Deathlock Wight",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Deathlock Wight",
+							"prop": "monsterFluff",
+							"source": "MTF",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Deathlock Wight",
+							"tag": "creature",
+							"source": "MTF",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Dread Warrior",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Dread Warrior",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Dread Warrior",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Duergar Spy",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Duergar Spy",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Duergar Spy",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Enchanter",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Enchanter",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Enchanter",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Evoker",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Evoker",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Evoker",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Giant Crayfish",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Giant Crayfish",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Giant Ice toad",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Giant Ice toad",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Giant Ice toad",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Giant Lightning eel",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Giant Lightning eel",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Giant Skeleton",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Giant Skeleton",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Giant Skeleton",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Giant Subterranean lizard",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Giant Subterranean lizard",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Greater Zombie",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Greater Zombie",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Greater Zombie",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Illusionist",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Illusionist",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Illusionist",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Kalka-Kylla",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Kalka-Kylla",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Kelpie",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Kelpie",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Leucrotta",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Leucrotta",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Leucrotta",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Malformed Kraken",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Malformed Kraken",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Malformed Kraken",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Martial Arts Adept",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Martial Arts Adept",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Martial Arts Adept",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Nereid",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Nereid",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Nereid",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Necromancer",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Necromancer",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Necromancer",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Ooze master",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Ooze master",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Sea Lion",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Sea Lion",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Sea Lion",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Sharwyn Hucrele",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Sharwyn Hucrele",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Sir Braford",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Sir Braford",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Sir Braford",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Siren",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Siren",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Siren",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Tarul var",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Tarul var",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Tarul var",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Tecuziztecatl",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Tecuziztecatl",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Tecuziztecatl",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Thayan Apprentice",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Thayan Apprentice",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Thayan Warrior",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Thayan Warrior",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Thorn Slinger",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Thorn Slinger",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Transmuter",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Transmuter",
+							"prop": "monsterFluff",
+							"source": "VGM",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Transmuter",
+							"tag": "creature",
+							"source": "VGM",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Vampiric Mist",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Vampiric Mist",
+							"prop": "monsterFluff",
+							"source": "MTF",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Vampiric Mist",
+							"tag": "creature",
+							"source": "MTF",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "White Maw",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "White Maw",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
+					]
+				},
+				{
+					"type": "section",
+					"name": "Yusdrayl",
+					"entries": [
+						{
+							"type": "statblock",
+							"name": "Yusdrayl",
+							"prop": "monsterFluff",
+							"source": "TftYP",
+							"data": {
+								"renderCompact": {
+									"isSkipRootName": true
+								}
+							}
+						},
+						{
+							"type": "statblock",
+							"name": "Yusdrayl",
+							"tag": "creature",
+							"source": "TftYP",
+							"style": "narrow"
+						}
 					]
 				}
 			],

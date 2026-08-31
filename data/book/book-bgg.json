@@ -578,6 +578,15 @@
 							"credit": "Nikki Dawes",
 							"width": 850,
 							"height": 1222
+						},
+						{
+							"type": "statblock",
+							"prop": "subclass",
+							"source": "BGG",
+							"name": "Path of the Giant",
+							"shortName": "Giant",
+							"className": "Barbarian",
+							"classSource": "PHB"
 						}
 					]
 				},
@@ -600,7 +609,18 @@
 									"items": [
 										"{@feat Skilled}",
 										"{@feat Tough}"
-									]
+									],
+									"columns": 3
+								},
+								{
+									"type": "statblock",
+									"name": "Skilled",
+									"tag": "feat"
+								},
+								{
+									"type": "statblock",
+									"name": "Tough",
+									"tag": "feat"
 								}
 							]
 						}
@@ -934,6 +954,54 @@
 										"{@feat Strike of the Giants|BGG}",
 										"{@feat Vigor of the Hill Giant|BGG}"
 									]
+								},
+								{
+									"type": "statblock",
+									"name": "Ember of the Fire Giant",
+									"tag": "feat",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Fury of the Frost Giant",
+									"tag": "feat",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Guile of the Cloud Giant",
+									"tag": "feat",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Keenness of the Stone Giant",
+									"tag": "feat",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rune Shaper",
+									"tag": "feat",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Soul of the Storm Giant",
+									"tag": "feat",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Strike of the Giants",
+									"tag": "feat",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Vigor of the Hill Giant",
+									"tag": "feat",
+									"source": "BGG"
 								}
 							]
 						}
@@ -2414,7 +2482,7 @@
 										],
 										[
 											"6",
-											"A giant who lives in a city asks the characters to take the giant's teenage child with them on their next adventure. (See the \"{@book Giant Children|BGG|2|Giant Children}\" sidebar for suggestions on how to represent the teenage giant with a stat block.)"
+											"A giant who lives in a city asks the characters to take the giant's teenage child with them on their next adventure. (See the \"{@area Giant Children|075|x}\" sidebar for suggestions on how to represent the teenage giant with a stat block.)"
 										]
 									]
 								}
@@ -3938,7 +4006,7 @@
 												],
 												[
 													"6",
-													"Search for clues pointing to the location of the {@item Adze of Annam|BGG} (described in {@book chapter 5|BGG|5|Adze of Annam}) or some other artifact related to the gods of the Ordning."
+													"Search for clues pointing to the location of the {@item Adze of Annam|BGG} or some other artifact related to the gods of the Ordning."
 												]
 											]
 										}
@@ -4354,7 +4422,7 @@
 				"The chapter includes the following giant enclaves:",
 				{
 					"type": "list",
-					"columns": 2,
+					"columns": 3,
 					"items": [
 						"{@book Annam's Cradle|BGG|4|Annam's Cradle}",
 						"{@book Ashen Grotto|BGG|4|Ashen Grotto}",
@@ -5004,7 +5072,7 @@
 									"page": 74,
 									"id": "0db",
 									"entries": [
-										"Stone giant artisans find inspiration in the Endless Rockslide and create beautiful works from its material, but a {@creature fomorian warlock of the dark|BGG} (see {@book chapter 6|BGG|6|Fomorian Warlock of the Dark}) curses the crafts to bring misfortune. The stone giants ask the characters to find the fomorian and end the curse before they're overwhelmed with creatures drawn from the {@book Fomorian Encounters|BGG|3|Fomorian Encounters} and {@book Giant Kin Encounters|BGG|3|Giant Kin Encounters} tables in {@book chapter 3|BGG|3}."
+										"Stone giant artisans find inspiration in the Endless Rockslide and create beautiful works from its material, but a {@creature fomorian warlock of the dark|BGG} curses the crafts to bring misfortune. The stone giants ask the characters to find the fomorian and end the curse before they're overwhelmed with creatures drawn from the {@book Fomorian Encounters|BGG|3|Fomorian Encounters} and {@book Giant Kin Encounters|BGG|3|Giant Kin Encounters} tables in {@book chapter 3|BGG|3}."
 									]
 								},
 								{
@@ -5022,7 +5090,7 @@
 									"page": 74,
 									"id": "0dd",
 									"entries": [
-										"Hungry creatures from the {@book Elemental Earth Encounters table|BGG|3|Elemental Earth Encounters} (see {@book chapter 3|BGG|3}) swarm from the Endless Rockslide, driving out the fire giants working there. The giants offer a bounty of metal craft and gems in exchange for help retaking the site."
+										"Hungry creatures from the {@table Elemental Earth Encounters|BGG} table (see {@book chapter 3|BGG|3}) swarm from the Endless Rockslide, driving out the fire giants working there. The giants offer a bounty of metal craft and gems in exchange for help retaking the site."
 									]
 								},
 								{
@@ -5031,7 +5099,7 @@
 									"page": 74,
 									"id": "0de",
 									"entries": [
-										"A {@creature djinni} assaults the Endless Rockslide to disrupt the plans of her {@creature dao} rival. Each genie asks the characters to side against the other. The characters face threats from the {@book Elemental Earth Encounters|BGG|3|Elemental Earth Encounters} or {@book Elemental Air Encounters table|BGG|3|Elemental Air Encounters} in {@book chapter 3|BGG|3} as appropriate."
+										"A {@creature djinni} assaults the Endless Rockslide to disrupt the plans of her {@creature dao} rival. Each genie asks the characters to side against the other. The characters face threats from the {@table Elemental Earth Encounters|BGG} or {@table Elemental Air Encounters|BGG} in {@book chapter 3|BGG|3} as appropriate."
 									]
 								}
 							]
@@ -5301,7 +5369,7 @@
 									"page": 78,
 									"id": "0eb",
 									"entries": [
-										"Restless spirits of the storm giants who died in the Forsaken Deep create a perpetual necrotic storm on the ocean surface above. To stop it, the characters must brave creatures from the {@book Elemental Water Encounters|BGG|3|Elemental Water Encounters} and {@book Giant Necropolis Encounters|BGG|3|Giant Necropolis Encounters} tables (see {@book chapter 3|BGG|3}), retrieve the giants' remains from the deep, and inter them in the {@book Ashen Grotto|BGG|4|Ashen Grotto} (in this chapter)."
+										"Restless spirits of the storm giants who died in the Forsaken Deep create a perpetual necrotic storm on the ocean surface above. To stop it, the characters must brave creatures from the {@table Elemental Water Encounters|BGG} and {@book Giant Necropolis Encounters|BGG|3|Giant Necropolis Encounters} tables (see {@book chapter 3|BGG|3}), retrieve the giants' remains from the deep, and inter them in the {@book Ashen Grotto|BGG|4|Ashen Grotto} (in this chapter)."
 									]
 								},
 								{
@@ -5310,7 +5378,7 @@
 									"page": 78,
 									"id": "0ec",
 									"entries": [
-										"The lightning archives hold the key to gaining control of the apparatus contained in the {@book Thundering Observatory|BGG|4|Thundering Observatory} (in this chapter). A {@creature death giant reaper|BGG} (see {@book chapter 6|BGG|6|Death Giant Reaper}) claims the deep with minions from the {@book Death Giant Encounters table|BGG|3|Death Giant Encounters} in {@book chapter 3|BGG|3}, but the giant might trade this knowledge if the characters capture a {@creature marid} thief and dispatch the marid's minions from the {@book Elemental Water Encounters table|BGG|3|Elemental Water Encounters} (see {@book chapter 3|BGG|3})."
+										"The lightning archives hold the key to gaining control of the apparatus contained in the {@book Thundering Observatory|BGG|4|Thundering Observatory} (in this chapter). A {@creature death giant reaper|BGG} (see {@book chapter 6|BGG|6|Death Giant Reaper}) claims the deep with minions from the {@book Death Giant Encounters table|BGG|3|Death Giant Encounters} in {@book chapter 3|BGG|3}, but the giant might trade this knowledge if the characters capture a {@creature marid} thief and dispatch the marid's minions from the {@table Elemental Water Encounters|BGG} (see {@book chapter 3|BGG|3})."
 									]
 								},
 								{
@@ -5328,7 +5396,7 @@
 									"page": 78,
 									"id": "0ee",
 									"entries": [
-										"A shadow-corrupted {@creature kraken} lairs in the deep, steeping in the mingled planar energies there. It menaces ships over its waters, dragging sailors down to become {@creature Shadow||shadows}, {@creature Ghoul||ghouls}, and creatures from the {@book Elemental Water Encounters table|BGG|3|Elemental Water Encounters} (see {@book chapter 3|BGG|3})."
+										"A shadow-corrupted {@creature kraken} lairs in the deep, steeping in the mingled planar energies there. It menaces ships over its waters, dragging sailors down to become {@creature Shadow||shadows}, {@creature Ghoul||ghouls}, and creatures from the {@table Elemental Water Encounters|BGG} (see {@book chapter 3|BGG|3})."
 									]
 								}
 							]
@@ -5436,7 +5504,7 @@
 									"page": 80,
 									"id": "0f3",
 									"entries": [
-										"A group of {@creature aarakocra} controls the tower, flying it across the countryside and assaulting servants of the cults of Elemental Evil. They have recruited creatures from the {@book Elemental Air Encounters table|BGG|3|Elemental Air Encounters} in {@book chapter 3|BGG|3} to aid their campaign. The aarakocra know a secret method to stabilize the Labyrinth Funnel so it can be used safely as a portal."
+										"A group of {@creature aarakocra} controls the tower, flying it across the countryside and assaulting servants of the cults of Elemental Evil. They have recruited creatures from the {@table Elemental Air Encounters|BGG} table in {@book chapter 3|BGG|3} to aid their campaign. The aarakocra know a secret method to stabilize the Labyrinth Funnel so it can be used safely as a portal."
 									]
 								},
 								{
@@ -5454,7 +5522,7 @@
 									"page": 80,
 									"id": "0f5",
 									"entries": [
-										"An {@creature adult silver dragon} took control of the tower when it drifted into her territory, and she is using its power to drive other beings from her domain. Towns in the area desperately call for help as endless storms assail them and an onslaught of creatures from the {@book Elemental Air Encounters table|BGG|3|Elemental Air Encounters} (see {@book chapter 3|BGG|3}) terrorizes the region."
+										"An {@creature adult silver dragon} took control of the tower when it drifted into her territory, and she is using its power to drive other beings from her domain. Towns in the area desperately call for help as endless storms assail them and an onslaught of creatures from the {@table Elemental Air Encounters|BGG} (see {@book chapter 3|BGG|3}) terrorizes the region."
 									]
 								},
 								{
@@ -5598,7 +5666,7 @@
 									"page": 82,
 									"id": "0fe",
 									"entries": [
-										"The characters travel with refugees fleeing from disaster. The survivors are exhausted and starving when they stumble upon the grove. The {@creature unicorn} who watches the grove and her {@creature centaur} subjects will shelter the refugees if the characters agree to slay a nearby pride of {@creature Displacer Beast||displacer beasts} and creatures from the {@book Elemental Earth Encounters table|BGG|3|Elemental Earth Encounters} (see {@book chapter 3|BGG|3})."
+										"The characters travel with refugees fleeing from disaster. The survivors are exhausted and starving when they stumble upon the grove. The {@creature unicorn} who watches the grove and her {@creature centaur} subjects will shelter the refugees if the characters agree to slay a nearby pride of {@creature Displacer Beast||displacer beasts} and creatures from the {@table Elemental Earth Encounters|BGG} table (see {@book chapter 3|BGG|3})."
 									]
 								},
 								{
@@ -5760,7 +5828,7 @@
 									"page": 84,
 									"id": "106",
 									"entries": [
-										"Two rival factions of giant kin vie to claim the throne. An {@creature ettin} and a {@creature fensir skirmisher|BGG} (see {@book chapter 6|BGG|6|Fensir Skirmisher}) each entice the characters to side with them and their followers from the {@book Giant Kin Encounters table|BGG|3|Giant Kin Encounters} (see {@book chapter 3|BGG|3}) to break the stalemate, offering treasure and aid in the characters' endeavors."
+										"Two rival factions of giant kin vie to claim the throne. An {@creature ettin} and a {@creature fensir skirmisher|BGG} each entice the characters to side with them and their followers from the {@book Giant Kin Encounters table|BGG|3|Giant Kin Encounters} (see {@book chapter 3|BGG|3}) to break the stalemate, offering treasure and aid in the characters' endeavors."
 									]
 								},
 								{
@@ -5884,7 +5952,7 @@
 									"page": 86,
 									"id": "10e",
 									"entries": [
-										"Archaeologists hire the characters to help operate a {@item Horizon puzzle cube|BGG} (see the \"{@book Entering Horizon's Edge|BGG|4|Entering Horizon's Edge}\" sidebar) and protect them from any hazards in the demiplane. Creatures from the {@book Fiendish Incursion Encounters table|BGG|3|Fiendish Incursion Encounters} in {@book chapter 3|BGG|3} are trapped in the realm and attack the expedition, seeking a means of escape."
+										"Archaeologists hire the characters to help operate a {@item Horizon puzzle cube|BGG} (see the \"{@area Entering Horizon's Edge|10c|x}\" sidebar) and protect them from any hazards in the demiplane. Creatures from the {@book Fiendish Incursion Encounters table|BGG|3|Fiendish Incursion Encounters} in {@book chapter 3|BGG|3} are trapped in the realm and attack the expedition, seeking a means of escape."
 									]
 								},
 								{
@@ -6069,7 +6137,7 @@
 									"page": 88,
 									"id": "115",
 									"entries": [
-										"A horde of {@creature merrow} and {@creature sahuagin} use the iceberg to raid coastal settlements and shipping lanes, commanding creatures from the {@book Elemental Air Encounters|BGG|3|Elemental Air Encounters} and {@book Elemental Water Encounters|BGG|3|Elemental Water Encounters} tables in {@book chapter 3|BGG|3}."
+										"A horde of {@creature merrow} and {@creature sahuagin} use the iceberg to raid coastal settlements and shipping lanes, commanding creatures from the {@table Elemental Air Encounters|BGG} and {@table Elemental Water Encounters|BGG} tables in {@book chapter 3|BGG|3}."
 									]
 								},
 								{
@@ -6167,7 +6235,7 @@
 										{
 											"type": "item",
 											"name": "Throne Room",
-											"entry": "Damaged bas-reliefs on the walls of the crumbling throne room depict {@creature Fomorian Noble|BGG|fomorian nobles} (see {@book chapter 6|BGG|6|Fomorian Noble}) passing through a portal, girded for battle. The next scene, presumably the aftermath, is defaced and illegible."
+											"entry": "Damaged bas-reliefs on the walls of the crumbling throne room depict {@creature Fomorian Noble|BGG|fomorian nobles} passing through a portal, girded for battle. The next scene, presumably the aftermath, is defaced and illegible."
 										},
 										{
 											"type": "item",
@@ -6221,7 +6289,7 @@
 									"page": 90,
 									"id": "11c",
 									"entries": [
-										"A {@creature fomorian deep crawler|BGG} (see {@book chapter 6|BGG|6|Fomorian Deep Crawler}) lurking in the hold has designs on the {@book Forest Crystal|BGG|4|Forest Crystal} (in this chapter), seeking to corrupt it and use its magic to spread the Far Realm intrusion. While some of its minions\u2014creatures from the {@book Fomorian Encounters table|BGG|3|Fomorian Encounters} (see {@book chapter 3|BGG|3})\u2014defend Karontor's Hold, others carry cursed objects into the forest to infuse their corruption into the crystal. If these minions are successful, the Forest Crystal becomes an extension of the Far Realm's intrusion."
+										"A {@creature fomorian deep crawler|BGG} lurking in the hold has designs on the {@book Forest Crystal|BGG|4|Forest Crystal} (in this chapter), seeking to corrupt it and use its magic to spread the Far Realm intrusion. While some of its minions\u2014creatures from the {@book Fomorian Encounters table|BGG|3|Fomorian Encounters} (see {@book chapter 3|BGG|3})\u2014defend Karontor's Hold, others carry cursed objects into the forest to infuse their corruption into the crystal. If these minions are successful, the Forest Crystal becomes an extension of the Far Realm's intrusion."
 									]
 								},
 								{
@@ -6600,7 +6668,7 @@
 									"page": 96,
 									"id": "132",
 									"entries": [
-										"{@creature Goliath giant-kin|BGG} escort a nervous {@creature stone giant rockspeaker|BGG} (both in {@book chapter 6|BGG|6}) who needs to commune with his dreams within the crystal sand fortress at night. While he does, creatures from the {@book Fiendish Incursion Encounters|BGG|3|Fiendish Incursion Encounters} and {@book Elemental Earth Encounters|BGG|3|Elemental Earth Encounters} tables in {@book chapter 3|BGG|3} manifest from the sand and attack."
+										"{@creature Goliath giant-kin|BGG} escort a nervous {@creature stone giant rockspeaker|BGG} (both in {@book chapter 6|BGG|6}) who needs to commune with his dreams within the crystal sand fortress at night. While he does, creatures from the {@book Fiendish Incursion Encounters|BGG|3|Fiendish Incursion Encounters} and {@table Elemental Earth Encounters|BGG} tables in {@book chapter 3|BGG|3} manifest from the sand and attack."
 									]
 								},
 								{
@@ -6636,7 +6704,7 @@
 									"page": 96,
 									"id": "136",
 									"entries": [
-										"A {@creature cloud giant} in an airship seeks the Singing Sands, claiming the desert was once the seat of a powerful empire of giants. The giant wants the characters to distract creatures from the {@book Elemental Fire Encounters table|BGG|3|Elemental Fire Encounters} (see {@book chapter 3|BGG|3}) defending the sand. The giant hopes to use the sand to create a compass to locate {@book Gale's Eye Tower|BGG|4|Gale's Eye Tower} (in this chapter)."
+										"A {@creature cloud giant} in an airship seeks the Singing Sands, claiming the desert was once the seat of a powerful empire of giants. The giant wants the characters to distract creatures from the {@table Elemental Fire Encounters|BGG} (see {@book chapter 3|BGG|3}) defending the sand. The giant hopes to use the sand to create a compass to locate {@book Gale's Eye Tower|BGG|4|Gale's Eye Tower} (in this chapter)."
 									]
 								}
 							]
@@ -6765,7 +6833,7 @@
 									"page": 98,
 									"id": "13b",
 									"entries": [
-										"Thieves damaged the Giant runes stabilizing the Star Forge, and the fallen star at the forge's heart is regaining its former magnitude. As the star's power grows, frequent earthquakes release creatures from the {@book Elemental Earth Encounters|BGG|3|Elemental Earth Encounters} and {@book Elemental Fire Encounters|BGG|3|Elemental Fire Encounters} tables (see {@book chapter 3|BGG|3}) into the surrounding area. Unless the runes are repaired, the star threatens to consume the region\u2014or perhaps the whole world."
+										"Thieves damaged the Giant runes stabilizing the Star Forge, and the fallen star at the forge's heart is regaining its former magnitude. As the star's power grows, frequent earthquakes release creatures from the {@table Elemental Earth Encounters|BGG} and {@table Elemental Fire Encounters|BGG} tables (see {@book chapter 3|BGG|3}) into the surrounding area. Unless the runes are repaired, the star threatens to consume the region\u2014or perhaps the whole world."
 									]
 								},
 								{
@@ -6926,7 +6994,7 @@
 									"page": 100,
 									"id": "147",
 									"entries": [
-										"A {@creature frost giant} plans to use the observatory's Death Ray to destroy her rivals in {@book Hiatea's Hearth|BGG|4|Hiatea's Hearth} (in this chapter). The current ruler of Hiatea's Hearth has learned of the giant's plan and implores the characters to thwart it. Creatures from the {@book Frost Giant Encounters|BGG|3|Frost Giant Encounters} and {@book Elemental Air Encounters|BGG|3|Elemental Air Encounters} tables (see {@book chapter 3|BGG|3}) defend the observatory."
+										"A {@creature frost giant} plans to use the observatory's Death Ray to destroy her rivals in {@book Hiatea's Hearth|BGG|4|Hiatea's Hearth} (in this chapter). The current ruler of Hiatea's Hearth has learned of the giant's plan and implores the characters to thwart it. Creatures from the {@book Frost Giant Encounters|BGG|3|Frost Giant Encounters} and {@table Elemental Air Encounters|BGG} tables (see {@book chapter 3|BGG|3}) defend the observatory."
 									]
 								},
 								{
@@ -7055,7 +7123,7 @@
 									"page": 102,
 									"id": "14f",
 									"entries": [
-										"A {@creature stone giant of Evil Earth|BGG} (see {@book chapter 6|BGG|6|Stone Giant of Evil Earth}) and the giant's evil minions from the {@book Elemental Earth Encounters table|BGG|3|Elemental Earth Encounters} in {@book chapter 3|BGG|3} have taken control of the Worldroot Sapling. The cultists are pouring corrupt earth elemental energy into the sapling, twisting it to create a {@creature gargantua|BGG} (see {@book chapter 6|BGG|6|Gargantua}). A {@creature stone giant} seer begs the characters to help her thwart the cult."
+										"A {@creature stone giant of Evil Earth|BGG} (see {@book chapter 6|BGG|6|Stone Giant of Evil Earth}) and the giant's evil minions from the {@table Elemental Earth Encounters|BGG} table in {@book chapter 3|BGG|3} have taken control of the Worldroot Sapling. The cultists are pouring corrupt earth elemental energy into the sapling, twisting it to create a {@creature gargantua|BGG} (see {@book chapter 6|BGG|6|Gargantua}). A {@creature stone giant} seer begs the characters to help her thwart the cult."
 									]
 								},
 								{
@@ -7064,7 +7132,7 @@
 									"page": 102,
 									"id": "150",
 									"entries": [
-										"A group of {@creature Firbolg Primeval Warden|BGG|firbolg primeval wardens} (see {@book chapter 6|BGG|6|Firbolg Primeval Warden}) seek to reconnect the {@book Forest Crystal|BGG|4|Forest Crystal} and {@book Singing Sands|BGG|4|Singing Sands} (both in this chapter) to a magical network that once spanned the world. The firbolgs believe they can use the network created by an ancient civilization of giants to channel the sapling's life energy to revitalize devastated regions of the world. They need help carrying cuttings of the sapling to the two sites. Along the way, the characters must deal with creatures from the {@book Fiendish Incursion Encounters table|BGG|3|Fiendish Incursion Encounters} at the Singing Sands and with tyrannical giants from the {@book Storm Giant Encounters table|BGG|3|Storm Giant Encounters} at the Forest Crystal (both tables are in {@book chapter 3|BGG|3})."
+										"A group of {@creature Firbolg Primeval Warden|BGG|firbolg primeval wardens} seek to reconnect the {@book Forest Crystal|BGG|4|Forest Crystal} and {@book Singing Sands|BGG|4|Singing Sands} (both in this chapter) to a magical network that once spanned the world. The firbolgs believe they can use the network created by an ancient civilization of giants to channel the sapling's life energy to revitalize devastated regions of the world. They need help carrying cuttings of the sapling to the two sites. Along the way, the characters must deal with creatures from the {@book Fiendish Incursion Encounters table|BGG|3|Fiendish Incursion Encounters} at the Singing Sands and with tyrannical giants from the {@book Storm Giant Encounters table|BGG|3|Storm Giant Encounters} at the Forest Crystal (both tables are in {@book chapter 3|BGG|3})."
 									]
 								}
 							]
@@ -7904,6 +7972,168 @@
 										"{@item Wyrmreaver Gauntlets|BGG}",
 										"{@item Zephyr Armor|BGG}"
 									]
+								},
+								{
+									"type": "statblock",
+									"name": "Adze of Annam",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Armor of Safeguarding",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bigby's Beneficent Bracelet",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bloodshed Blade",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Crown of the Wrath Bringer",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Delver's Claws",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Glowrune Pigment",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Harp of Gilded Plenty",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Helm of Perfect Potential",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Lash of Immolation",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Longbow of the Healing Hearth",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Lucent Destroyer",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Mistral Mantle",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Nimbus Coronet",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Orb of Skoraeus",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Prehistoric Figurine of Wondrous Power",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Reaper's Scream",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Amity",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sanctum Amulet",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Shield of the Blazing Dreadnought",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of the Rooted Hills",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Stonebreaker's Breastplate",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Thunderbuss",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "War Horn of Valor",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wayfarer's Boots",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wyrmreaver Gauntlets",
+									"tag": "item",
+									"source": "BGG"
+								},
+								{
+									"type": "statblock",
+									"name": "Zephyr Armor",
+									"tag": "item",
+									"source": "BGG"
 								}
 							]
 						}
@@ -8072,6 +8302,1452 @@
 								"{@creature Titanothere|BGG}",
 								"{@creature Troll Amalgam|BGG}",
 								"{@creature Troll Mutate|BGG}"
+							]
+						},
+						{
+							"type": "section",
+							"name": "Bag Jelly",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Bag Jelly",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Bag Jelly",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Barrowghast",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Barrowghast",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Barrowghast",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Cairnwight",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Cairnwight",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Cairnwight",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Cinder Hulk",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Cinder Hulk",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Cinder Hulk",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Cloud Giant Destiny Gambler",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Cloud Giant Destiny Gambler",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Cloud Giant Destiny Gambler",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Cloud Giant of Evil Air",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Cloud Giant of Evil Air",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Cloud Giant of Evil Air",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Death Giants",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Death Giants",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Death Giant Reaper",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Death Giant Shrouded One",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Dinosaurs",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Dinosaurs",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Aerosaur",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Altisaur",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Ceratops",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Regisaur",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Dust Hulk",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Dust Hulk",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Dust Hulk",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Echo of Demogorgon",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Echo of Demogorgon",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Echo of Demogorgon",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Ettin Ceremorph",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Ettin Ceremorph",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Ettin Ceremorph",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Fensirs",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Fensirs",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Fensir Devourer",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Fensir Skirmisher",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Firbolgs",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Firbolgs",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Firbolg Primeval Warden",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Firbolg Wanderer",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Firegaunt",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Firegaunt",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Firegaunt",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Fire Giant Forgecaller",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Fire Giant Forgecaller",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Fire Giant Forgecaller",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Fire Giant of Evil Fire",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Fire Giant of Evil Fire",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Fire Hellion",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Fire Hellion",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Fire Hellion",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Flesh Colossus",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Flesh Colossus",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Flesh Colossus",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Fomorians",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Fomorians",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Fomorian Deep Crawler",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Fomorian Noble",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Fomorian Warlock of the Dark",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Frost Giant Ice Shaper",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Frost Giant Ice Shaper",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Frost Giant Ice Shaper",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Frost Giant of Evil Water",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Frost Giant of Evil Water",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Frostmourn",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Frostmourn",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Frostmourn",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Fury of Kostchtchie",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Fury of Kostchtchie",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Fury of Kostchtchie",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Gargantua",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Gargantua",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Gargantua",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Giant Child",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Giant Child",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Giant Goose",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Giant Goose",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Giant Goose",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Giant Lynx",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Giant Lynx",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Giant Lynx",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Giant Ox",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Giant Ox",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Giant Ox",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Giant Ram",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Giant Ram",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Giant Ram",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Giant Tick",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Giant Tick",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Giant Tick",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Gigant",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Gigant",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Gigant",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Goliath Giant-Kin",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Goliath Giant-Kin",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Goliath Giant-Kin",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Grinning Cat",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Grinning Cat",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Grinning Cat",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Hill Giant Avalancher",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Hill Giant Avalancher",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Hill Giant Avalancher",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Lightning Hulk",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Lightning Hulk",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Lightning Hulk",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Maw of Yeenoghu",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Maw of Yeenoghu",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Maw of Yeenoghu",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Mist Hulk",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Mist Hulk",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Mist Hulk",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Mud Hulk",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Mud Hulk",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Mud Hulk",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Rime Hulk",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Rime Hulk",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Rime Hulk",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Runic Colossus",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Runic Colossus",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Runic Colossus",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "Scions of Giants' Gods",
+							"entries": [
+								{
+									"type": "section",
+									"name": "Hill Scion",
+									"entries": [
+										{
+											"type": "statblock",
+											"name": "Scions of Giants' Gods",
+											"prop": "monsterFluff",
+											"source": "BGG",
+											"data": {
+												"renderCompact": {
+													"isSkipRootName": true
+												}
+											}
+										},
+										{
+											"type": "statblock",
+											"name": "Cradle of the Hill Scion",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										},
+										{
+											"type": "statblock",
+											"name": "Scion of Grolantor",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										}
+									]
+								},
+								{
+									"type": "section",
+									"name": "Cloud Scion",
+									"entries": [
+										{
+											"type": "statblock",
+											"name": "Scions of Giants' Gods",
+											"prop": "monsterFluff",
+											"source": "BGG",
+											"data": {
+												"renderCompact": {
+													"isSkipRootName": true
+												}
+											}
+										},
+										{
+											"type": "statblock",
+											"name": "Cradle of the Cloud Scion",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										},
+										{
+											"type": "statblock",
+											"name": "Scion of Memnor",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										}
+									]
+								},
+								{
+									"type": "section",
+									"name": "Stone Scion",
+									"entries": [
+										{
+											"type": "statblock",
+											"name": "Scions of Giants' Gods",
+											"prop": "monsterFluff",
+											"source": "BGG",
+											"data": {
+												"renderCompact": {
+													"isSkipRootName": true
+												}
+											}
+										},
+										{
+											"type": "statblock",
+											"name": "Cradle of the Stone Scion",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										},
+										{
+											"type": "statblock",
+											"name": "Scion of Skoraeus",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										}
+									]
+								},
+								{
+									"type": "section",
+									"name": "Storm Scion",
+									"entries": [
+										{
+											"type": "statblock",
+											"name": "Scions of Giants' Gods",
+											"prop": "monsterFluff",
+											"source": "BGG",
+											"data": {
+												"renderCompact": {
+													"isSkipRootName": true
+												}
+											}
+										},
+										{
+											"type": "statblock",
+											"name": "Cradle of the Storm Scion",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										},
+										{
+											"type": "statblock",
+											"name": "Scion of Stronmaus",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										}
+									]
+								},
+								{
+									"type": "section",
+									"name": "Fire Scion",
+									"entries": [
+										{
+											"type": "statblock",
+											"name": "Scions of Giants' Gods",
+											"prop": "monsterFluff",
+											"source": "BGG",
+											"data": {
+												"renderCompact": {
+													"isSkipRootName": true
+												}
+											}
+										},
+										{
+											"type": "statblock",
+											"name": "Cradle of the Fire Scion",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										},
+										{
+											"type": "statblock",
+											"name": "Scion of Surtur",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										}
+									]
+								},
+								{
+									"type": "section",
+									"name": "Frost Scion",
+									"entries": [
+										{
+											"type": "statblock",
+											"name": "Scions of Giants' Gods",
+											"prop": "monsterFluff",
+											"source": "BGG",
+											"data": {
+												"renderCompact": {
+													"isSkipRootName": true
+												}
+											}
+										},
+										{
+											"type": "statblock",
+											"name": "Cradle of the Frost Scion",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										},
+										{
+											"type": "statblock",
+											"name": "Scion of Thrym",
+											"tag": "creature",
+											"source": "BGG",
+											"style": "narrow"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Spectral Cloud",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Spectral Cloud",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Spectral Cloud",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Spotted Lion",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Spotted Lion",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Spotted Lion",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Stalker of Baphomet",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Stalker of Baphomet",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Stalker of Baphomet",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Stone Giant of Evil Earth",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Stone Giant of Evil Earth",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Stone Giant of Evil Earth",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Stone Giant Rockspeaker",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Stone Giant Rockspeaker",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Stone Giant Rockspeaker",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Storm Crab",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Storm Crab",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Storm Crab",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Storm Giant Tempest Caller",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Storm Giant Tempest Caller",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Storm Giant Tempest Caller",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Storm Herald",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Storm Herald",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Storm Herald",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Tempest Spirit",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Tempest Spirit",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Tempest Spirit",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Titanothere",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Titanothere",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Titanothere",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
+							]
+						},
+						{
+							"type": "section",
+							"name": "Trolls",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Trolls",
+									"prop": "monsterFluff",
+									"source": "BGG",
+									"data": {
+										"renderCompact": {
+											"isSkipRootName": true
+										}
+									}
+								},
+								{
+									"type": "statblock",
+									"name": "Troll Amalgam",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								},
+								{
+									"type": "statblock",
+									"name": "Troll Mutate",
+									"tag": "creature",
+									"source": "BGG",
+									"style": "narrow"
+								}
 							]
 						}
 					]

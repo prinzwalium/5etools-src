@@ -4720,7 +4720,7 @@
 										],
 										[
 											"5",
-											"Your path takes you near a patch of {@book razorvine|XDMG|2|Razorvine} (see \"{@book Hazards|XDMG|2|Hazards}\" in this chapter). Make a {@dc 15} Dexterity saving throw or use 10 feet of movement (your choice) to avoid the razorvine. On a failed save, you take {@dice 1d10} Slashing damage."
+											"Your path takes you near a patch of {@hazard razorvine|XDMG} (see \"{@book Hazards|XDMG|2|Hazards}\" in this chapter). Make a {@dc 15} Dexterity saving throw or use 10 feet of movement (your choice) to avoid the razorvine. On a failed save, you take {@dice 1d10} Slashing damage."
 										],
 										[
 											"6",
@@ -5494,6 +5494,24 @@
 												"{@disease Sewer Plague|XDMG}",
 												"{@disease Sight Rot|XDMG}"
 											]
+										},
+										{
+											"type": "statblock",
+											"name": "Cackle Fever",
+											"tag": "disease",
+											"source": "XDMG"
+										},
+										{
+											"type": "statblock",
+											"name": "Sewer Plague",
+											"tag": "disease",
+											"source": "XDMG"
+										},
+										{
+											"type": "statblock",
+											"name": "Sight Rot",
+											"tag": "disease",
+											"source": "XDMG"
 										}
 									]
 								}
@@ -6281,7 +6299,7 @@
 										],
 										[
 											"3",
-											"Neglected. One dungeon hazard\u2014such as {@book brown mold|XDMG|2|Brown Mold}, {@book green slime|XDMG|2|Green Slime}, or {@book yellow mold|XDMG|2|Yellow Mold} (see \"{@book Hazards|XDMG|2|Hazards}\" in this chapter)\u2014is abundant."
+											"Neglected. One dungeon hazard\u2014such as {@hazard brown mold|XDMG}, {@hazard green slime|XDMG}, or {@hazard yellow mold|XDMG} (see \"{@book Hazards|XDMG|2|Hazards}\" in this chapter)\u2014is abundant."
 										],
 										[
 											"4",
@@ -6336,6 +6354,78 @@
 								"{@hazard Thin Ice|XDMG}",
 								"{@hazard Wild Magic Zone|XDMG}"
 							]
+						},
+						{
+							"type": "statblock",
+							"name": "Dead Magic Zone",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Deep Water",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Extreme Cold",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Extreme Heat",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Frigid Water",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Heavy Precipitation",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "High Altitude",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Planar Effects",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Slippery Ice",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Strong Wind",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Thin Ice",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Wild Magic Zone",
+							"tag": "hazard",
+							"source": "XDMG"
 						}
 					]
 				},
@@ -7021,6 +7111,78 @@
 									"height": 352
 								}
 							]
+						},
+						{
+							"type": "statblock",
+							"name": "Brown Mold",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Fireball Fungus",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Green Slime",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Inferno",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Poisonous Gas",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Quicksand Pit",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Razorvine",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "River Styx",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Rockslide",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Vicious Vine",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Webs",
+							"tag": "hazard",
+							"source": "XDMG"
+						},
+						{
+							"type": "statblock",
+							"name": "Yellow Mold",
+							"tag": "hazard",
+							"source": "XDMG"
 						}
 					]
 				},
@@ -8522,6 +8684,90 @@
 										"{@item Truth Serum|XDMG}",
 										"{@item Wyvern Poison|XDMG}"
 									]
+								},
+								{
+									"type": "statblock",
+									"name": "Assassin's Blood",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Burnt Othur Fumes",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Carrion Crawler Mucus",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Essence of Ether",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Lolth's Sting",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Malice",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Midnight Tears",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Oil of Taggit",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Pale Tincture",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Purple Worm Poison",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Serpent Venom",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Torpor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Truth Serum",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wyvern Poison",
+									"tag": "item",
+									"source": "XDMG"
 								}
 							]
 						}
@@ -9254,6 +9500,7 @@
 								"{@object Ballista|XDMG}",
 								"{@object Cannon|XDMG}",
 								"{@object Flamethrower Coach|XDMG}",
+								"{@object Keg Launcher|XDMG}",
 								"{@object Lightning Cannon|XDMG}",
 								"{@object Mangonel|XDMG}",
 								"{@object Ram|XDMG}",
@@ -9261,6 +9508,76 @@
 								"{@object Suspended Cauldron|XDMG}",
 								"{@object Trebuchet|XDMG}"
 							]
+						},
+						{
+							"type": "statblock",
+							"name": "Ballista",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Cannon",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Flamethrower Coach",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Keg Launcher",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Lightning Cannon",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Mangonel",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Ram",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Siege Tower",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Suspended Cauldron",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
+						},
+						{
+							"type": "statblock",
+							"name": "Trebuchet",
+							"tag": "object",
+							"source": "XDMG",
+							"style": "narrow"
 						}
 					]
 				},
@@ -9331,6 +9648,48 @@
 										"{@reward Blessing of Weapon Enhancement|XDMG}",
 										"{@reward Blessing of Wound Closure|XDMG}"
 									]
+								},
+								{
+									"type": "statblock",
+									"name": "Blessing of Health",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Blessing of Magic Resistance",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Blessing of Protection",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Blessing of Understanding",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Blessing of Valhalla",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Blessing of Weapon Enhancement",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Blessing of Wound Closure",
+									"tag": "reward",
+									"source": "XDMG"
 								}
 							]
 						},
@@ -9356,6 +9715,48 @@
 										"{@reward Charm of the Slayer|XDMG}",
 										"{@reward Charm of Vitality|XDMG}"
 									]
+								},
+								{
+									"type": "statblock",
+									"name": "Charm of Animal Conjuring",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Charm of Darkvision",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Charm of Feather Falling",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Charm of Heroism",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Charm of Restoration",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Charm of the Slayer",
+									"tag": "reward",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Charm of Vitality",
+									"tag": "reward",
+									"source": "XDMG"
 								}
 							]
 						}
@@ -9420,6 +9821,54 @@
 										"{@trap Rolling Stone|XDMG}",
 										"{@trap Spiked Pit|XDMG}"
 									]
+								},
+								{
+									"type": "statblock",
+									"name": "Collapsing Roof",
+									"tag": "trap",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Falling Net",
+									"tag": "trap",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Fire-Casting Statue",
+									"tag": "trap",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Hidden Pit",
+									"tag": "trap",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Poisoned Darts",
+									"tag": "trap",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Poisoned Needle",
+									"tag": "trap",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rolling Stone",
+									"tag": "trap",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Spiked Pit",
+									"tag": "trap",
+									"source": "XDMG"
 								}
 							]
 						},
@@ -11605,7 +12054,7 @@
 										{
 											"type": "item",
 											"name": "Hook",
-											"entry": "The mayor of the village of Blackstone, Kristryd Splitanvil (a Lawful Good, dwarf {@creature Tough|XMM}), hires the adventurers\u2014perhaps because of how adeptly they handled the situation in \"{@book The Fouled Stream|XDMG|3|The Fouled Stream}\"\u2014to deal with the monster in the mines. She offers a precious topaz worth 500 GP to adventurers who kill the creature or drive it away."
+										"entry": "The mayor of the village of Blackstone, Kristryd Splitanvil (a Lawful Good, dwarf {@creature Tough|XMM}), hires the adventurers\u2014perhaps because of how adeptly they handled the situation in \"{@book The Fouled Stream|XDMG|3|The Fouled Stream}\"\u2014to deal with the monster in the mines. She offers a precious {@item topaz|XDMG} worth 500 GP to adventurers who kill the creature or drive it away."
 										}
 									]
 								},
@@ -11648,7 +12097,7 @@
 														],
 														[
 															"4",
-															"A patch of {@book yellow mold|XDMG|2|Yellow Mold} (see \"{@book Hazards|XDMG|2|Hazards}\" in {@book chapter 3|XDMG|2}) on a miner's remains"
+															"A patch of {@hazard yellow mold|XDMG} (see \"{@book Hazards|XDMG|2|Hazards}\" in {@book chapter 3|XDMG|2}) on a miner's remains"
 														],
 														[
 															"5",
@@ -11862,7 +12311,7 @@
 											"page": 124,
 											"id": "28d",
 											"entries": [
-												"Once the characters reach the edge of the lake, Melchis leads them southwest along the shore until they find the ruin. This stage covers 90 miles through coastal terrain. The second day of the journey, {@book heavy rain|XDMG|2|Heavy Precipitation} obscures vision and creates {@book quicksand pits|XDMG|2|Quicksand Pit} (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" and \"{@book Hazards|XDMG|2|Hazards}\" in {@book chapter 3|XDMG|2}). The front rank of the party might fall into a quicksand pit while two {@creature Giant Crocodile|XMM|Giant Crocodiles} attack at the same time. The rest of the journey passes without incident."
+												"Once the characters reach the edge of the lake, Melchis leads them southwest along the shore until they find the ruin. This stage covers 90 miles through coastal terrain. The second day of the journey, {@hazard Heavy Precipitation|XDMG|heavy rain} obscures vision and creates {@hazard Quicksand Pit|XDMG|quicksand pits} (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" and \"{@book Hazards|XDMG|2|Hazards}\" in {@book chapter 3|XDMG|2}). The front rank of the party might fall into a quicksand pit while two {@creature Giant Crocodile|XMM|Giant Crocodiles} attack at the same time. The rest of the journey passes without incident."
 											]
 										},
 										{
@@ -12134,7 +12583,7 @@
 									"page": 129,
 									"id": "29f",
 									"entries": [
-										"Like most protagonists in film and literature, D&D adventurers face challenges and change through the experience of overcoming them. By incorporating each character's motivations into your adventures and setting higher stakes through play, you'll help characters grow in exciting ways. You can use the {@book DM's Character Tracker|XDMG|4|DM's Character Tracker} sheet to keep track of key information about each character. See \"{@book Getting Players Invested|XDMG|4|Getting Players Invested}\" in this chapter for more ideas.",
+										"Like most protagonists in film and literature, D&D adventurers face challenges and change through the experience of overcoming them. By incorporating each character's motivations into your adventures and setting higher stakes through play, you'll help characters grow in exciting ways. You can use the {@book DM's Character Tracker|XDMG|10|DM's Character Tracker} sheet to keep track of key information about each character. See \"{@book Getting Players Invested|XDMG|4|Getting Players Invested}\" in this chapter for more ideas.",
 										{
 											"type": "entries",
 											"name": "Character Motivations",
@@ -16592,7 +17041,7 @@
 												{
 													"type": "item",
 													"name": "Tokhel Castle",
-													"entry": "This blasted ruin stands on a rocky promontory above the Nyr Dyv. A {@book dead magic zone|XDMG|2|Dead Magic Zone} (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}) encompasses most of the ruin, and monsters guard whatever secrets the ancient castle and its dungeons might hold.",
+													"entry": "This blasted ruin stands on a rocky promontory above the Nyr Dyv. A {@hazard dead magic zone|XDMG} (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}) encompasses most of the ruin, and monsters guard whatever secrets the ancient castle and its dungeons might hold.",
 													"id": "18f"
 												},
 												{
@@ -20777,7 +21226,8 @@
 										"{@book The River Oceanus|XDMG|5|River Oceanus}",
 										"{@book The River Styx|XDMG|5|River Styx}",
 										"{@book Yggdrasil, the World Tree|XDMG|5|Yggdrasil, the World Tree}"
-									]
+									],
+									"columns": 3
 								},
 								"Other planar crossings might exist in your campaign, or it might be possible to walk (or journey aboard a wondrous train or similar vehicle) from one plane to another in your cosmology.",
 								{
@@ -20807,7 +21257,7 @@
 									"page": 178,
 									"id": "378",
 									"entries": [
-										"The River Styx bubbles with grease, foul flotsam, and the putrid remains of battles along its banks. The {@book ill effects of the Styx|XDMG|2|River Styx} are described under \"{@book Hazards|XDMG|2|Hazards}\" in {@book chapter 3|XDMG|2}.",
+										"The River Styx bubbles with grease, foul flotsam, and the putrid remains of battles along its banks. The {@hazard River Styx|XDMG|ill effects of the Styx} are described under \"{@book Hazards|XDMG|2|Hazards}\" in {@book chapter 3|XDMG|2}.",
 										"The Styx churns through the top layers of Acheron, the Nine Hells, Gehenna, Hades, Carceri, the Abyss, and Pandemonium. Tributaries of the Styx snake through lower layers of these planes. For example, a tendril of the Styx winds through every layer of the Nine Hells, allowing passage from one layer of that plane to the next.",
 										"Sinister ferries float on the waters of the Styx, crewed by pilots skilled in negotiating the unpredictable currents and eddies of the river. For a price, these pilots carry passengers from plane to plane. Some pilots are Fiends, while others are the souls of dead creatures from the Material Plane."
 									]
@@ -21105,7 +21555,7 @@
 							"entries": [
 								"Acheron is made of immense iron blocks whose metallic surfaces ring beneath the marching feet of endless armies. These blocks drift through an airy void, sometimes colliding with a fearsome clang, crushing all between them and sending shudders through the plane.",
 								"Acheron has four layers, with the largest blocks gravitating to the top layer. Some scholars have theorized that the crashing blocks of the upper layers are eventually broken down into smaller chunks of matter that sink to the lower layers. The truth is actually the opposite: the tiny shards of Ocanthus, the lowest layer, break off from an icy mire in its deepest recesses and are gradually assembled and organized, perhaps under the influence of nearby Mechanus, into the perfect cubes of Avalas.",
-								"The nature of Acheron instills {@book bloodlust|XDMG|2|Acheronian Bloodlust} in those who visit the plane (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}).",
+								"The nature of Acheron instills {@hazard Planar Effects|XDMG|bloodlust} in those who visit the plane (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}).",
 								{
 									"type": "table",
 									"caption": "Layers of Acheron",
@@ -21216,7 +21666,7 @@
 								},
 								"Night and day are determined by an orb that floats in the sky above both of Arcadia's layers. Half of the orb radiates sunlight and brings about the day; the other half sheds moonlight and brings on the starry night. The orb rotates evenly without fail, spreading day and night across the entire plane.",
 								"The weather in Arcadia is governed by four allied demigods called the Storm Kings: the Cloud King, the Wind Queen, the Lightning King, and the Rain Queen. Each one lives in a castle surrounded by the type of weather that ruler controls.",
-								"Arcadia is suffused with a vigorous life energy that bestows {@book great vitality|XDMG|2|Arcadian Vitality} on visitors (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}).",
+								"Arcadia is suffused with a vigorous life energy that bestows {@hazard Planar Effects|XDMG|great vitality} on visitors (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}).",
 								{
 									"type": "table",
 									"caption": "Layers of Arcadia",
@@ -21811,7 +22261,7 @@
 							"entries": [
 								"A blazing sun hangs at the zenith of a golden sky above the Plane of Fire, waxing and waning on a 24-hour cycle. It ranges from white hot at noon to deep red at midnight, so the darkest hours of the plane display a deep-red twilight. At noon, the light is intense. Most business in the City of Brass (see below) takes place during the darker hours.",
 								"The weather on the plane is marked by fierce winds and thick ash. Although the air is breathable, creatures not native to the plane must cover their mouths and eyes to avoid stinging cinders. The efreet use magic to keep the cinder storms away from the City of Brass, but elsewhere in the plane, the wind always blows, sometimes rising to hurricane force during the worst storms.",
-								"{@book The heat|XDMG|2|Extreme Heat} on the Plane of Fire is comparable to a hot desert on the Material Plane and poses a similar threat to travelers (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}). Sources of water are rare, so travelers must carry their own supplies or produce water by magic.",
+								"{@hazard Extreme Heat|XDMG|The heat} on the Plane of Fire is comparable to a hot desert on the Material Plane and poses a similar threat to travelers (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}). Sources of water are rare, so travelers must carry their own supplies or produce water by magic.",
 								"Important features of the Plane of Fire include the following:",
 								{
 									"type": "entries",
@@ -22409,7 +22859,7 @@
 									"page": 197,
 									"id": "3ce",
 									"entries": [
-										"Gehenna is the plane of suspicion and greed, with no space for mercy or compassion. Adventures on this plane might be an opportunity to explore themes of betrayal, examining how characters behave when tensions run high and they can trust no one\u2014perhaps not even each other. (See \"{@book Environmental Effects|XDMG|2|Gehennan Cruelty}\" in {@book chapter 3|XDMG|2} for one way this atmosphere can manifest.) Characters might encounter people in need who turn out to be yugoloths in disguise, pitting the characters' growing suspicion against their empathy and compassion.",
+										"Gehenna is the plane of suspicion and greed, with no space for mercy or compassion. Adventures on this plane might be an opportunity to explore themes of betrayal, examining how characters behave when tensions run high and they can trust no one\u2014perhaps not even each other. (See \"{@hazard Planar Effects|XDMG|Environmental Effects}\" in {@book chapter 3|XDMG|2} for one way this atmosphere can manifest.) Characters might encounter people in need who turn out to be yugoloths in disguise, pitting the characters' growing suspicion against their empathy and compassion.",
 										"Characters might make their way to the Teardrop Palace on Khalas to purchase something they can't find elsewhere, probably at a terrifying cost. This bustling market, crowded with Fiends and occasional mortal visitors, offers all manner of forbidden and sinister goods for sale. Its name comes from its shape: the point is on the palace's uphill side so it diverts the ever-present lava flow to either side of the structure.",
 										"Or characters could try to infiltrate the Tower Arcane in search of some great secret from yugoloths' ancient history. The tower, a sinister structure adorned with blades and spikes and guarded by arcanaloths, stands somewhere on Chamada. It is rumored to hold yugoloths' history and the records of their contracts."
 									]
@@ -22602,7 +23052,7 @@
 							"id": "3dd",
 							"entries": [
 								"The Seven Heavens of Mount Celestia rise like a mountain from a shining Silver Sea to utterly incomprehensible heights, with seven plateaus marking its seven heavenly layers. The plane is the model of justice and order, of celestial grace and endless mercy, where angels and champions of good guard against incursions of evil. It is one of the few places on the planes where travelers can let down their guard. Its inhabitants strive constantly to be as righteous as possible. Countless creatures aim to reach the highest and most sublime peak of the mountain, but only the purest souls can. That peak fills even the most jaded of travelers with awe.",
-								"The pervasive goodness of Mount Celestia {@book bestows blessings|XDMG|2|Blessed Beneficence} on creatures on the plane (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}).",
+								"The pervasive goodness of Mount Celestia {@hazard Planar Effects|XDMG|bestows blessings} on creatures on the plane (see \"{@book Environmental Effects|XDMG|2|Environmental Effects}\" in {@book chapter 3|XDMG|2}).",
 								{
 									"type": "image",
 									"href": {
@@ -26199,6 +26649,2274 @@
 								"{@item Wings of Flying|XDMG}",
 								"{@item Wraps of Unarmed Power|XDMG}"
 							]
+						},
+						{
+							"type": "entries",
+							"name": "A",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Adamantine Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Adamantine Weapon",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Alchemy Jug",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+1 Ammunition",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+2 Ammunition",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+3 Ammunition",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ammunition of Slaying",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Amulet of Health",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Amulet of Proof Against Detection and Location",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Amulet of the Planes",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Animated Shield",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Apparatus of Kwalish",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+1 Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+2 Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+3 Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Armor of Gleaming",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Armor of Invulnerability",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Armor of Resistance",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Armor of Vulnerability",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Arrow-Catching Shield",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Axe of the Dwarvish Lords",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "B",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Baba Yaga's Dancing Broom",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bag of Beans",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bag of Devouring",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bag of Holding",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bag of Tricks",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bead of Force",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bead of Nourishment",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bead of Refreshment",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Belt of Dwarvenkind",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Berserker Axe",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Blackrazor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Book of Exalted Deeds",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Book of Vile Darkness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Boots of Elvenkind",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Boots of False Tracks",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Boots of Levitation",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Boots of Speed",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Boots of Striding and Springing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Boots of the Winterlands",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bracers of Archery",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Bracers of Defense",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Brooch of Shielding",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Broom of Flying",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "C",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Candle of Invocation",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Candle of the Deep",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cap of Water Breathing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cape of the Mountebank",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Carpet of Flying",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cast-Off Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cauldron of Rebirth",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Charlatan's Die",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Chime of Opening",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Circlet of Blasting",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of Arachnida",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of Billowing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of Displacement",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of Elvenkind",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of Invisibility",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of Many Fashions",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of Protection",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of the Bat",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cloak of the Manta Ray",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Clockwork Amulet",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Clothes of Mending",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Crystal Ball",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cube of Force",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cube of Summoning",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Cubic Gate",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "D",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Daern's Instant Fortress",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dagger of Venom",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dancing Sword",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dark Shard Amulet",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Decanter of Endless Water",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Deck of Illusions",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Deck of Many Things",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Defender",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Demon Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Demonomicon of Iggwilv",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dimensional Shackles",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dragon Scale Mail",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dragon Slayer",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dread Helm",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Driftglobe",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dust of Disappearance",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dust of Dryness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dust of Sneezing and Choking",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dwarven Plate",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Dwarven Thrower",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Orb of Dragonkind",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "E",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Bowl of Commanding Water Elementals",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Brazier of Commanding Fire Elementals",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Censer of Controlling Air Elementals",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ear Horn of Hearing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Efreeti Bottle",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Efreeti Chain",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Elemental Gem",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Elixir of Health",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Elven Chain",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Enduring Spellbook",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Energy Bow",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Enspelled Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Enspelled Staff",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Enspelled Weapon",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ersatz Eye",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Eversmoking Bottle",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Executioner's Axe",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Eye and Hand of Vecna",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Eyes of Charming",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Eyes of Minute Seeing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Eyes of the Eagle",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Elemental Command",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Stone of Controlling Earth Elementals",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "F",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Figurine of Wondrous Power",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Flame Tongue",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Folding Boat",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Frost Brand",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "G",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Belt of Giant Strength",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Gauntlets of Ogre Power",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Gem of Brightness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Gem of Seeing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Giant Slayer",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Glamoured Studded Leather",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Gloves of Missile Snaring",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Gloves of Swimming and Climbing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Gloves of Thievery",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Goggles of Night",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Giant Strength",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "H",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Hag Eye",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Hammer of Thunderbolts",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Hat of Disguise",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Hat of Many Spells",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Hat of Vermin",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Hat of Wizardry",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Headband of Intellect",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Helm of Brilliance",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Helm of Comprehending Languages",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Helm of Telepathy",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Helm of Teleportation",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Heward's Handy Haversack",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Heward's Handy Spice Pouch",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Holy Avenger",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Horn of Blasting",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Horn of Silent Alarm",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Horn of Valhalla",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Horseshoes of a Zephyr",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Horseshoes of Speed",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "I",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Immovable Rod",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Instrument of Illusions",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Instrument of Scribing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Instrument of the Bards",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ioun Stone",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Iron Bands of Bilarro",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Iron Flask",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "J",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Javelin of Lightning",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "K",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Keoghtom's Ointment",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "L",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Lantern of Revealing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Lock of Trickery",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Luck Blade",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Lute of Thunderous Thumping",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "M",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Mace of Disruption",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Mace of Smiting",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Mace of Terror",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Mantle of Spell Resistance",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Manual of Bodily Health",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Manual of Gainful Exercise",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Manual of Golems",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Manual of Quickness of Action",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Mariner's Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Medallion of Thoughts",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Mirror of Life Trapping",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Mithral Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Moon-Touched Sword",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Moonblade",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Mystery Key",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "N",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Nature's Mantle",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Necklace of Adaptation",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Necklace of Fireballs",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Necklace of Prayer Beads",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Nine Lives Stealer",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Nolzur's Marvelous Pigments",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "O",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Oathbow",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Oil of Etherealness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Oil of Sharpness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Oil of Slipperiness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Orb of Direction",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Orb of Time",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "P",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Pearl of Power",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Perfume of Bewitching",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Periapt of Health",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Periapt of Proof Against Poison",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Periapt of Wound Closure",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Philter of Love",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Pipe of Smoke Monsters",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Pipes of Haunting",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Pipes of the Sewers",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Plate Armor of Etherealness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Pole of Angling",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Pole of Collapsing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Portable Hole",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Pot of Awakening",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Animal Friendship",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Clairvoyance",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Climbing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Comprehension",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Diminution",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Fire Breath",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Flying",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Gaseous Form",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Greater Invisibility",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Growth",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Healing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Heroism",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Invisibility",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Invulnerability",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Longevity",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Mind Reading",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Poison",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Pugilism",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Resistance",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Speed",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Vitality",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Potion of Water Breathing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Prosthetic Limb",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "Q",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Quaal's Feather Token",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Quarterstaff of the Acrobat",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Quiver of Ehlonna",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "R",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Ring of Animal Influence",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Djinni Summoning",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Evasion",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Feather Falling",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Free Action",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Invisibility",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Jumping",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Mind Shielding",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Protection",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Regeneration",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Resistance",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Shooting Stars",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Spell Storing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Spell Turning",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Swimming",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Telekinesis",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of the Ram",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Three Wishes",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Warmth",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of Water Walking",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ring of X-Ray Vision",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rival Coin",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Robe of Eyes",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Robe of Scintillating Colors",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Robe of Stars",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Robe of the Archmagi",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Robe of Useful Items",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rod of Absorption",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rod of Alertness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rod of Lordly Might",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rod of Resurrection",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rod of Rulership",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rod of Security",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rod of the Pact Keeper",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rope of Climbing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rope of Entanglement",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Rope of Mending",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Ruby of the War Mage",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "S",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Saddle of the Cavalier",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Scarab of Protection",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Scimitar of Speed",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Scroll of Protection",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Scroll of Titan Summoning",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sending Stones",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sentinel Shield",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+1 Shield",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+2 Shield",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+3 Shield",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Shield of Expression",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Shield of Missile Attraction",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Shield of the Cavalier",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Silvered Weapon",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Slippers of Spider Climbing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Smoldering Armor",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sovereign Glue",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Spell Scroll",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Spellguard Shield",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sphere of Annihilation",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Spirit Board",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Adornment",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Birdcalls",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Charming",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Fire",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Flowers",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Frost",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Healing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Power",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Striking",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Swarming Insects",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of the Adder",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of the Magi",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of the Python",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of the Woodlands",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Thunder and Lightning",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Withering",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Stone of Good Luck",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sun Blade",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sword of Answering",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sword of Kas",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sword of Life Stealing",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sword of Sharpness",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sword of Vengeance",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sword of Wounding",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Sylvan Talon",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "T",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Talisman of Pure Good",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Talisman of the Sphere",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Talisman of Ultimate Evil",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Talking Doll",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Tankard of Sobriety",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Tentacle Rod",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Thunderous Greatclub",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Tome of Clear Thought",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Tome of Leadership and Influence",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Tome of the Stilled Tongue",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Tome of Understanding",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Trident of Fish Command",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "U",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Universal Solvent",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "V",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Veteran's Cane",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Vicious Weapon",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Vorpal Sword",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
+						},
+						{
+							"type": "entries",
+							"name": "W",
+							"entries": [
+								{
+									"type": "statblock",
+									"name": "Walloping Ammunition",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Binding",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Conducting",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Enemy Detection",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Fear",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Fireballs",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Lightning Bolts",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Magic Detection",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Magic Missiles",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Orcus",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Paralysis",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Polymorph",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Pyrotechnics",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Secrets",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of the War Mage",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Web",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wand of Wonder",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wave",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+1 Weapon",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+2 Weapon",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "+3 Weapon",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Weapon of Warning",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Well of Many Worlds",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Whelm",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wind Fan",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Winged Boots",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wings of Flying",
+									"tag": "item",
+									"source": "XDMG"
+								},
+								{
+									"type": "statblock",
+									"name": "Wraps of Unarmed Power",
+									"tag": "item",
+									"source": "XDMG"
+								}
+							]
 						}
 					]
 				},
@@ -29059,6 +31777,42 @@
 												"{@facility Kitchen|XDMG}",
 												"{@facility Storage|XDMG}"
 											]
+										},
+										{
+											"type": "statblock",
+											"name": "Bedroom",
+											"tag": "facility",
+											"source": "XDMG"
+										},
+										{
+											"type": "statblock",
+											"name": "Dining Room",
+											"tag": "facility",
+											"source": "XDMG"
+										},
+										{
+											"type": "statblock",
+											"name": "Parlor",
+											"tag": "facility",
+											"source": "XDMG"
+										},
+										{
+											"type": "statblock",
+											"name": "Courtyard",
+											"tag": "facility",
+											"source": "XDMG"
+										},
+										{
+											"type": "statblock",
+											"name": "Kitchen",
+											"tag": "facility",
+											"source": "XDMG"
+										},
+										{
+											"type": "statblock",
+											"name": "Storage",
+											"tag": "facility",
+											"source": "XDMG"
 										}
 									],
 									"id": "193"
@@ -29190,7 +31944,7 @@
 							"page": 335,
 							"id": "713",
 							"entries": [
-								"Each special facility has a level. A character must be that level or higher to gain that facility. A special facility might also have a prerequisite the character must meet to gain that facility. For example, only a character who can use an Arcane Focus or a tool as a {@variantrule Spellcasting Focus|XPHB} can have an {@book Arcane Study|XDMG|7|Arcane Study}."
+								"Each special facility has a level. A character must be that level or higher to gain that facility. A special facility might also have a prerequisite the character must meet to gain that facility. For example, only a character who can use an Arcane Focus or a tool as a {@variantrule Spellcasting Focus|XPHB} can have an {@facility Arcane Study|XDMG}."
 							]
 						},
 						{
@@ -29779,7 +32533,7 @@
 								],
 								[
 									"99\u201300",
-									"{@book Treasure|XDMG|7|Chapter 7: Treasure}"
+									"{@book Treasure|XDMG|6|Chapter 7: Treasure}"
 								]
 							]
 						},
@@ -29848,7 +32602,7 @@
 											"page": 350,
 											"id": "78d",
 											"entries": [
-												"Players can use the {@5etoolsImg Bastion Tracker|pdf/XDMG/017-bastion-sheet.pdf} sheet as a record of the facilities and other characteristics of their Bastions. Encourage your players to list their hirelings on this sheet and develop them more fully as NPCs on separate sheets (perhaps using the {@book NPC Tracker|XDMG|2|NPC Tracker} in {@book chapter 3|XDMG|2}). Similarly, the Bastion Tracker provides space to indicate the space of each special facility, but encourage players to draw maps of their Bastions (see \"{@book Bastion Map|XDMG|7|Bastion Map}\" earlier in this chapter)."
+												"Players can use the {@5etoolsImg Bastion Tracker|pdf/XDMG/017-bastion-sheet.pdf} sheet as a record of the facilities and other characteristics of their Bastions. Encourage your players to list their hirelings on this sheet and develop them more fully as NPCs on separate sheets (perhaps using the {@book NPC Tracker|XDMG|10|NPC Tracker} in {@book chapter 3|XDMG|2}). Similarly, the Bastion Tracker provides space to indicate the space of each special facility, but encourage players to draw maps of their Bastions (see \"{@book Bastion Map|XDMG|7|Bastion Map}\" earlier in this chapter)."
 											]
 										}
 									]
@@ -29901,7 +32655,7 @@
 									"page": 352,
 									"id": "791",
 									"entries": [
-										"Friendly visitors come to your Bastion, seeking to use one of your special facilities. They offer {@dice 1d6 × 100} GP for the brief use of that facility. For example, a knight might want your {@book Smithy|XDMG|7|Smithy} to replace a horseshoe or repair a damaged weapon or suit of armor, or sages might need your Arcane Study to help them settle a dispute. Their use of the facility doesn't interrupt any orders you've issued to it."
+										"Friendly visitors come to your Bastion, seeking to use one of your special facilities. They offer {@dice 1d6 × 100} GP for the brief use of that facility. For example, a knight might want your {@facility Smithy|XDMG} to replace a horseshoe or repair a damaged weapon or suit of armor, or sages might need your Arcane Study to help them settle a dispute. Their use of the facility doesn't interrupt any orders you've issued to it."
 									]
 								},
 								{
@@ -30014,15 +32768,15 @@
 												],
 												[
 													"76\u201390",
-													"Roll on a Common Magic Items table of your choice ({@book Arcana|XDMG|6|Arcana\u2014Common}, {@book Armaments|XDMG|6|Armaments\u2014Common}, {@book Implements|XDMG|6|Implements\u2014Common}, or {@book Relics|XDMG|6|Relics\u2014Common})."
+													"Roll on a Common Magic Items table of your choice ({@book Arcana|XDMG|6|Arcana - Common}, {@book Armaments|XDMG|6|Armaments - Common}, {@book Implements|XDMG|6|Implements - Common}, or {@book Relics|XDMG|6|Relics - Common})."
 												],
 												[
 													"91\u201398",
-													"Roll on an Uncommon Magic Items table of your choice ({@book Arcana|XDMG|6|Arcana\u2014Uncommon}, {@book Armaments|XDMG|6|Armaments\u2014Uncommon}, {@book Implements|XDMG|6|Implements\u2014Uncommon}, or {@book Relics|XDMG|6|Relics\u2014Uncommon})."
+													"Roll on an Uncommon Magic Items table of your choice ({@book Arcana|XDMG|6|Arcana - Uncommon}, {@book Armaments|XDMG|6|Armaments - Uncommon}, {@book Implements|XDMG|6|Implements - Uncommon}, or {@book Relics|XDMG|6|Relics - Uncommon})."
 												],
 												[
 													"99\u201300",
-													"Roll on a Rare Magic Items table of your choice ({@book Arcana|XDMG|6|Arcana\u2014Rare}, {@book Armaments|XDMG|6|Armaments\u2014Rare}, {@book Implements|XDMG|6|Implements\u2014Rare}, or {@book Relics|XDMG|6|Relics\u2014Rare})."
+													"Roll on a Rare Magic Items table of your choice ({@book Arcana|XDMG|6|Arcana - Rare}, {@book Armaments|XDMG|6|Armaments - Rare}, {@book Implements|XDMG|6|Implements - Rare}, or {@book Relics|XDMG|6|Relics - Rare})."
 												]
 											]
 										}
@@ -30056,7 +32810,7 @@
 								{
 									"type": "item",
 									"name": "Ruination",
-									"entry": "Drawing the Ruin card from the {@item Deck of Many Things|XDMG} (as described in {@book chapter 7|XDMG|6|Ruin}) instantly deprives a character of their Bastion. When such an event occurs, the player can decide what terrible fate befalls the Bastion. The Bastion might be sacked by enemies or destroyed by an earthquake, for example."
+									"entry": "Drawing the {@card Ruin|Deck of Many Things|XDMG|Ruin card} from the {@item Deck of Many Things|XDMG} instantly deprives a character of their Bastion. When such an event occurs, the player can decide what terrible fate befalls the Bastion. The Bastion might be sacked by enemies or destroyed by an earthquake, for example."
 								}
 							]
 						},
@@ -30108,7 +32862,7 @@
 					"page": 354,
 					"id": "79b",
 					"entries": [
-						"Adamantine is one of the hardest substances in existence, a dark metal found in meteorites and extraordinary mineral veins. (See the {@item Adamantine Armor|XDMG} and {@item Adamantine Weapon|XDMG} magic items in {@book chapter 7|XDMG|6|Magic Items (A)}.)"
+						"Adamantine is one of the hardest substances in existence, a dark metal found in meteorites and extraordinary mineral veins. (See the {@item Adamantine Armor|XDMG} and {@item Adamantine Weapon|XDMG} magic items.)"
 					]
 				},
 				{
@@ -30274,7 +33028,7 @@
 					"page": 356,
 					"id": "7ad",
 					"entries": [
-						"One card in the {@item Deck of Many Things|XDMG} (see {@book chapter 7|XDMG|6|Deck of Many Things}) bears a person's proper name, and the card's namesake, Euryale {@i (YUR-ee-ale or yur-EYE-a-lee)}, is the subject of much speculation. Often assumed to be a fearsome demigod (perhaps the first medusa) or the wielder of a destructive curse, Euryale is actually a key part of the story of the magical deck's creation. After befriending a princess named Asteria and spending many years in her dear friend's company, Euryale was captured and sentenced to death by Asteria's father. Asteria pleaded with the gods to save her friend, and Istus (a god from the Greyhawk setting; see {@book chapter 5|XDMG|4|Gods of Greyhawk}) intervened to help the pair rewrite their story, creating the {@i Deck of Many Things}. The magic of the deck helped the two escape, and they adventured together across the multiverse. Eventually, Euryale\u2014having become an ancient, wise, and powerful Druid\u2014settled in the {@book Outlands|XDMG|5|Outlands} (see {@book chapter 6|XDMG|5|Outlands}), where she still sometimes acts as a patron, mentor, or ally for adventurers."
+						"One card in the {@item Deck of Many Things|XDMG} bears a person's proper name, and the card's namesake, Euryale {@i (YUR-ee-ale or yur-EYE-a-lee)}, is the subject of much speculation. Often assumed to be a fearsome demigod (perhaps the first medusa) or the wielder of a destructive curse, Euryale is actually a key part of the story of the magical deck's creation. After befriending a princess named Asteria and spending many years in her dear friend's company, Euryale was captured and sentenced to death by Asteria's father. Asteria pleaded with the gods to save her friend, and Istus (a god from the Greyhawk setting; see {@book chapter 5|XDMG|4|Gods of Greyhawk}) intervened to help the pair rewrite their story, creating the {@i Deck of Many Things}. The magic of the deck helped the two escape, and they adventured together across the multiverse. Eventually, Euryale\u2014having become an ancient, wise, and powerful Druid\u2014settled in the {@book Outlands|XDMG|5|Outlands} (see {@book chapter 6|XDMG|5|Outlands}), where she still sometimes acts as a patron, mentor, or ally for adventurers."
 					]
 				},
 				{
@@ -30508,7 +33262,7 @@
 					"page": 359,
 					"id": "7c3",
 					"entries": [
-						"Mithral {@i (MITH-ral)} is a light, flexible metal that resembles silver but is much more durable. Its most common use is for crafting lightweight armor that provides excellent protection without bulk or burden (see the {@item Mithral Armor|XDMG} magic item in {@book chapter 7|XDMG|6|Mithral Armor})."
+						"Mithral {@i (MITH-ral)} is a light, flexible metal that resembles silver but is much more durable. Its most common use is for crafting lightweight armor that provides excellent protection without bulk or burden (see the {@item Mithral Armor|XDMG} magic item)."
 					]
 				},
 				{
@@ -30762,7 +33516,7 @@
 					"page": 363,
 					"id": "7da",
 					"entries": [
-						"Vecna {@i (VECK-nah)} had humble beginnings in the Greyhawk setting, where an order of Wizards used him as a bootblack and scribe. He studied magic in secret until he amassed enough power to slaughter the order, and then he turned his efforts toward scribing the {@item Book of Vile Darkness|XDMG} (described in {@book chapter 7|XDMG|6|Book of Vile Darkness}). Armed with that dread tome, he forged a kingdom to rule, with the vampire {@book Kas|XDMG|8|Kas the Betrayer} as his lieutenant. But Kas betrayed and killed him, leaving only one hand and one eye intact (the {@item Eye and Hand of Vecna|XDMG} are described in {@book chapter 7|XDMG|6|Eye and Hand of Vecna}).",
+						"Vecna {@i (VECK-nah)} had humble beginnings in the Greyhawk setting, where an order of Wizards used him as a bootblack and scribe. He studied magic in secret until he amassed enough power to slaughter the order, and then he turned his efforts toward scribing the {@item Book of Vile Darkness|XDMG}. Armed with that dread tome, he forged a kingdom to rule, with the vampire {@book Kas|XDMG|8|Kas the Betrayer} as his lieutenant. But Kas betrayed and killed him, leaving only one hand and one eye intact (the {@item Eye and Hand of Vecna|XDMG} are described in {@book chapter 7|XDMG|6|Eye and Hand of Vecna}).",
 						"Vecna's evil will was so great that he persisted beyond death and eventually became a demigod of secrets and evil magic. His ambition drives him to pursue greater divine power across the multiverse.",
 						{
 							"type": "image",

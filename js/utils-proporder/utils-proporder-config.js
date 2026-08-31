@@ -20,6 +20,7 @@ const getFoundryGeneric = ({propsMatchAdditional = [], isFeature = false} = {}) 
 		}),
 
 		"type",
+		"identifier",
 		"system",
 		PROPORDER_FOUNDRY_ACTIVITIES,
 		PROPORDER_FOUNDRY_EFFECTS,
@@ -97,6 +98,7 @@ const PROPORDER_META = [
 	"spellDistanceUnits",
 	"featCategories",
 	"optionalFeatureTypes",
+	"vehicleUpgradeTypes",
 	"psionicTypes",
 	"currencyConversions",
 	"fonts",
@@ -366,7 +368,7 @@ const PROPORDER_FOUNDRY_MONSTER = [
 
 	"migrationVersion",
 ];
-const PROPORDER_FOUNDRY_MONSTER_SUB_ENTITY = getFoundryGeneric({propsMatchAdditional: ["monsterName", "monsterFeature"]});
+const PROPORDER_FOUNDRY_MONSTER_SUB_ENTITY = getFoundryGeneric({propsMatchAdditional: ["monsterName", "monsterSource"]});
 const PROPORDER_GENERIC_FLUFF = [
 	"name",
 
@@ -522,6 +524,27 @@ const PROPORDER_ACTION = [
 
 	"seeAlsoAction",
 ];
+const _PROPORDER_CORPUS_CONTENTS = new ArrayKey(
+	"contents",
+	{
+		fnGetOrder: () => [
+			"name",
+			"ordinal",
+			new ArrayKey(
+				"headers",
+				{
+					order: [
+						"header",
+						"source",
+						"index",
+						"depth",
+						"statblock",
+					],
+				},
+			),
+		],
+	},
+);
 const PROPORDER_ADVENTURE = [
 	"name",
 	"alias",
@@ -533,6 +556,7 @@ const PROPORDER_ADVENTURE = [
 	"group",
 
 	"cover",
+	"coverCredit",
 	"coverUrl",
 	"published",
 	"publishedOrder",
@@ -545,7 +569,7 @@ const PROPORDER_ADVENTURE = [
 	"alAveragePlayerLevel",
 	"alLength",
 
-	"contents",
+	_PROPORDER_CORPUS_CONTENTS,
 ];
 const PROPORDER_ADVENTURE_DATA = [
 	"name",
@@ -566,12 +590,13 @@ const PROPORDER_BOOK = [
 	"group",
 
 	"cover",
+	"coverCredit",
 	"coverUrl",
 	"published",
 	"revised",
 	"author",
 
-	"contents",
+	_PROPORDER_CORPUS_CONTENTS,
 ];
 const PROPORDER_BOOK_DATA = [
 	"name",
@@ -707,6 +732,16 @@ const PROPORDER_LEGENDARY_GROUP_TEMPLATE__COPY_MOD = [
 	"_",
 	...PROPORDER_LEGENDARY_GROUP_TEMPLATE,
 ];
+const _PROPORDER_CLASS_PROFICIENCIES = [
+	"skills",
+	"languageProficiencies",
+	"weapons",
+	"weaponProficiencies",
+	"tools",
+	"toolProficiencies",
+	"armor",
+	"armorProficiencies",
+];
 const PROPORDER_CLASS = [
 	"name",
 	"alias",
@@ -751,8 +786,8 @@ const PROPORDER_CLASS = [
 	"featProgression",
 	"optionalfeatureProgression",
 
-	"startingProficiencies",
-	"languageProficiencies",
+	new ObjectKey("startingProficiencies", {order: _PROPORDER_CLASS_PROFICIENCIES}),
+
 	new ObjectKey("startingEquipment", {
 		order: [
 			"additionalFromBackground",
@@ -763,7 +798,14 @@ const PROPORDER_CLASS = [
 		],
 	}),
 
-	"multiclassing",
+	new ObjectKey("multiclassing", {
+		order: [
+			"requirements",
+			"requirementsSpecial",
+			new ObjectKey("proficienciesGained", {order: _PROPORDER_CLASS_PROFICIENCIES}),
+			"entries",
+		],
+	}),
 
 	"classTableGroups",
 
@@ -1025,6 +1067,7 @@ const PROPORDER_FOUNDRY_CLASS_FEATURE = [
 	"classSource",
 	"level",
 
+	"identifier",
 	"system",
 	PROPORDER_FOUNDRY_ACTIVITIES,
 	PROPORDER_FOUNDRY_EFFECTS,
@@ -1063,6 +1106,7 @@ const PROPORDER_FOUNDRY_SUBCLASS_FEATURE = [
 	"subclassSource",
 	"level",
 
+	"identifier",
 	"system",
 	PROPORDER_FOUNDRY_ACTIVITIES,
 	PROPORDER_FOUNDRY_EFFECTS,
@@ -1501,6 +1545,8 @@ const PROPORDER_VEHICLE_UPGRADE = [
 	new ArrayKey("referenceSources", {fnSort: SortUtil.ascSortLower}),
 
 	"upgradeType",
+
+	"cost",
 
 	"entries",
 ];
@@ -2402,6 +2448,29 @@ const PROPORDER_SENSE = [
 
 	"entries",
 ];
+const PROPORDER_DECK_SPREAD_POSITION = [
+	"name",
+
+	"suits",
+
+	"entries",
+
+	"outcomes",
+];
+const PROPORDER_DECK_SPREAD = [
+	"name",
+
+	"source",
+	"page",
+
+	"entries",
+
+	"seeAlsoAdventureHeader",
+	"seeAlsoBookHeader",
+
+	new ArrayKey("positions", {fnGetOrder: () => PROPORDER_DECK_SPREAD_POSITION}),
+	"outcomes",
+];
 const PROPORDER_DECK = [
 	"name",
 	"alias",
@@ -2422,6 +2491,8 @@ const PROPORDER_DECK = [
 	"back",
 
 	"entries",
+
+	new ArrayKey("spreads", {fnGetOrder: () => PROPORDER_DECK_SPREAD}),
 
 	"hasCardArt",
 ];
@@ -2763,6 +2834,7 @@ export const PROPORDER_ROOT = [
 	ArrayKey.getRootKey(PROPORDER_PROP_TO_LIST, "monsterTemplate"),
 	ArrayKey.getRootKey(PROPORDER_PROP_TO_LIST, "legendaryGroup"),
 	ArrayKey.getRootKey(PROPORDER_PROP_TO_LIST, "legendaryGroupTemplate"),
+	ArrayKey.getRootKey(PROPORDER_PROP_TO_LIST, "foundryMonsterAction"),
 
 	ArrayKey.getRootKey(PROPORDER_PROP_TO_LIST, "object"),
 	ArrayKey.getRootKey(PROPORDER_PROP_TO_LIST, "objectFluff"),

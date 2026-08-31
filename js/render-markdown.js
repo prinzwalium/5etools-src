@@ -1,25 +1,13 @@
 "use strict";
 
 // TODO implement remaining methods
-class RendererMarkdown {
+class RendererMarkdown extends Renderer {
 	static CHARS_PER_PAGE = 5500;
 
 	getLineBreak () { return "\n"; }
 
 	constructor () {
-		// FIXME this is awful
-		const renderer = new Renderer();
-		this.__super = {};
-		for (const k in renderer) {
-			if (this[k] === undefined) {
-				if (typeof renderer[k] === "function") this[k] = renderer[k].bind(this);
-				else this[k] = MiscUtil.copy(renderer[k]);
-			} else {
-				if (typeof renderer[k] === "function") this.__super[k] = renderer[k].bind(this);
-				else this.__super[k] = MiscUtil.copy(renderer[k]);
-			}
-		}
-
+		super();
 		this._isSkipStylingItemLinks = false;
 	}
 
@@ -760,7 +748,7 @@ class RendererMarkdown {
 
 			case "@link":
 			case "@5etools":
-				this.__super._renderString_renderTag(textStack, meta, options, tag, text); break;
+				super._renderString_renderTag(textStack, meta, options, tag, text); break;
 
 			// OTHER HOVERABLES ////////////////////////////////////////////////////////////////////////////////
 			case "@footnote":
@@ -2150,8 +2138,11 @@ RendererMarkdown.vehicle = class {
 
 RendererMarkdown.vehicleUpgrade = class {
 	static getCompactRenderedString (ent, opts = {}) {
+		const entriesMeta = Renderer.vehicleUpgrade.getVehicleUpgradeRenderableEntriesMeta(ent);
+
 		const entries = [
-			RendererMarkdown.vehicleUpgrade.getUpgradeSummary(ent),
+			entriesMeta.entrySummary,
+			entriesMeta.entryCost,
 			{entries: ent.entries},
 		]
 			.filter(Boolean);
@@ -2164,17 +2155,6 @@ RendererMarkdown.vehicleUpgrade = class {
 		return RendererMarkdown.utils.withMetaDepth(1, opts, () => {
 			return RendererMarkdown.generic.getCompactRenderedString(entFull, opts);
 		});
-	}
-
-	static getUpgradeSummary (ent) {
-		const out = [
-			ent.upgradeType ? ent.upgradeType.map(t => Parser.vehicleTypeToFull(t)) : null,
-			ent.prerequisite ? Renderer.utils.prerequisite.getHtml(ent.prerequisite, {isTextOnly: true}) : null,
-		]
-			.filter(Boolean)
-			.join(", ");
-
-		return out ? `{@i ${out}}` : null;
 	}
 };
 
@@ -2337,7 +2317,7 @@ RendererMarkdown.generic = class {
 	}
 
 	static getRenderedPrerequisite (ent) {
-		const out = Renderer.utils.prerequisite.getHtml(ent.prerequisite, {isTextOnly: true, isSkipPrefix: true});
+		const out = Renderer.utils.prerequisite.getText(ent.prerequisite, {isSkipPrefix: true});
 		return out ? `Prerequisite: ${out}` : "";
 	}
 };

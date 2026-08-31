@@ -936,6 +936,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 			},
 			{
 				hash,
+				page: cls.page,
 				lnk,
 				hashCurr: hash,
 				entity: cls,
@@ -1231,7 +1232,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 			});
 		};
 
-		veT`<table class="ve-cls-tbl shadow-big ve-w-100 ve-mb-2">
+		veT`<table class="ve-cls-tbl ve-shadow-big ve-w-100 ve-mb-2">
 			<tbody>
 			<tr><th class="ve-tbl-border" colspan="999"></th></tr>
 			<tr><th class="ve-text-left ve-cls-tbl__disp-name" colspan="999">${cls.name}</th></tr>
@@ -1605,6 +1606,67 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 		// endregion
 	}
 
+	_doSelectAllSubclasses_doSetFilters () {
+		const filterValues = this.filterBox.getValues();
+
+		if (
+			this.activeClass.subclasses
+				.every(sc => this._pageFilter.isSubclassVisible(filterValues, this.activeClass, sc))
+		) return;
+
+		const filterValuesNxt = {};
+
+		const doSetMiscFilter = () => {
+			filterValuesNxt[this._pageFilter.miscFilter.header] = {};
+		};
+
+		const doSetSourceFilter = () => {
+			filterValuesNxt[this._pageFilter.sourceFilter.header] = this.activeClass.subclasses
+				.reduce((accum, sc) => {
+					[sc._fSources || []].flat().forEach(src => accum[src] = 1);
+					return accum;
+				}, {});
+		};
+
+		if (
+			this.activeClass.subclasses
+				.every(sc => (
+					this.filterBox.toDisplayByFilters(
+						filterValues,
+						{
+							filter: this._pageFilter.sourceFilter,
+							value: sc._fSources,
+						},
+					)
+				))
+		) {
+			doSetMiscFilter();
+			this.filterBox.setFromValues(filterValuesNxt);
+			return;
+		}
+
+		if (
+			this.activeClass.subclasses
+				.every(sc => (
+					this.filterBox.toDisplayByFilters(
+						filterValues,
+						{
+							filter: this._pageFilter.miscFilter,
+							value: sc._fMisc,
+						},
+					)
+				))
+		) {
+			doSetSourceFilter();
+			this.filterBox.setFromValues(filterValuesNxt);
+			return;
+		}
+
+		doSetMiscFilter();
+		doSetSourceFilter();
+		this.filterBox.setFromValues(filterValuesNxt);
+	}
+
 	_doSelectAllSubclasses ({allowlistDisplayTypes = null} = {}) {
 		const cls = this.activeClass;
 		const allStateKeys = cls.subclasses
@@ -1615,8 +1677,8 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 				};
 			});
 
-		this._pageFilter.sourceFilter.doSetPillsClear();
-		this.filterBox.fireChangeEvent();
+		this._doSelectAllSubclasses_doSetFilters();
+
 		this._proxyAssign("state", "_state", "__state", allStateKeys.mergeMap(({stateKey, isSelected}) => ({[stateKey]: isSelected})));
 	}
 
@@ -1818,6 +1880,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 				displayType,
 			},
 			{
+				page: sc.page,
 				isExcluded,
 				entity: sc,
 			},

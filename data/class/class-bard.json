@@ -100,8 +100,10 @@
 				}
 			],
 			"startingProficiencies": {
-				"armor": [
-					"light"
+				"skills": [
+					{
+						"any": 3
+					}
 				],
 				"weapons": [
 					"simple",
@@ -118,9 +120,12 @@
 						"anyMusicalInstrument": 3
 					}
 				],
-				"skills": [
+				"armor": [
+					"light"
+				],
+				"armorProficiencies": [
 					{
-						"any": 3
+						"light": true
 					}
 				]
 			},
@@ -178,9 +183,6 @@
 					"cha": 13
 				},
 				"proficienciesGained": {
-					"armor": [
-						"light"
-					],
 					"skills": [
 						{
 							"choose": {
@@ -214,6 +216,14 @@
 					"toolProficiencies": [
 						{
 							"anyMusicalInstrument": 1
+						}
+					],
+					"armor": [
+						"light"
+					],
+					"armorProficiencies": [
+						{
+							"light": true
 						}
 					]
 				}
@@ -703,8 +713,10 @@
 				}
 			],
 			"startingProficiencies": {
-				"armor": [
-					"light"
+				"skills": [
+					{
+						"any": 3
+					}
 				],
 				"weapons": [
 					"simple"
@@ -717,9 +729,12 @@
 						"anyMusicalInstrument": 3
 					}
 				],
-				"skills": [
+				"armor": [
+					"light"
+				],
+				"armorProficiencies": [
 					{
-						"any": 3
+						"light": true
 					}
 				]
 			},
@@ -758,17 +773,6 @@
 			},
 			"multiclassing": {
 				"proficienciesGained": {
-					"armor": [
-						"light"
-					],
-					"tools": [
-						"Choose one {@item Musical Instrument|XPHB}"
-					],
-					"toolProficiencies": [
-						{
-							"anyMusicalInstrument": 1
-						}
-					],
 					"skills": [
 						{
 							"choose": {
@@ -794,6 +798,22 @@
 								],
 								"count": 1
 							}
+						}
+					],
+					"tools": [
+						"Choose one {@item Musical Instrument|XPHB}"
+					],
+					"toolProficiencies": [
+						{
+							"anyMusicalInstrument": 1
+						}
+					],
+					"armor": [
+						"light"
+					],
+					"armorProficiencies": [
+						{
+							"light": true
 						}
 					]
 				}
@@ -3849,7 +3869,7 @@
 			"level": 14,
 			"header": 2,
 			"entries": [
-				"You gain mastery over the spirits you call forth. Whenever you roll on the {@book Spirits from Beyond table|RHW|1|Spirits from Beyond}, you can roll the die twice and choose which of the two effects to bestow. If you roll the same number on both dice, you can instead choose any effect on the table."
+				"You gain mastery over the spirits you call forth. Whenever you roll on the {@subclassFeature Spirits from Beyond|Bard|XPHB|Spirits|RHW|3|RHW|Spirits from Beyond table}, you can roll the die twice and choose which of the two effects to bestow. If you roll the same number on both dice, you can instead choose any effect on the table."
 			]
 		},
 		{

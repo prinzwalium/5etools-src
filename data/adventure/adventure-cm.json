@@ -24845,7 +24845,20 @@
 									"items": [
 										"{@item Staff of Fate|CM}",
 										"{@item Watchful Helm|CM}"
-									]
+									],
+									"columns": 3
+								},
+								{
+									"type": "statblock",
+									"name": "Staff of Fate",
+									"tag": "item",
+									"source": "CM"
+								},
+								{
+									"type": "statblock",
+									"name": "Watchful Helm",
+									"tag": "item",
+									"source": "CM"
 								}
 							]
 						}
@@ -27610,7 +27623,7 @@
 											"rows": [
 												[
 													"1",
-													"Two fire opals (1,000 gp each)"
+													"Two {@item Fire Opal||fire opals} (1,000 gp each)"
 												],
 												[
 													"2",

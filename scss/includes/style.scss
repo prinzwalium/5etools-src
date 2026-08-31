@@ -447,7 +447,6 @@
 		width: 100%;
 		border: 1px solid rgb(0 0 0 / 15%);
 		padding: 0.2em 0.7em;
-		border-radius: 0.2em;
 	}
 
 	.f-result {
@@ -470,16 +469,6 @@
 			@include vars.mix-shadow-1;
 
 			background: #fff;
-		}
-	}
-
-	.shadow-big {
-		@include vars.mix-shadow-1;
-	}
-
-	.ve-night-mode .night__ {
-		&shadow-big {
-			@include vars.mix-shadow-1;
 		}
 	}
 
@@ -795,10 +784,6 @@
 	.ve-night-mode {
 		body {
 			color: vars-night.$rgb-font--night;
-		}
-
-		.bg-solid {
-			background: vars-night.$rgb-bg--night;
 		}
 
 		h1,
@@ -1333,6 +1318,22 @@
 
 				&wrp--columns-2 {
 					column-count: 2;
+				}
+
+				&wrp--columns-3 {
+					column-count: 3;
+				}
+
+				&wrp--columns-4 {
+					column-count: 4;
+				}
+
+				&wrp--columns-5 {
+					column-count: 5;
+				}
+
+				&wrp--columns-6 {
+					column-count: 6;
 				}
 			}
 

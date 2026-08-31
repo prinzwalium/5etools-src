@@ -143,7 +143,8 @@ Renderer.dice = class {
 				if (!Renderer.dice._panel) Renderer.dice._hideBox();
 			});
 		const outRoll = veT`<div class="out-roll"></div>`;
-		const iptRoll = veT`<input class="ipt-roll ve-form-control" autocomplete="off" spellcheck="false">`
+		const iptRoll = veT`<input class="ipt-roll ve-form-control">`
+			.vee.disableSpellcheck()
 			.vee.onn("keypress", async evt => {
 				evt.stopPropagation();
 				if (evt.key !== "Enter") return;
@@ -719,6 +720,10 @@ Renderer.dice = class {
 
 			const result = tree.evl(meta);
 			const fullHtml = (meta.html || []).join("");
+			const formula = tree.toString();
+			const fullText = (meta.text || []).join("")
+				.replace(/\s+/g, " ")
+				.trim();
 			const allMax = meta.allMax && meta.allMax.length && !(meta.allMax.filter(it => !it).length);
 			const allMin = meta.allMin && meta.allMin.length && !(meta.allMin.filter(it => !it).length);
 
@@ -735,11 +740,18 @@ Renderer.dice = class {
 				? `<span class="roll ${isThreshSuccess && isColorSuccess ? "roll-max" : !isThreshSuccess && isColorFail ? "roll-min" : ""}">${isThreshSuccess ? Renderer.get().render(tree.chanceSuccessText || "Success!") : Renderer.get().render(tree.chanceFailureText || "Failure")}</span>`
 				: `<span class="roll ${allMax ? "roll-max" : allMin ? "roll-min" : ""}">${result}</span>`;
 
-			const title = `${rolledBy.name ? `${rolledBy.name} \u2014 ` : ""}${lbl ? `${lbl}: ` : ""}${tree}`;
+			const ptTitle = [
+				rolledBy.name,
+				lbl,
+				formula,
+				fullText,
+			]
+				.filter(Boolean)
+				.join(" \u2014 ");
 
 			const message = opts.fnGetMessage ? opts.fnGetMessage(result) : null;
 			ExtensionUtil.doSendRoll({
-				dice: tree.toString(),
+				dice: formula,
 				result,
 				rolledBy: rolledBy.name,
 				label: [lbl, message].filter(Boolean).join(" \u2013 "),
@@ -749,16 +761,18 @@ Renderer.dice = class {
 				const btnCopyToInput = veT`<button title="Copy to Input" class="ve-btn ve-btn-default ve-btn-xs ve-btn-copy-roll"><span class="glyphicon glyphicon-pencil"></span></button>`
 					.vee.onn("click", () => {
 						Renderer.dice._iptRoll
-							.vee.val(tree.toString().replace(/s+/g, ""))
+							.vee.val(formula.replace(/\s+/g, ""))
 							.vee.focus();
 					});
 
-				veT`<div class="out-roll-item" title="${title}">
+				veT`<div class="out-roll-item" title="${ptTitle.qq()}">
 					<div>
 						${lbl ? `<span class="roll-label">${lbl}: </span>` : ""}
 						${totalPart}
 						${ptTarget}
-						<span class="all-rolls ve-muted">${fullHtml}</span>
+						<span class="ve-muted ve-italic ve-small">${formula.qq()}</span>
+						\u21d2
+						<span class="ve-muted">${fullHtml}</span>
 						${message ? `<span class="message">${message}</span>` : ""}
 					</div>
 					<div class="out-roll-item-button-wrp">${btnCopyToInput}</div>
