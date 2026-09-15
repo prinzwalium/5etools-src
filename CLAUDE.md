@@ -49,6 +49,16 @@ Each page's controller keeps only its own DOM assembly + rendering.
   preferred way to take an upstream update) and `rehearse-upstream-sync.sh`
   (replays the sync workflow's steps over a synthetic upstream, so the merge and
   conflict paths can be tested without waiting for upstream to move).
+- `test/e2e/eslint.config.mjs`, `scripts/eslint.config.mjs` — lint config for the
+  two fork-owned directories. **ESLint 10 resolves the *nearest* `eslint.config.*`
+  to each file it lints**, which is what makes these possible and what made them
+  necessary: upstream's `test/eslint.config.mjs` declares Node and Jest and no
+  browser, right for its own tests and wrong for the fork's, which are Node
+  scripts *containing browser code* — everything handed to `page.evaluate` runs in
+  the page. When ESLint 10 arrived with upstream v2.35, 172 `no-undef` errors did
+  too. A nested config in a directory upstream has no version of fixes it with no
+  shared-file edit at all; putting a block in the root `eslint.config.mjs` would
+  have been a sixth merge point.
 
 **Shared upstream files the fork edits (the ONLY upstream-merge conflict points):**
 1. `js/navigation.js` — three `_addElement_li({... page: "….html" ...})` lines

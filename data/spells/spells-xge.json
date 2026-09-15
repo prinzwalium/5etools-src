@@ -382,6 +382,9 @@
 			"name": "Catnap",
 			"source": "XGE",
 			"page": 151,
+			"reprintedAs": [
+				"Catnap|AU"
+			],
 			"level": 3,
 			"school": "E",
 			"time": [
@@ -608,7 +611,8 @@
 			"page": 151,
 			"otherSources": [
 				{
-					"source": "GGR"
+					"source": "GGR",
+					"page": 67
 				}
 			],
 			"level": 1,
@@ -1709,6 +1713,9 @@
 			"name": "Enervation",
 			"source": "XGE",
 			"page": 155,
+			"reprintedAs": [
+				"Enervation|AU"
+			],
 			"level": 5,
 			"school": "N",
 			"time": [
@@ -2391,6 +2398,9 @@
 			"name": "Illusory Dragon",
 			"source": "XGE",
 			"page": 157,
+			"reprintedAs": [
+				"Illusory Dragon|AU"
+			],
 			"level": 8,
 			"school": "I",
 			"time": [
@@ -2914,6 +2924,9 @@
 			"name": "Invulnerability",
 			"source": "XGE",
 			"page": 160,
+			"reprintedAs": [
+				"Invulnerability|AU"
+			],
 			"level": 9,
 			"school": "A",
 			"time": [
@@ -3600,6 +3613,9 @@
 			"name": "Negative Energy Flood",
 			"source": "XGE",
 			"page": 163,
+			"reprintedAs": [
+				"Negative Energy Flood|AU"
+			],
 			"level": 5,
 			"school": "N",
 			"time": [
@@ -3647,6 +3663,9 @@
 			"name": "Power Word Pain",
 			"source": "XGE",
 			"page": 163,
+			"reprintedAs": [
+				"Power Word Pain|AU"
+			],
 			"level": 7,
 			"school": "E",
 			"time": [
@@ -4071,7 +4090,8 @@
 					"page": 21
 				},
 				{
-					"source": "EGW"
+					"source": "EGW",
+					"page": 172
 				}
 			],
 			"referenceSources": [
@@ -5510,7 +5530,8 @@
 					"page": 116
 				},
 				{
-					"source": "MOT"
+					"source": "MOT",
+					"page": 27
 				}
 			],
 			"referenceSources": [

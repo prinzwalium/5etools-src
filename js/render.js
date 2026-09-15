@@ -1862,12 +1862,12 @@ globalThis.Renderer = class {
 	}
 
 	_renderStatblock (entry, textStack, meta, options) {
-		const page = entry.prop || Renderer.tag.getPage(entry.tag);
+		const prop = entry.prop || Parser.getTagProps(entry.tag)[0];
+		const page = entry.prop || Renderer.tag.getPage(entry.tag, {isHover: true});
 		const source = Parser.getTagSource(entry.tag, entry.source);
 		const hash = entry.hash || (UrlUtil.URL_TO_HASH_BUILDER[page] ? UrlUtil.URL_TO_HASH_BUILDER[page]({...entry, source}) : null);
 		const tag = entry.tag || Parser.getPropTag(entry.prop);
 
-		const prop = entry.prop || Parser.getTagProps(entry.tag)[0];
 		const uid = prop ? DataUtil.proxy.getUid(prop, {...entry, source}, {isMaintainCase: true}) : "unknown|unknown";
 		const asTag = tag ? `{@${tag} ${uid}${entry.displayName ? `|${entry.displayName}` : ""}}` : null;
 
@@ -2500,7 +2500,7 @@ globalThis.Renderer = class {
 				// format: {@tag Display Text|DMG< |chapter< |section >< |number > >}
 				const page = tag === "@book" ? "book.html" : "adventure.html";
 				const {displayText, id, ixChapter, sectionName, ixNamedSection} = UidUtil.unpackUidAdventureBook(text);
-				const hash = `${id?.toLowerCase()}${ixChapter ? `${HASH_PART_SEP}${ixChapter}${sectionName ? `${HASH_PART_SEP}${UrlUtil.encodeForHash(sectionName)}${ixNamedSection != null ? `${HASH_PART_SEP}${UrlUtil.encodeForHash(ixNamedSection)}` : ""}` : ""}` : ""}`;
+				const hash = `${id?.toLowerCase()}${ixChapter != null ? `${HASH_PART_SEP}${ixChapter}${sectionName ? `${HASH_PART_SEP}${UrlUtil.encodeForHash(sectionName)}${ixNamedSection != null ? `${HASH_PART_SEP}${UrlUtil.encodeForHash(ixNamedSection)}` : ""}` : ""}` : ""}`;
 				const fauxEntry = {
 					type: "link",
 					href: {
@@ -4467,7 +4467,7 @@ Renderer.utils = class {
 			return isListMode ? parts.join("/") : parts.joinConjunct(", ", " or ");
 		}
 
-		static _getEntry_background ({v, isListMode, keyOptions}) {
+		static _getEntry_background ({v, isListMode, keyOptions, styleHint}) {
 			const parts = v.map((it, i) => {
 				if (isListMode) {
 					return `${it.name.toTitleCase()}`;
@@ -5554,6 +5554,7 @@ Renderer.tag = class {
 		tagName;
 		defaultSource = null;
 		page = null;
+		pageHover = null;
 		isStandalone = false;
 
 		get tag () { return `@${this.tagName}`; }
@@ -6271,6 +6272,7 @@ Renderer.tag = class {
 		tagName = "subclass";
 		defaultSource = Parser.SRC_PHB;
 		page = UrlUtil.PG_CLASSES;
+		pageHover = "subclass";
 	};
 
 	static _TagPipedDisplayTextSixth = class extends this._TagBaseAt {
@@ -6525,8 +6527,9 @@ Renderer.tag = class {
 		return out;
 	}
 
-	static getPage (tag) {
+	static getPage (tag, {isHover = false} = {}) {
 		const tagInfo = this.TAG_LOOKUP[tag];
+		if (isHover && tagInfo?.pageHover) return tagInfo.pageHover;
 		return tagInfo?.page;
 	}
 };
@@ -11077,7 +11080,7 @@ Renderer.monster = class {
 				mon.alignment ? `${mon.alignmentPrefix ? renderer.render(mon.alignmentPrefix) : ""}${Parser.alignmentListToFull(mon.alignment).toTitleCase()}` : "",
 			]
 				.filter(Boolean)
-				.join(", "),
+				.join(typeObj.asText.includes(",") ? "; " : ", "),
 		]
 			.filter(Boolean)
 			.join(" ");
@@ -11901,7 +11904,7 @@ Renderer.monster = class {
 		throw new Error(`Unhandled custom hash ID "${customHashId}"`);
 	}
 
-	static _bindListenersScale (mon, ele) {
+	static _bindListenersScale (mon, ele, {fnPostRender = null} = {}) {
 		ele = veE({ele});
 
 		const page = UrlUtil.PG_BESTIARY;
@@ -11909,6 +11912,13 @@ Renderer.monster = class {
 		const hash = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BESTIARY](mon);
 
 		const fnRender = Renderer.hover.getFnRenderCompact(page);
+
+		const doRender = (toRender) => {
+			ele.vee.empty().vee.appends(fnRender(toRender));
+
+			Renderer.monster._bindListenersScale(toRender, ele, {fnPostRender});
+			fnPostRender?.(toRender);
+		};
 
 		ele
 			.vee.find(".mon__btn-scale-cr")
@@ -11931,9 +11941,7 @@ Renderer.monster = class {
 							? original
 							: await ScaleCreature.scale(original, targetCr);
 
-						ele.vee.empty().vee.appends(fnRender(toRender));
-
-						Renderer.monster._bindListenersScale(toRender, ele);
+						doRender(toRender);
 					},
 				});
 			});
@@ -11942,9 +11950,7 @@ Renderer.monster = class {
 			.vee.find(".mon__btn-reset-cr")
 			?.vee.onn("click", async () => {
 				const toRender = await DataLoader.pCacheAndGet(page, source, hash);
-				ele.vee.empty().vee.appends(fnRender(toRender));
-
-				Renderer.monster._bindListenersScale(toRender, ele);
+				doRender(toRender);
 			});
 
 		const selSummonSpellLevel = ele
@@ -11957,9 +11963,7 @@ Renderer.monster = class {
 					? await ScaleSpellSummonedCreature.scale(original, spellLevel)
 					: original;
 
-				ele.vee.empty().vee.appends(fnRender(toRender));
-
-				Renderer.monster._bindListenersScale(toRender, ele);
+				doRender(toRender);
 			})
 			.vee.val(mon._summonedBySpell_level != null ? `${mon._summonedBySpell_level}` : "-1");
 
@@ -11973,15 +11977,13 @@ Renderer.monster = class {
 					? await ScaleClassSummonedCreature.scale(original, classLevel)
 					: original;
 
-				ele.vee.empty().vee.appends(fnRender(toRender));
-
-				Renderer.monster._bindListenersScale(toRender, ele);
+				doRender(toRender);
 			})
 			.vee.val(mon._summonedByClass_level != null ? `${mon._summonedByClass_level}` : "-1");
 	}
 
-	static bindListenersCompact (mon, ele) {
-		Renderer.monster._bindListenersScale(mon, ele);
+	static bindListenersCompact (mon, ele, {fnPostRender = null} = {}) {
+		Renderer.monster._bindListenersScale(mon, ele, {fnPostRender});
 	}
 
 	static hover = class {
