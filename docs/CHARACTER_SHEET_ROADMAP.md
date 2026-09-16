@@ -10,10 +10,11 @@ the UI rework, the sidekick builder, print/PDF export, and the test/CI setup bel
 **Status: everything on this list is built.** The one unticked box is struck through — a party
 sheet, which was built instead as a screen in the account system, where a server made the version
 worth having possible. Two things arrived after this list was written and have their own section at
-the bottom: **the 2024 books as the default**, and **homebrew authoring** — seven builders on
-`makebrew.html` and the hand-off that sends what they write to an account. What is left is not on
-this list and not in this repository: the homebrew mirror to `5etools-homebrew`, and whatever the
-next playtest turns up. New work goes at the bottom of its tier, as before.
+the bottom: **the 2024 books as the default**, and **homebrew authoring** — seven builders and the
+hand-off that sends what they write to an account, both of which now live in the account system
+rather than here. What is left is not on this list and not in this repository: the homebrew mirror
+to `5etools-homebrew`, and whatever the next playtest turns up. New work goes at the bottom of its
+tier, as before.
 
 ---
 
@@ -337,21 +338,28 @@ planned in.
       reprint uid carries its parent class in the middle
       (`"Berserker|Barbarian|XPHB|XPHB"`), which is why those 65 had been silent no-ops.
 
-- [x] **Homebrew authoring.** Upstream's `makebrew.html` ships a builder framework with builders for
-      creatures, spells and legendary groups, and nothing else. The fork adds **seven**: feat,
-      language, background, species, item, subclass and class, on a shared `ForkBuilderBase` holding
-      what is true of every kind. The point is not the JSON — it is that what a table writes lands in
-      *fields*: a proficiency written as prose is invisible to the character sheet, and the same
-      proficiency in `skillProficiencies` ticks a box.
+- [x] **Homebrew authoring — built, and *not here*.** Upstream's `makebrew.html` ships a builder
+      framework with builders for creatures, spells and legendary groups, and nothing else. Seven
+      more exist — feat, language, background, species, item, subclass and class — and they live in
+      the **account system**, at `src/web/makebrew*` in
+      <https://github.com/PrinzWalium/5etools-online>. They were briefly in this repository; moving
+      them out is what keeps `makebrew.html` and `js/makebrew.js` upstream's own files, and takes
+      the fork back to five upstream-merge conflict points. They reach upstream's framework across
+      the path, on the one origin a deployment already serves both on — the same seam the sheet's
+      rules modules use.
 
-      The two deep kinds share one obstacle. A class's `classFeatures` and a subclass's
-      `subclassFeatures` are string refs into arrays a one-entity brew document has nowhere to put,
-      so every ref would dangle. The loader short-circuits dereferencing when no element is a string
-      or carries a feature key, so both write features **inline** — in different shapes, because a
-      subclass's are read `.flat().filter(level)` and a class's are read `classFeatures[level - 1]`.
+      The point is not the JSON — it is that what a table writes lands in *fields*: a proficiency
+      written as prose is invisible to the character sheet, and the same proficiency in
+      `skillProficiencies` ticks a box.
 
-      `makebrew-account.js` is the hand-off: a *Save to Account* button sends the active source to
-      the account system, which stores it opaquely and serves it as a **brew root** every 5etools
-      page in the deployment can read. Nothing appears unless one is deployed on the same origin.
-      The service's half, and the mirror still to build, are `docs/HOMEBREW.md` in
-      <https://github.com/PrinzWalium/5etools-online>.
+      What stays this repository's concern is the **loader**, because that is what has to read what
+      they write. A class's `classFeatures` and a subclass's `subclassFeatures` are string refs into
+      arrays a one-entity brew document has nowhere to put, so every ref would dangle. The loader
+      short-circuits dereferencing when no element is a string or carries a feature key, so both are
+      written **inline** — in different shapes, because a subclass's are read
+      `.flat().filter(level)` and a class's are read `classFeatures[level - 1]`. The other half is
+      the **brew root**: the five index files plus documents that `BrewUtil2` needs in order to load
+      homebrew from a URL, which `test/e2e/brewroot.e2e.mjs` proves against a fixture. That is what
+      lets the account system serve what its users publish to every page of the deployment, with no
+      client change. The service's half, and the mirror still to build, are `docs/HOMEBREW.md`
+      there.

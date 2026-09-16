@@ -397,7 +397,12 @@ async function runClassTableGrants ({browser, check}) {
 	await page.locator("#cs-class-panel button", {hasText: "Choose Fighting Style"}).first().click();
 	await page.waitForTimeout(1500);
 	const picker = page.locator(".ve-ui-modal__inner").last();
-	await picker.locator("select").first().selectOption({index: 1});
+	// Named, not `{index: 1}`. The list is alphabetical over whatever books are loaded, so the first
+	// entry is upstream's to change — and it did: a new book added "Arcane Warrior", which carries
+	// `additionalSpells` and so asks for a spellcasting ability and two cantrips before it can be
+	// applied. Nothing was wrong with the page; the test had picked a feat it then left mid-question.
+	// Archery is the stable choice here: a pure bonus, with nothing to ask.
+	await picker.locator("select").first().selectOption({label: "Archery (PHB'24)"});
 	await picker.locator("button", {hasText: /^OK$/}).first().click();
 	await page.waitForTimeout(2000);
 

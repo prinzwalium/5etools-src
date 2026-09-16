@@ -45,27 +45,20 @@ Each page's controller keeps only its own DOM assembly + rendering.
   non-root user — creating a file in the web root needs permission on the directory, which
   `user: 1000:1000` lacks. Start-up never fails the container: if the write is refused it
   says why and serves the site unconfigured.
-- `js/makebrew/makebrew-forkbase.js` + `-feat.js`, `-language.js`, `-background.js`, `-species.js`,
-  `-item.js`, `-subclass.js`, `-class.js` — homebrew
-  builders on `makebrew.html`. Upstream's framework (`makebrew-builder-base.js`) covers creatures,
-  spells and legendary groups and nothing else; the fork adds its own beside them, registered from
-  `js/makebrew.js`. `ForkBuilderBase` holds what is true of every kind — the tab skeleton, the
-  rendered-beside-JSON output pane, the load-a-template strip, and the input widgets for the shapes
-  the data takes (a set of things, a count, a list of rows, a bundle of equipment). Anything that
-  knows what a feat *is* belongs in that builder. **A class or subclass carries its features
-  inline**, not as the string refs the books use: a brew document holds one entity in one property,
-  so there is nowhere for the `classFeature[]` array to live. The loader's "gracefully handle legacy
-  class data" short-circuit is what makes that work — and the two shapes differ, because a
-  subclass's features are read with `.flat().filter(level)` while a class's are read as
-  `classFeatures[level - 1]`. `makebrew-account.js` is the **hand-off**: homebrew saved on
-  `makebrew.html` lives in that browser and nowhere else, so a *Save to Account* button sends the
-  active source to the account system — which stores it opaquely, so the *browser* says what is
-  inside (props, counts, edition). Nothing appears unless one is deployed on the same origin. The
-  plan for serving what is authored is `docs/HOMEBREW.md` in the **account system**.
 - `scripts/` — upstream has no such directory. `update-from-upstream.sh` (the
   preferred way to take an upstream update) and `rehearse-upstream-sync.sh`
   (replays the sync workflow's steps over a synthetic upstream, so the merge and
   conflict paths can be tested without waiting for upstream to move).
+- `test/e2e/eslint.config.mjs`, `scripts/eslint.config.mjs` — lint config for the
+  two fork-owned directories. **ESLint 10 resolves the *nearest* `eslint.config.*`
+  to each file it lints**, which is what makes these possible and what made them
+  necessary: upstream's `test/eslint.config.mjs` declares Node and Jest and no
+  browser, right for its own tests and wrong for the fork's, which are Node
+  scripts *containing browser code* — everything handed to `page.evaluate` runs in
+  the page. When ESLint 10 arrived with upstream v2.35, 172 `no-undef` errors did
+  too. A nested config in a directory upstream has no version of fixes it with no
+  shared-file edit at all; putting a block in the root `eslint.config.mjs` would
+  have been a sixth merge point.
 
 **Shared upstream files the fork edits (the ONLY upstream-merge conflict points):**
 1. `js/navigation.js` — three `_addElement_li({... page: "….html" ...})` lines
@@ -80,9 +73,6 @@ Each page's controller keeps only its own DOM assembly + rendering.
 4. `package.json` — a `test:e2e` script and the `playwright-core` dev dependency (two lines)
 5. `Dockerfile` — an `ENTRYPOINT` (plus the `CMD` that setting one discards, and the `RUN` that
    installs it) for the deploy-time default books. Upstream's is two lines.
-6. `js/makebrew.js` — additive one-liners per homebrew builder (an `import`, a setter, an
-   `<option>`, and the instantiate-and-wire block at the bottom), plus two for the account
-   hand-off (an `import` and one line in `_initHeader_save`)
 
 ### Species
 
@@ -146,6 +136,29 @@ background's feat satisfied nothing. **`weaponProficiencies`** may be a
 `repeatableHidden` is a display flag on `repeatable`; `_versions` (Magic Initiate's
 per-class forms) are expanded into separate entities by `DataLoader`, so pickers get
 them for free.
+
+### Homebrew authoring lives in the account system
+
+`makebrew.html` and `js/makebrew.js` are **upstream's, untouched**. Upstream's builders cover
+creatures, spells and legendary groups; the seven a table actually asks for — feat, class, subclass,
+species, background, item, language — are in **`PrinzWalium/5etools-online`**, at
+`src/web/makebrew*`, and are served from there. They reach upstream's framework
+(`makebrew-builder-base.js`, `makebrew-builderui.js`, `utils-ui-sourcebuilder.js`, `consts.js`,
+`converterutils-tags.js`) across the path, on the one origin a deployment already serves both on —
+the same seam the character sheet's rules modules use, and the reason the fork carries no homebrew
+builder code and no sixth merge point. That repository's `src/web/makebrew/fork.js` names everything
+that crosses the seam; if an upstream release moves or renames one of those five, that file is what
+breaks, and its browser suite says so.
+
+Two things about the shape of the data are worth knowing here, because they are about *this*
+repository's loader rather than about the builders. **A brew class or subclass carries its features
+inline**, not as the string refs the books use: a brew document holds one entity in one property, so
+there is nowhere for the `classFeature[]` array to live. The loader's "gracefully handle legacy class
+data" short-circuit (`utils-dataloader-dataloader.js`) is what makes that work — and the two shapes
+differ, because a subclass's features are read with `.flat().filter(level)` while a class's are read
+as `classFeatures[level - 1]`. `test/e2e/brewroot.e2e.mjs` proves the other half: the five index
+files plus documents that `BrewUtil2` needs in order to load homebrew from a URL, which is how the
+account system serves what its users publish.
 
 Exact snippets and resolution steps: `docs/CHARACTER_SHEET_MAINTENANCE.md`.
 The account-system contract (a *separate* repo): `docs/ACCOUNT_SYSTEM.md`.
@@ -451,7 +464,7 @@ read the column when present, curated fallback otherwise.
 
 Preferred: `bash scripts/update-from-upstream.sh` (fetches, merges, regenerates
 pages, runs Character Sheet lint + tests, makes a safety backup branch). If a
-conflict occurs it will be in one of the 4 shared files above — resolve by
+conflict occurs it will be in one of the 5 shared files above — resolve by
 keeping BOTH the fork's registration line(s) and upstream's changes, per
 `docs/CHARACTER_SHEET_MAINTENANCE.md`.
 
