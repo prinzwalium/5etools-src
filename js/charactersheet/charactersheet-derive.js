@@ -8,7 +8,7 @@ import {
 	PROF_STATE_EXPERTISE,
 	PROF_STATE_PROFICIENT,
 } from "./charactersheet-consts.js";
-import {getChosenFeatureEffects, getChosenFeatureNames, getFeatureInitiativeParts} from "./charactersheet-features.js";
+import {getChosenFeatureEffects, getChosenFeatureNames, getFeatInitiativeParts, getFeatureInitiativeParts} from "./charactersheet-features.js";
 import {PG_OPT_FEATURES, getItemCitation} from "./charactersheet-citations.js";
 import {getExpectedHp} from "./charactersheet-levelengine.js";
 import {getCarryMultiplier} from "./charactersheet-appearance.js";
@@ -290,10 +290,14 @@ export function deriveCharacterSheet (state, {featureNames = []} = {}) {
 	const initMisc = Number(state.initMisc) || 0;
 	// Features that add to Initiative — a Swashbuckler's Charisma, a Bard's half proficiency. Each is
 	// its own part, because "Misc +4" explains nothing and this is the number people ask about
-	const initFeatureParts = getFeatureInitiativeParts(
-		[...featureNames, ...getChosenFeatureNames(state)],
-		{abilities: Object.fromEntries(CHAR_SHEET_ABILITIES.map(([abv]) => [abv, abilities[abv].mod])), pb},
-	);
+	const initFeatureParts = [
+		...getFeatureInitiativeParts(
+			[...featureNames, ...getChosenFeatureNames(state)],
+			{abilities: Object.fromEntries(CHAR_SHEET_ABILITIES.map(([abv]) => [abv, abilities[abv].mod])), pb},
+		),
+		// Alert, which says different things in its two printings and so is read by source
+		...getFeatInitiativeParts(state, {pb}),
+	];
 	const initFeatures = initFeatureParts.reduce((acc, it) => acc + it.value, 0);
 
 	return {

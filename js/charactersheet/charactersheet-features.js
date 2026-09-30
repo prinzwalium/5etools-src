@@ -36,6 +36,7 @@ export const FEATURE_EFFECTS = {
 	/* ---- Initiative ---- */
 	"Rakish Audacity": {initiativeAbility: "cha", desc: "add Charisma to Initiative"}, // Rogue (Swashbuckler)
 	"Jack of All Trades": {initiativeHalfProf: true, desc: "add half proficiency to Initiative"}, // Bard
+	"Dread Ambusher": {initiativeAbility: "wis", desc: "add Wisdom to Initiative"}, // Ranger (Gloom Stalker), both printings
 };
 
 /**
@@ -152,6 +153,39 @@ export function getFeatureInitiativeParts (featureNames, {abilities = {}, pb = 0
  */
 export function getFeatureInitiativeBonus (featureNames, ctx) {
 	return getFeatureInitiativeParts(featureNames, ctx).reduce((acc, it) => acc + it.value, 0);
+}
+
+/**
+ * Feats that add to Initiative, keyed by `name|source` — the two printings of Alert say different
+ * things (a flat +5 in 2014, the Proficiency Bonus in 2024), so a name-keyed entry in
+ * `FEATURE_EFFECTS` would be wrong for one of them. Both are prose in the data.
+ */
+const _FEAT_INITIATIVE = {
+	"alert|phb": {flat: 5},
+	"alert|xphb": {isProf: true},
+};
+
+/**
+ * What the character's feats add to Initiative, one part per feat.
+ *
+ * A feat stored without a source (typed in by hand) is read as the 2024 printing, which is what
+ * every picker offers first.
+ *
+ * @param state the character
+ * @param ctx `{pb}`
+ * @return {Array<{label: string, value: number}>}
+ */
+export function getFeatInitiativeParts (state, {pb = 0} = {}) {
+	return getTakenFeats(state)
+		.map(feat => {
+			const name = String(feat.name).toLowerCase();
+			const eff = _FEAT_INITIATIVE[`${name}|${String(feat.source || "XPHB").toLowerCase()}`];
+			if (!eff) return null;
+			return {label: feat.name, value: eff.flat ?? (eff.isProf ? pb : 0)};
+		})
+		.filter(it => it?.value)
+		// Two copies of one feat are one bonus: Alert is not repeatable
+		.filter((it, ix, all) => all.findIndex(o => o.label === it.label) === ix);
 }
 
 /* -------------------------------------------- features with uses -------------------------------------------- */

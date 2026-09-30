@@ -91,6 +91,25 @@ describe("Character sheet derivation", () => {
 		expect(getTotalLevel(stateMulti)).toBe(20);
 	});
 
+	it("Adds Alert to initiative as its printing says", () => {
+		const base = {level: 5, abil_dex: 14};
+		// 2024: the Proficiency Bonus
+		const modern = deriveCharacterSheet(getBaseState({...base, originFeats: [{name: "Alert", source: "XPHB"}]}));
+		expect(modern.initiative).toBe(2 + 3);
+		expect(modern.initiativeParts.some(it => it.label === "Alert" && it.value === 3)).toBe(true);
+		// 2014: a flat +5
+		expect(deriveCharacterSheet(getBaseState({...base, manualFeats: [{name: "Alert", source: "PHB"}]})).initiative).toBe(2 + 5);
+		// Typed in without a source: the 2024 one
+		expect(deriveCharacterSheet(getBaseState({...base, manualFeats: [{name: "Alert"}]})).initiative).toBe(2 + 3);
+		// Held twice is still one bonus
+		expect(deriveCharacterSheet(getBaseState({...base, originFeats: [{name: "Alert", source: "XPHB"}], manualFeats: [{name: "Alert", source: "XPHB"}]})).initiative).toBe(2 + 3);
+	});
+
+	it("Adds a Gloom Stalker's Wisdom to initiative", () => {
+		const d = deriveCharacterSheet(getBaseState({level: 3, abil_dex: 14, abil_wis: 16}), {featureNames: ["Dread Ambusher"]});
+		expect(d.initiative).toBe(2 + 3);
+	});
+
 	it("Should include miscellaneous initiative bonuses", () => {
 		const state = getBaseState({abil_dex: 14, initMisc: 5});
 		expect(deriveCharacterSheet(state).initiative).toBe(7);
