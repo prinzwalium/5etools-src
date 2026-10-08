@@ -25,6 +25,14 @@ export const FEATURE_EFFECTS = {
 	"Druidic Warrior": {desc: "learn two Druid cantrips"},
 	"Superior Technique": {desc: "learn one Battle Master maneuver and gain a superiority die"},
 
+	/* ---- A feature's options, once chosen (`featureOptions` on a class entry) ---- */
+	// Their structure is a choice of features; what each *does* is prose, so the few that change a
+	// number or a proficiency are written down here
+	"Protector": {proficiencies: [{kind: "weapon", name: "Martial"}, {kind: "armor", name: "Heavy"}], desc: "Martial weapons and heavy armor"},
+	"Warden": {proficiencies: [{kind: "weapon", name: "Martial"}, {kind: "armor", name: "Medium"}], desc: "Martial weapons and medium armor"},
+	"Thaumaturge": {cantripBonus: 1, desc: "one extra Cleric cantrip; Wisdom added to Arcana and Religion checks"},
+	"Magician": {cantripBonus: 1, desc: "one extra Druid cantrip; Wisdom added to Arcana and Nature checks"},
+
 	/* ---- Hit points per level ---- */
 	// Read from prose, because that is where it lives: a feat that says "your hit point maximum
 	// increases by 2 whenever you gain a level" is a number the sheet can apply, and rolling for hit
@@ -52,6 +60,7 @@ export function getChosenFeatureNames (state) {
 		(cls.asiFeatChoices || []).forEach(it => { if (it?.type === "feat" && it.name) out.push(it.name); });
 	});
 	(state?.featureFeats || []).forEach(it => { if (it?.name) out.push(it.name); });
+	(state?.classes || []).forEach(cls => (cls.featureOptions || []).forEach(it => { if (it?.option) out.push(it.option); }));
 	(state?.originFeats || []).forEach(it => { if (it?.name) out.push(it.name); });
 	(state?.manualFeats || []).forEach(it => { if (it?.name) out.push(it.name); });
 	return [...new Set(out)];
@@ -410,4 +419,58 @@ export function getFeatureActionBucket (feature) {
 		case "reaction": return "reaction";
 		default: return "action";
 	}
+}
+
+/* -------------------------------------------- features that offer features -------------------------------------------- */
+
+const _OPTION_PROPS = new Set(["classFeature", "subclassFeature"]);
+const _OPTION_REF_TYPES = new Set(["refClassFeature", "refSubclassFeature"]);
+
+/**
+ * The features that offer a choice *of features*: "one of the following sacred roles of your choice"
+ * — the 2024 Cleric's Divine Order, a Druid's Primal Order and Elemental Fury, and a handful of 2014
+ * subclass features. The data says so structurally, as an `options` block of feature references,
+ * which the loader resolves into named features.
+ *
+ * Not an `options` block of anything else: "Eldritch Invocation Options" lists optional features,
+ * and those are chosen through `optionalfeatureProgression`.
+ *
+ * @param features resolved features (any nesting), each with `name`, `source`, `level`.
+ * @return {Array<{feature, source, level, count, options: Array<{name, source, entries}>}>}
+ */
+export function getFeatureOptionGroups (features) {
+	const out = [];
+	const seen = new Set();
+	const walk = (node, owner) => {
+		if (Array.isArray(node)) return node.forEach(it => walk(it, owner));
+		if (!node || typeof node !== "object") return;
+		if (node.type === "options") {
+			const options = (node.entries || [])
+				.filter(it => it && (_OPTION_PROPS.has(it.__prop) || _OPTION_REF_TYPES.has(it.type)))
+				.map(it => ({
+					name: it.name || String(it.classFeature || it.subclassFeature || "").split("|")[0],
+					source: it.source || null,
+					entries: it.entries || [],
+				}))
+				.filter(it => it.name);
+			if (owner && options.length > 1 && !seen.has(owner.name)) {
+				seen.add(owner.name);
+				out.push({feature: owner.name, source: owner.source || null, level: owner.level ?? null, count: node.count || 1, options});
+			}
+			return;
+		}
+		walk(node.entries, owner);
+	};
+	[features].flat(Infinity).filter(Boolean).forEach(f => walk(f.entries, f.name ? f : null));
+	return out;
+}
+
+/** Extra cantrips an answered option gives (Thaumaturge, Magician), for one class entry. */
+export function getFeatureOptionCantripBonus (entry) {
+	return (entry?.featureOptions || []).reduce((acc, it) => acc + (FEATURE_EFFECTS[it.option]?.cantripBonus || 0), 0);
+}
+
+/** The proficiencies an answered option grants, as `{kind, name}` for `setProficienciesFromSource`. */
+export function getFeatureOptionProficiencies (option) {
+	return (FEATURE_EFFECTS[option]?.proficiencies || []).map(it => ({...it}));
 }

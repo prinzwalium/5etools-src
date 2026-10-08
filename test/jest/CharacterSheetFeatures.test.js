@@ -1,4 +1,4 @@
-import {annotateVariantFeatures, filterActiveFeatures, getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureInitiativeBonus, getFeatureActionBucket, getFeatureCost, getFeatureResources, getFeatureUses, getHpBonusPerLevel, getTakenFeats, getVariantParentName, getVariantReplacedNames} from "../../js/charactersheet/charactersheet-features.js";
+import {annotateVariantFeatures, filterActiveFeatures, getChosenFeatureEffects, getChosenFeatureNames, getFeatureEffects, getFeatureOptionCantripBonus, getFeatureOptionGroups, getFeatureOptionProficiencies, getFeatureInitiativeBonus, getFeatureActionBucket, getFeatureCost, getFeatureResources, getFeatureUses, getHpBonusPerLevel, getTakenFeats, getVariantParentName, getVariantReplacedNames} from "../../js/charactersheet/charactersheet-features.js";
 
 describe("Feature effects: initiative", () => {
 	const ctx = {abilities: {cha: 3, dex: 2}, pb: 3};
@@ -397,5 +397,41 @@ describe("the feats a character has taken", () => {
 	it("Copes with an empty character", () => {
 		expect(getTakenFeats({})).toEqual([]);
 		expect(getTakenFeats(null)).toEqual([]);
+	});
+});
+
+describe("Features that offer features", () => {
+	// The loader's shape: the `options` block's references resolved into named features
+	const DIVINE_ORDER = {
+		name: "Divine Order",
+		source: "XPHB",
+		level: 1,
+		entries: ["You have dedicated yourself to one of the following sacred roles of your choice.", {type: "entries",
+			entries: [{type: "options",
+				count: 1,
+				entries: [
+					{name: "Protector", source: "XPHB", __prop: "classFeature", type: "entries", entries: ["Trained for battle…"]},
+					{name: "Thaumaturge", source: "XPHB", __prop: "classFeature", type: "entries", entries: ["You know one extra cantrip…"]},
+				]}]}],
+	};
+
+	it("Finds the choice, and not a menu of optional features", () => {
+		expect(getFeatureOptionGroups([[DIVINE_ORDER]])).toEqual([{feature: "Divine Order",
+			source: "XPHB",
+			level: 1,
+			count: 1,
+			options: [
+				{name: "Protector", source: "XPHB", entries: ["Trained for battle…"]},
+				{name: "Thaumaturge", source: "XPHB", entries: ["You know one extra cantrip…"]},
+			]}]);
+		const invocations = {name: "Eldritch Invocation Options", entries: [{type: "options", entries: [{type: "refOptionalfeature", optionalfeature: "Agonizing Blast"}]}]};
+		expect(getFeatureOptionGroups([invocations])).toEqual([]);
+	});
+
+	it("Says what an answer gives", () => {
+		expect(getFeatureOptionCantripBonus({featureOptions: [{feature: "Divine Order", option: "Thaumaturge"}]})).toBe(1);
+		expect(getFeatureOptionCantripBonus({featureOptions: [{feature: "Divine Order", option: "Protector"}]})).toBe(0);
+		expect(getFeatureOptionProficiencies("Protector")).toEqual([{kind: "weapon", name: "Martial"}, {kind: "armor", name: "Heavy"}]);
+		expect(getChosenFeatureNames({classes: [{featureOptions: [{feature: "Divine Order", option: "Protector"}]}]})).toContain("Protector");
 	});
 });

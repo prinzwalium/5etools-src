@@ -216,6 +216,21 @@ template, run `node node/generate-pages.js` and commit both.
   (what the character has) and `getFixedProficiencyNames` (what a *picked but unapplied* entity is
   about to hand it, which is the guide's whole draft) subtract from every chooser, and a choice with
   nothing left to offer is spent rather than owed.
+- **A feature that offers features is asked.** Divine Order (Protector or Thaumaturge), Primal Order,
+  Elemental Fury and some 2014 subclass features hold an `options` block of feature references, which
+  the loader resolves into named features (`__prop: "classFeature"`). `getFeatureOptionGroups`
+  (`features`) finds them, buildsteps owes them (`STEP_FEATURE_OPTION`), the answer is stored on the
+  class entry (`featureOptions`, `setFeatureOptionForClass`), and the few effects that are numbers or
+  proficiencies — Thaumaturge's extra cantrip, Protector's heavy armor — are curated in
+  `FEATURE_EFFECTS`. An `options` block of *optional features* (Eldritch Invocation Options) is not one.
+- **Proficiencies are stored as `{kind, name}`**, one per row. `getHeldProficiencyNames` once read
+  only a merged view's `entries`, so no tool or language ever counted as held and every one was
+  offered again; a test fixture that carries both shapes hides that.
+- **Languages a class feature grants are curated** (`_CLASS_FEATURE_LANGUAGES` in `choices`): Thieves'
+  Cant (and, in 2024, one more), Druidic, the 2024 Ranger's Deft Explorer — all prose in the data.
+  Answering the 2024 language choice writes down Common with the two picks.
+- **A species' trait names are kept** (`speciesTraitNames`), because Dwarven Toughness is a trait,
+  not a choice, and `getHpBonusPerLevel` never saw it.
 - **A granted feat asks its own questions.** Taking Skilled must offer its three skills-or-tools,
   Crafter its three artisan's tools, Musician its three instruments. Tools and languages are
   resolved by `pResolveFeatSkillChoices`, never written into a notes box — a proficiency as prose is

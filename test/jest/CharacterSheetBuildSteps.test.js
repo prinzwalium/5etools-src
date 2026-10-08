@@ -3,6 +3,7 @@ import {describe, expect, it} from "@jest/globals";
 import "../../js/parser.js";
 import {
 	STEP_ASI,
+	STEP_FEATURE_OPTION,
 	STEP_LANGUAGE,
 	STEP_EXPERTISE,
 	STEP_FIXED_SPELL,
@@ -116,6 +117,28 @@ describe("Outstanding decisions: spells", () => {
 		const [owed] = getOutstandingDecisions({state: baseState({classes: [entry], spellsKnown, abil_wis: 16}), loaded: [{entry, cls: old}]})
 			.filter(it => it.kind === STEP_SPELLS);
 		expect(owed.count).toBe(4);
+	});
+
+	it("Asks which of a feature's options, and counts a Thaumaturge's extra cantrip", () => {
+		const order = {name: "Divine Order",
+			source: "XPHB",
+			level: 1,
+			entries: [{type: "options",
+				count: 1,
+				entries: [
+					{name: "Protector", __prop: "classFeature", entries: []}, {name: "Thaumaturge", __prop: "classFeature", entries: []},
+				]}]};
+		const cls = {...CLERIC, classFeatures: [[order]]};
+		const entry = {id: "a", name: "Cleric", level: 1};
+		const spellsKnown = ["Guidance", "Light", "Sacred Flame"].map(name => ({name, level: 0, className: "Cleric"}));
+		const owed = getOutstandingDecisions({state: baseState({classes: [entry], spellsKnown}), loaded: [{entry, cls}]});
+		expect(owed.find(it => it.kind === STEP_FEATURE_OPTION)?.detail).toBe("Cleric — Protector or Thaumaturge");
+		expect(owed.find(it => it.kind === STEP_SPELLS)).toBeUndefined();
+
+		const thaum = {...entry, featureOptions: [{feature: "Divine Order", option: "Thaumaturge"}]};
+		const after = getOutstandingDecisions({state: baseState({classes: [thaum], spellsKnown}), loaded: [{entry: thaum, cls}]});
+		expect(after.find(it => it.kind === STEP_FEATURE_OPTION)).toBeUndefined();
+		expect(after.find(it => it.kind === STEP_SPELLS)?.label).toBe("Spells: 1 cantrip to choose");
 	});
 
 	it("Says nothing to a class that does not cast", () => {

@@ -1021,6 +1021,20 @@ export class CharacterModel extends BaseComponent {
 		this._triggerCollectionUpdate("classes");
 	}
 
+	/**
+	 * Answer a feature that offers a choice of features — the 2024 Cleric's Divine Order (Protector or
+	 * Thaumaturge), a Druid's Primal Order. One answer per feature; answering again replaces it.
+	 */
+	setFeatureOptionForClass (id, {feature, option, source = null, level = null}) {
+		const entry = this._state.classes.find(it => it.id === id);
+		if (!entry) return;
+		entry.featureOptions = [
+			...(entry.featureOptions || []).filter(it => it.feature !== feature),
+			...(option ? [{feature, option, source, level}] : []),
+		];
+		this._triggerCollectionUpdate("classes");
+	}
+
 	removeOptionalFeatureForClass (id, {name, source}) {
 		const entry = this._state.classes.find(it => it.id === id);
 		if (!entry?.optionalFeatures) return;

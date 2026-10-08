@@ -12,6 +12,7 @@ import {
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
 import {CHOICE_TYPE_LANGUAGE, getChoiceSignature, getChoiceWithoutHeld, getClassFeatureLanguageChoices, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getRulesLanguageChoice} from "./charactersheet-choices.js";
 import {getTraitChoices} from "./charactersheet-traitchoices.js";
+import {getFeatureOptionCantripBonus, getFeatureOptionGroups} from "./charactersheet-features.js";
 
 /**
  * Everything still to decide before a character can be played, as one list.
@@ -47,6 +48,8 @@ export const STEP_HP = "hp";
 export const STEP_CLASS_PROFICIENCY = "classProficiency";
 /** The languages the 2024 rules give every character, which no species or background carries. */
 export const STEP_LANGUAGE = "language";
+/** A feature that offers a choice of features: Divine Order, Primal Order. */
+export const STEP_FEATURE_OPTION = "featureOption";
 
 /**
  * @param state the character state.
@@ -239,7 +242,27 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 			});
 		});
 
-		const cantrips = getCantripsKnown(sc, entry.level) ?? getCantripsKnown(cls, entry.level);
+		// "One of the following, of your choice" — Protector or Thaumaturge — in the class's features and
+		// its subclass's, up to its level
+		const reached = [
+			...(cls.classFeatures || []).slice(0, entry.level).flat(),
+			...(sc?.subclassFeatures || []).flat().filter(f => (f?.level ?? 0) <= entry.level),
+		];
+		getFeatureOptionGroups(reached).forEach(group => {
+			if ((entry.featureOptions || []).some(it => it.feature === group.feature)) return;
+			out.push({
+				key: `${STEP_FEATURE_OPTION}:${entry.id}:${group.feature}`,
+				kind: STEP_FEATURE_OPTION,
+				label: group.feature,
+				detail: `${entry.name} — ${group.options.map(it => it.name).join(" or ")}`,
+				count: 1,
+				ctx: {entry, group},
+			});
+		});
+
+		const cantripsBase = getCantripsKnown(sc, entry.level) ?? getCantripsKnown(cls, entry.level);
+		// Thaumaturge and Magician each know one more
+		const cantrips = cantripsBase == null ? null : cantripsBase + getFeatureOptionCantripBonus(entry);
 		const known = getSpellsKnown(sc, entry.level) ?? getSpellsKnown(cls, entry.level);
 		const isCaster = !!(cls.casterProgression || sc?.casterProgression || cls.spellcastingAbility || cantrips || known);
 		if (isCaster) {
