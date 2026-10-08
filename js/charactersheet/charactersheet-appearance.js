@@ -112,6 +112,11 @@ export function formatHeight (inches) {
 
 /* -------------------------------------------- trait tags -------------------------------------------- */
 
+/** The names of a species' traits — its named entries — so a trait that changes a number can be found. */
+export function getSpeciesTraitNames (race) {
+	return (race?.entries || []).filter(it => it && typeof it === "object" && it.name).map(it => String(it.name).trim());
+}
+
 /** The species' `traitTags`, cleaned up. */
 export function getTraitTags (race) {
 	return [race?.traitTags].flat().filter(Boolean).map(it => String(it).trim()).filter(Boolean);

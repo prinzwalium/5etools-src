@@ -2,7 +2,7 @@ import {CHAR_SHEET_ABILITIES, CHAR_SHEET_SCHEMA_VERSION, CHAR_SHEET_SKILLS, EXPE
 import {getProfListDisplay} from "./charactersheet-choices.js";
 import {getClassProficiencies, getEntityProficiencies, getMulticlassProficiencies} from "./charactersheet-proficiencies.js";
 import {getEntityDefenses} from "./charactersheet-defenses.js";
-import {formatSpeeds, getSpeeds, getTraitTags} from "./charactersheet-appearance.js";
+import {formatSpeeds, getSpeciesTraitNames, getSpeeds, getTraitTags} from "./charactersheet-appearance.js";
 import {THEME_SITE} from "./charactersheet-theme.js";
 import {getStateWithMigratedAbilityNotes} from "./charactersheet-charstore.js";
 import {getAmmoRecovered, getChargesAfterRest} from "./charactersheet-equipment.js";
@@ -116,6 +116,8 @@ export class CharacterModel extends BaseComponent {
 			// The species' `traitTags`. Kept because one of them is a number: Powerful Build doubles
 			// carrying capacity, and the entity is not around when the inventory is totalled.
 			speciesTraitTags: [],
+			// The species' trait names, for the few that change a number: Dwarven Toughness
+			speciesTraitNames: [],
 
 			hpMax: 0,
 			hpCur: 0,
@@ -815,6 +817,7 @@ export class CharacterModel extends BaseComponent {
 		this._state.creatureTypes = [race.creatureTypes].flat().filter(Boolean);
 		this._state.creatureTypeTags = [race.creatureTypeTags].flat().filter(Boolean);
 		this._state.speciesTraitTags = getTraitTags(race);
+		this._state.speciesTraitNames = getSpeciesTraitNames(race);
 
 		this.setProficienciesFromSource(race.name, getEntityProficiencies(race));
 		// Darkvision, resistances, immunities and the rest are structured now, so they are no longer

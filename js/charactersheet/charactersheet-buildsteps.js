@@ -5,6 +5,7 @@ import {
 	getFeatProgressionCounts,
 	getFixedSpellsKnownGrants,
 	getOptionalFeatureCounts,
+	getPreparedSpellCount,
 	getSpellsKnown,
 	getWeaponMasteryCount,
 } from "./charactersheet-levelengine.js";
@@ -246,7 +247,12 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 			const nCantrips = have.filter(it => !it.level).length;
 			const nLeveled = have.filter(it => it.level).length;
 			const owedCantrips = Math.max(0, (cantrips || 0) - nCantrips);
-			const owedKnown = Math.max(0, (known || 0) - nLeveled);
+			// A prepared caster has a number too — a 2024 Cleric prepares four at 1st level — and a new
+			// player is not going to find the panel that says so on their own
+			const abv = cls.spellcastingAbility || sc?.spellcastingAbility;
+			const abilityMod = abv ? Math.floor(((Number(st[`abil_${abv}`]) || 10) - 10) / 2) : 0;
+			const prepared = known == null ? getPreparedSpellCount(cls, entry.level, abilityMod) : null;
+			const owedKnown = Math.max(0, (known ?? prepared ?? 0) - nLeveled);
 
 			// A prepared caster has no fixed "known" count, so having nothing at all is the signal
 			const isNothingAtAll = !have.length;

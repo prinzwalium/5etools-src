@@ -103,6 +103,21 @@ describe("Outstanding decisions: spells", () => {
 		expect(spells.count).toBe(2);
 	});
 
+	it("Asks a prepared caster for the spells it prepares", () => {
+		const cls = {...CLERIC, spellcastingAbility: "wis", preparedSpellsProgression: [4, 5, 6, 7, 9]};
+		const entry = {id: "a", name: "Cleric", level: 1};
+		const spellsKnown = ["Guidance", "Light", "Sacred Flame"].map(name => ({name, level: 0, className: "Cleric"}));
+		const [spells] = getOutstandingDecisions({state: baseState({classes: [entry], spellsKnown}), loaded: [{entry, cls}]})
+			.filter(it => it.kind === STEP_SPELLS);
+		expect(spells.label).toBe("Spells: 4 spells to choose");
+
+		// The 2014 formula, with the ability in it: Wisdom 16 and level 1 prepare four
+		const old = {...CLERIC, spellcastingAbility: "wis", preparedSpells: "<$level$> + <$wis_mod$>"};
+		const [owed] = getOutstandingDecisions({state: baseState({classes: [entry], spellsKnown, abil_wis: 16}), loaded: [{entry, cls: old}]})
+			.filter(it => it.kind === STEP_SPELLS);
+		expect(owed.count).toBe(4);
+	});
+
 	it("Says nothing to a class that does not cast", () => {
 		const entry = {id: "a", name: "Rogue", level: 3, subclass: {name: "Thief"}};
 		const decisions = getOutstandingDecisions({state: baseState({classes: [entry]}), loaded: [{entry, cls: ROGUE}]});

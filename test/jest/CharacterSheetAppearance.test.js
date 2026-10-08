@@ -11,6 +11,7 @@ import {
 	getHeightAndWeightRange,
 	getHeightAndWeightTable,
 	getSpeeds,
+	getSpeciesTraitNames,
 	getTraitTags,
 	parseDiceExpression,
 	rollDiceExpression,
@@ -118,6 +119,13 @@ describe("Height, written out", () => {
 		expect(formatHeight(76)).toBe(`6'4"`);
 		expect(formatHeight(72)).toBe(`6'`);
 		expect(formatHeight(11)).toBe(`11"`);
+	});
+});
+
+describe("Trait names", () => {
+	it("Lists a species' named traits, which is where Dwarven Toughness lives", () => {
+		expect(getSpeciesTraitNames(getRace("Dwarf", "XPHB"))).toContain("Dwarven Toughness");
+		expect(getSpeciesTraitNames(null)).toEqual([]);
 	});
 });
 

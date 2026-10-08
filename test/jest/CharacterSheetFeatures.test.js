@@ -87,6 +87,11 @@ describe("Feature effects: hit points per level", () => {
 		})).toBe(3);
 	});
 
+	it("Counts a species trait, once", () => {
+		expect(getHpBonusPerLevel({speciesTraitNames: ["Darkvision", "Dwarven Toughness"]})).toBe(1);
+		expect(getHpBonusPerLevel({speciesTraitNames: ["Dwarven Toughness"], originFeats: [{name: "Tough"}]})).toBe(3);
+	});
+
 	it("Counts nothing for a character with no such feature", () => {
 		expect(getHpBonusPerLevel({originFeats: [{name: "Alert"}]})).toBe(0);
 		expect(getHpBonusPerLevel({})).toBe(0);

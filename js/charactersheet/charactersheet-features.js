@@ -89,7 +89,8 @@ export function getTakenFeats (state) {
  * character is owed rather than Constitution alone.
  */
 export function getHpBonusPerLevel (state) {
-	return getChosenFeatureNames(state)
+	// A species trait counts too: Dwarven Toughness is a trait, never a choice
+	return [...new Set([...getChosenFeatureNames(state), ...(state?.speciesTraitNames || [])])]
 		.reduce((acc, name) => acc + (FEATURE_EFFECTS[name]?.hpPerLevel || 0), 0);
 }
 
