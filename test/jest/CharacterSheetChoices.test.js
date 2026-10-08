@@ -195,6 +195,13 @@ describe("Proficiencies already held", () => {
 		expect([...held.language]).toEqual(["Elvish"]);
 	});
 
+	// The shape the model actually stores: a name, and no `entries`
+	it("Should read a proficiency stored as the model stores it", () => {
+		const held = getHeldProficiencyNames({proficiencies: [{kind: "language", name: "Common", source: "Languages"}, {kind: "tool", name: "Lute", source: "Bard"}]});
+		expect([...held.language]).toEqual(["Common"]);
+		expect([...held.tool]).toEqual(["Lute"]);
+	});
+
 	it("Should subtract the held options from a choice, clipping its count", () => {
 		const choice = {type: "skill", count: 2, from: ["Athletics", "Stealth", "Arcana"], label: "Choose 2 skills"};
 		expect(getChoiceWithoutHeld(choice, getHeldProficiencyNames(state))).toMatchObject({from: ["Arcana"], count: 1});

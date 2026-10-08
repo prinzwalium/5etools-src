@@ -10,7 +10,7 @@ import {
 	getWeaponMasteryCount,
 } from "./charactersheet-levelengine.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
-import {getChoiceSignature, getChoiceWithoutHeld, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getRulesLanguageChoice} from "./charactersheet-choices.js";
+import {CHOICE_TYPE_LANGUAGE, getChoiceSignature, getChoiceWithoutHeld, getClassFeatureLanguageChoices, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getRulesLanguageChoice} from "./charactersheet-choices.js";
 import {getTraitChoices} from "./charactersheet-traitchoices.js";
 
 /**
@@ -267,6 +267,23 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 				});
 			}
 		}
+
+		// A language a feature grants — Thieves' Cant, Druidic — and any it lets the character choose
+		const heldNames = getHeldProficiencyNames(st);
+		getClassFeatureLanguageChoices({features: cls.classFeatures, level: entry.level}).forEach(choice => {
+			const missing = choice.fixed.filter(name => !heldNames[CHOICE_TYPE_LANGUAGE]?.has(name));
+			const picked = (st.choiceLog || []).find(it => it.sig === getChoiceSignature(choice))?.picks.length || 0;
+			const owed = Math.max(0, choice.count - picked);
+			if (!missing.length && !owed) return;
+			out.push({
+				key: `${STEP_LANGUAGE}:${entry.id}:${choice.sourceName}`,
+				kind: STEP_LANGUAGE,
+				label: choice.label,
+				detail: entry.name,
+				count: missing.length + owed,
+				ctx: {choice},
+			});
+		});
 
 		// Mystic Arcanum: a pick at a fixed spell level, outside the known-spell count entirely, so
 		// an unanswered one is invisible to the check above

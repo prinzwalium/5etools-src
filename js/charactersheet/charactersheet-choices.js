@@ -93,7 +93,9 @@ export function getHeldProficiencyNames (state) {
 			? out[CHOICE_TYPE_TOOL]
 			: prof?.kind === PROF_KIND_LANGUAGE ? out[CHOICE_TYPE_LANGUAGE] : null;
 		if (!bucket) return;
-		(Array.isArray(prof.entries) ? prof.entries : []).forEach(name => bucket.add(name));
+		// Stored as `{kind, name}` (the model's shape); `entries` is the merged view's, accepted as well.
+		// Reading only `entries` saw no tool and no language at all, so every one was offered again
+		[prof.name, ...(Array.isArray(prof.entries) ? prof.entries : [])].filter(Boolean).forEach(name => bucket.add(name));
 	});
 
 	return out;
@@ -565,6 +567,49 @@ export function getRulesLanguageChoice ({isClassic = false, count = 2} = {}) {
 		from: Parser.LANGUAGES_STANDARD.filter(it => it !== "Common").map(_titleCase),
 		label: `Choose ${count} language${count > 1 ? "s" : ""} besides Common`,
 	};
+}
+
+/**
+ * Languages a class *feature* grants, which only its prose says: a Rogue knows Thieves' Cant (and, in
+ * 2024, one more language), a Druid knows Druidic, a 2024 Ranger learns two at 2nd level. Curated, by
+ * feature name and source, because the books print the same feature name with different grants.
+ */
+const _CLASS_FEATURE_LANGUAGES = {
+	"thieves' cant|phb": {fixed: ["Thieves' Cant"], count: 0},
+	"thieves' cant|xphb": {fixed: ["Thieves' Cant"], count: 1},
+	"druidic|phb": {fixed: ["Druidic"], count: 0},
+	"druidic|xphb": {fixed: ["Druidic"], count: 0},
+	"deft explorer|xphb": {fixed: [], count: 2},
+};
+
+/**
+ * The language choices a class's features make, up to its level.
+ *
+ * @param features the class's features, by level (`classFeatures` as the loader gives them) or flat.
+ * @return {Array} choices of `CHOICE_TYPE_LANGUAGE`, each with the `fixed` languages it simply grants.
+ */
+export function getClassFeatureLanguageChoices ({features = [], level = 20} = {}) {
+	const flat = (features || []).slice(0, level).flat().filter(Boolean);
+	const out = [];
+	const seen = new Set();
+	flat.forEach(f => {
+		const key = `${String(f.name || "").toLowerCase()}|${String(f.source || "").toLowerCase()}`;
+		const grant = _CLASS_FEATURE_LANGUAGES[key];
+		if (!grant || seen.has(key)) return;
+		seen.add(key);
+		out.push({
+			id: _nextId(),
+			type: CHOICE_TYPE_LANGUAGE,
+			sourceName: f.name,
+			count: grant.count,
+			fixed: grant.fixed,
+			from: [...Parser.LANGUAGES_STANDARD, ...Parser.LANGUAGES_EXOTIC].filter(it => it !== "Common").map(_titleCase),
+			label: grant.count
+				? `${f.name}: ${[...grant.fixed, `${grant.count} language${grant.count > 1 ? "s" : ""} of your choice`].join(", and ")}`
+				: `${f.name}: ${grant.fixed.join(", ")}`,
+		});
+	});
+	return out;
 }
 
 /**

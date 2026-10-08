@@ -173,6 +173,26 @@ describe("Outstanding decisions: the pools and the rest", () => {
 		expect(decisions[0].count).toBe(2);
 	});
 
+	it("Asks for the languages a class feature grants: Thieves' Cant, and one more in 2024", () => {
+		const ROGUE_2024 = {name: "Rogue", source: "XPHB", classFeatures: [[{name: "Thieves' Cant", source: "XPHB"}]]};
+		const entry = {id: "r", name: "Rogue", level: 1};
+		const decision = getOutstandingDecisions({state: baseState({hpMax: 8, classes: [entry]}), loaded: [{entry, cls: ROGUE_2024}], isClassic: true})
+			.find(it => it.kind === STEP_LANGUAGE);
+		expect(decision.label).toBe("Thieves' Cant: Thieves' Cant, and 1 language of your choice");
+		expect(decision.count).toBe(2);
+		expect(decision.ctx.choice.fixed).toEqual(["Thieves' Cant"]);
+
+		// Known, and the extra one chosen: nothing left
+		const choice = decision.ctx.choice;
+		const state = baseState({
+			hpMax: 8,
+			classes: [entry],
+			proficiencies: [{kind: "language", entries: ["Thieves' Cant", "Elvish"]}],
+			choiceLog: [{sig: `${choice.sourceName}|${choice.type}|${choice.label}`, picks: ["Elvish"]}],
+		});
+		expect(getOutstandingDecisions({state, loaded: [{entry, cls: ROGUE_2024}], isClassic: true}).filter(it => it.kind === STEP_LANGUAGE)).toEqual([]);
+	});
+
 	it("Leaves languages to the species under the 2014 rules, where they live", () => {
 		expect(getOutstandingDecisions({state: baseState({hpMax: 8}), isClassic: true})).toEqual([]);
 	});

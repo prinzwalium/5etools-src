@@ -2214,6 +2214,14 @@ export class CharacterPageBase {
 	async _pResolveLanguageChoice (choice) {
 		if (!choice) return;
 
+		// What it simply grants first — Thieves' Cant, Druidic, and the Common every 2024 character knows
+		const isRules = choice.sourceName === "Languages";
+		const heldBefore = getHeldProficiencyNames(this._comp._getState());
+		[...(choice.fixed || []), ...(isRules ? ["Common"] : [])]
+			.filter(name => !heldBefore[choice.type]?.has(name))
+			.forEach(name => this._comp.addProficiency({kind: PROF_KIND_LANGUAGE, name, source: choice.sourceName || null}));
+		if (!choice.count) return;
+
 		const held = getHeldProficiencyNames(this._comp._getState());
 		const offered = getChoiceWithoutHeld(choice, held);
 		if (!offered?.from?.length) return;
