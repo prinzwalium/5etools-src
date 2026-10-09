@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import "../../js/parser.js";
-import {HP_MODE_AVERAGE, HP_MODE_MAX, HP_MODE_ROLLED, checkFeatPrerequisites, getAsiCount, getCantripsKnown, getCasterLevelContribution, getClassResources, getDynamicSpellGrants, getExpertiseSkillCount, getFeatProgressionCounts, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getHitDieAverage, getHitPointMaximum, getLevelUpHp, getMulticlassRequirementsDisplay, getOptionalFeatureCounts, getPactSlots, getPreparedSpellCount, getPreparedSpellsDisplay, getPrimaryAbilities, getResourceCostLabel, matchResourceLabel, getSingleClassSlots, getSpellGrantGroups, getSlotLevelUnlockLevel, getSpellbookSize, getSpellcastingMeta, getSpellsKnown, isMulticlassRequirementMet, isSpellMatchingFilter, parseSpellFilter} from "../../js/charactersheet/charactersheet-levelengine.js";
+import {HP_MODE_AVERAGE, HP_MODE_MAX, HP_MODE_ROLLED, checkFeatPrerequisites, getAsiCount, getCantripsKnown, getCasterLevelContribution, getClassResources, getDynamicSpellGrants, getExpertiseSkillCount, getFeatProgressionCounts, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getHitDieAverage, getHitPointMaximum, getLevelUpHp, getMulticlassRequirementsDisplay, getOptionalFeatureCounts, getPactSlots, getPreparedSpellCount, getPreparedSpellsDisplay, getPrimaryAbilities, getResourceCostLabel, matchResourceLabel, getSingleClassSlots, getSpellGrantGroups, getSpellGroupIndex, getWithChosenSpellGroup, getSlotLevelUnlockLevel, getSpellbookSize, getSpellcastingMeta, getSpellsKnown, isMulticlassRequirementMet, isSpellMatchingFilter, parseSpellFilter} from "../../js/charactersheet/charactersheet-levelengine.js";
 
 const loadClassFile = name => JSON.parse(fs.readFileSync(`./data/class/class-${name}.json`, "utf8"));
 
@@ -347,6 +347,25 @@ describe("Leveling engine: dynamic spell grants", () => {
 	it("Should report no alternative groups when there is nothing to choose between", () => {
 		expect(getSpellGrantGroups({additionalSpells: [{known: {_: ["bless"]}}]})).toEqual([]);
 		expect(getSpellGrantGroups(null)).toEqual([]);
+	});
+
+	it("Should grant only the spell group the character took", () => {
+		const land = getSubclass("druid", "Land");
+		expect(getGrantedSpellUids(land, 3).length).toBeGreaterThan(2); // every terrain at once
+
+		expect(getGrantedSpellUids(getWithChosenSpellGroup({}, "subclass", land), 3)).toEqual([]);
+		const forest = getSpellGrantGroups(land).find(g => g.name === "Forest").index;
+		const state = {spellGroups: [{key: "subclass:Circle of the Land|PHB", index: forest}]};
+		expect(getGrantedSpellUids(getWithChosenSpellGroup(state, "subclass", land), 3)).toEqual(["barkskin", "spider climb"]);
+	});
+
+	it("Should name an unnamed group by its spells, and read a species' group from its lineage trait", () => {
+		const archer = {additionalSpells: [{known: {3: ["prestidigitation#c"]}}, {known: {3: ["druidcraft#c"]}}]};
+		expect(getSpellGrantGroups(archer).map(g => g.name)).toEqual(["Prestidigitation", "Druidcraft"]);
+
+		const elf = {name: "Elf", source: "XPHB", additionalSpells: [{name: "Drow"}, {name: "High Elf"}]};
+		expect(getSpellGroupIndex({traitChoices: [{source: "Elf", trait: "Elven Lineage", option: "High Elf"}]}, "race", elf)).toBe(1);
+		expect(getSpellGroupIndex({}, "race", elf)).toBeNull();
 	});
 });
 

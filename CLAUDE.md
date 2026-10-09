@@ -365,6 +365,10 @@ template, run `node node/generate-pages.js` and commit both.
   *derived from what is equipped*, never stored; a "choose one" trait's
   resistance is derived from the pick. `getAllDefenses(state)` is the one
   view-level entry point.
+- **Unarmored Defense and Martial Arts are derived** (`getUnarmoredDefenseMode`,
+  `getMartialArtsDie`, `isMonkWeapon` in `derive`): a Barbarian or Monk with no armor gets its own
+  AC formula without picking a mode, and a Monk's weapons and Unarmed Strike use the better of
+  Str/Dex and the Martial Arts die.
 - Equipped magic items feed derivations globally: AC, saving throws, spell save
   DC and spell attack, weapon attack/damage, and the defenses above (`derive.js`).
 - All three pages share one character store, so a character built in the builder
@@ -415,6 +419,11 @@ Key fields (all read by `charactersheet-levelengine.js` unless noted):
   twelve Warlock patrons, the 2024 Bard's Magical Secrets), resolved against the
   parent class's slot table by `getSlotLevelUnlockLevel` — a subclass has none of
   its own, hence `getDynamicSpellGrants(sc, level, {slotSource: cls})`.
+  **More than one group is a choice of one** — a Circle of the Land's terrain, a Genie's kind, an
+  Arcane Archer's Prestidigitation *or* Druidcraft, an Elf's lineage. Reading every group granted all
+  eight terrains. The pick is stored in `spellGroups` (`getSpellGroupKey`), every reader goes through
+  `getWithChosenSpellGroup`, buildsteps owes it (`STEP_SPELL_GROUP`), and a species' lineage trait
+  pick of the same name answers it, so an Elf is not asked twice.
 - **`spellsKnownProgressionFixed`** — the Wizard's **spellbook**, `[6, 2, 2, …]`
   being what each level *adds*, so the book is the running total
   (`getSpellbookSize`). Not the prepared count: a Wizard prepares *from* the

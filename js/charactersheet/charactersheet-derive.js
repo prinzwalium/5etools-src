@@ -339,12 +339,15 @@ export function deriveCharacterSheet (state, {featureNames = []} = {}) {
  * @return {{ac: number, mode: string, note: string}}
  */
 export function deriveArmorClass (state) {
-	const mode = state.acMode || "auto";
-	if (mode === "manual") return {ac: Number(state.ac) || 10, mode, note: "manual", parts: [{label: "Manual value", value: Number(state.ac) || 10, isRaw: true}]};
+	const chosenMode = state.acMode || "auto";
+	if (chosenMode === "manual") return {ac: Number(state.ac) || 10, mode: chosenMode, note: "manual", parts: [{label: "Manual value", value: Number(state.ac) || 10, isRaw: true}]};
 
 	const dexMod = getAbilityModifier(state, "dex");
 	const equipped = (state.inventory || []).filter(it => it.equipped);
 	const armor = equipped.find(it => it.isArmor && ["LA", "MA", "HA"].includes(it.type));
+	// Left to itself, a Barbarian or Monk with no armour uses its Unarmored Defense — nobody new to the
+	// sheet knows to choose it, and a Barbarian at AC 11 is a Barbarian dying for no reason
+	const mode = chosenMode === "auto" && !armor ? getUnarmoredDefenseMode(state) : chosenMode;
 
 	let base;
 	let note;
@@ -453,10 +456,16 @@ export function getWeaponAttack (state, item) {
 	const isTwoHanded = props.includes("2H");
 	const isThrown = props.includes("T");
 
+	// Martial Arts: a Monk weapon may use Dexterity, and roll the Martial Arts die if it is bigger
+	const maDie = getMartialArtsDie(state);
+	const isMonkW = !!maDie && isMonkWeapon(state, item);
+
 	let abv = "str";
 	if (isRanged) abv = "dex";
-	else if (isFinesse) abv = getAbilityModifier(state, "dex") > getAbilityModifier(state, "str") ? "dex" : "str";
+	else if (isFinesse || isMonkW) abv = getAbilityModifier(state, "dex") > getAbilityModifier(state, "str") ? "dex" : "str";
 	const abilMod = getAbilityModifier(state, abv);
+	const itemFaces = Number(/d(\d+)/.exec(item.dmg1 || "")?.[1]) || 0;
+	const dmgDice = isMonkW && maDie > itemFaces ? String(item.dmg1).replace(/d\d+/, `d${maDie}`) : item.dmg1;
 
 	// Fighting-style effects. Dueling's "no other weapon" clause can't be known from the item alone,
 	// so it is applied to any one-handed melee weapon.
@@ -473,7 +482,7 @@ export function getWeaponAttack (state, item) {
 		const dmgTypeFull = item.dmgType ? ` ${Parser.dmgTypeToFull(item.dmgType, {styleHint: "classic"})}` : "";
 		const dmgMod = abilMod + bonusDamage + featureDamage;
 		const modStr = dmgMod === 0 ? "" : (dmgMod > 0 ? `+${dmgMod}` : `${dmgMod}`);
-		damage = `${item.dmg1}${modStr}${dmgTypeFull}`;
+		damage = `${dmgDice}${modStr}${dmgTypeFull}`;
 	}
 
 	const abilName = Parser.attAbvToFull(abv);
@@ -491,7 +500,7 @@ export function getWeaponAttack (state, item) {
 			{label: `Exhaustion ${getExhaustionLevel(state)}`, value: exhaustion, cite: "exhaustion"},
 		),
 		damageParts: _mkParts(
-			{label: item.dmg1 || "", isText: !!item.dmg1, cite: getItemCitation(item)},
+			{label: dmgDice || "", isText: !!item.dmg1, cite: getItemCitation(item)},
 			{label: abilName, value: abilMod, isKeep: true, cite: "abilityModifier"},
 			{label: "Magic weapon", value: bonusDamage, cite: getItemCitation(item)},
 			{label: "Fighting style", value: featureDamage},
@@ -499,18 +508,72 @@ export function getWeaponAttack (state, item) {
 	};
 }
 
+/* -------------------------------------------- unarmored fighting -------------------------------------------- */
+
+// The Martial Arts die by Monk level, highest first; the 2024 die starts a step higher
+const _MARTIAL_ARTS_DIE = {
+	modern: [[17, 12], [11, 10], [5, 8], [1, 6]],
+	classic: [[17, 10], [11, 8], [5, 6], [1, 4]],
+};
+
+const _getClassEntry = (state, name) => (state?.classes || []).find(c => c?.name === name && Number(c.level) > 0) || null;
+
+/** Wearing no body armour and holding no shield: what Martial Arts and a Monk's Unarmored Defense ask. */
+function _isUnarmoredUnshielded (state) {
+	return !(state?.inventory || []).some(it => it.equipped && ((it.isArmor && ["LA", "MA", "HA"].includes(it.type)) || it.type === "S"));
+}
+
+/**
+ * Which Unarmored Defense an unarmoured character gets, as an AC mode: a Barbarian's (Con) or a Monk's
+ * (Wis, and no shield), whichever is higher, else plain 10 + Dex.
+ */
+export function getUnarmoredDefenseMode (state) {
+	const options = [];
+	if (_getClassEntry(state, "Barbarian")) options.push(["barbarian", getAbilityModifier(state, "con")]);
+	if (_getClassEntry(state, "Monk") && _isUnarmoredUnshielded(state)) options.push(["monk", getAbilityModifier(state, "wis")]);
+	// Only when it beats 10 + Dex: a Barbarian with Constitution 8 is better off without it
+	const best = options.filter(([, mod]) => mod > 0).sort((a, b) => b[1] - a[1])[0];
+	return best ? best[0] : "auto";
+}
+
+/** The Martial Arts die (6 for a d6), or `null` for a character who is no Monk or is wearing armour. */
+export function getMartialArtsDie (state) {
+	const monk = _getClassEntry(state, "Monk");
+	if (!monk || !_isUnarmoredUnshielded(state)) return null;
+	const table = monk.source === "XPHB" ? _MARTIAL_ARTS_DIE.modern : _MARTIAL_ARTS_DIE.classic;
+	return (table.find(([lvl]) => Number(monk.level) >= lvl) || table[table.length - 1])[1];
+}
+
+/**
+ * A Monk weapon: in 2024 any Simple melee weapon or Martial melee weapon with the Light property; in
+ * 2014 shortswords and the Simple melee weapons that are neither two-handed nor heavy.
+ */
+export function isMonkWeapon (state, item) {
+	const monk = _getClassEntry(state, "Monk");
+	if (!monk || String(item?.type || "").split("|")[0] !== "M") return false;
+	const props = item.properties || [];
+	const cat = String(item.weaponCategory || "").toLowerCase();
+	if (monk.source === "XPHB") return cat === "simple" || (cat === "martial" && props.includes("L"));
+	return (cat === "simple" && !props.includes("2H") && !props.includes("H")) || /^shortsword$/i.test(item.name || "");
+}
+
 /** The always-available Unarmed Strike: 1 + Strength modifier bludgeoning, with proficiency. */
 export function getUnarmedStrike (state) {
-	const strMod = getAbilityModifier(state, "str");
-	const dmg = 1 + strMod;
 	const pb = getProfBonus(state);
 	const exhaustion = getExhaustionPenalty(state);
+	// A Monk's unarmed strike: the better of Strength and Dexterity, and the Martial Arts die
+	const maDie = getMartialArtsDie(state);
+	const abv = maDie && getAbilityModifier(state, "dex") > getAbilityModifier(state, "str") ? "dex" : "str";
+	const mod = getAbilityModifier(state, abv);
+	const damage = maDie
+		? `1d${maDie}${mod ? (mod > 0 ? `+${mod}` : `${mod}`) : ""} bludgeoning`
+		: `${Math.max(0, 1 + mod)} bludgeoning`;
 	return {
 		name: "Unarmed Strike",
-		atkBonus: strMod + pb + exhaustion,
-		damage: `${Math.max(0, dmg)} bludgeoning`,
+		atkBonus: mod + pb + exhaustion,
+		damage,
 		atkParts: _mkParts(
-			{label: "Strength", value: strMod, isKeep: true, cite: "abilityModifier"},
+			{label: Parser.attAbvToFull(abv), value: mod, isKeep: true, cite: "abilityModifier"},
 			{label: "Proficiency", value: pb, cite: "proficiency"},
 			{label: `Exhaustion ${getExhaustionLevel(state)}`, value: exhaustion, cite: "exhaustion"},
 		),

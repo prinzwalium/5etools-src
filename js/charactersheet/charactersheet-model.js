@@ -145,6 +145,7 @@ export class CharacterModel extends BaseComponent {
 			spellsText: "",
 			spellsKnown: [], // [{id, name, source, level}]
 			grantedSpellChoices: [], // [{id, grantKey, name, source, level}] — picks for `additionalSpells` {choose} grants
+			spellGroups: [], // [{key, index}] — which alternative `additionalSpells` group an entity was taken with (a Circle of the Land's terrain)
 			slotsUsed: {}, // {"1": n, ..., "9": n, pact: n}
 			resourcesUsed: {}, // {resourceLabel: n} — expended class resources (Rages, Ki, Wild Shape, ...)
 			sourceFilter: {mode: "all", sources: {}}, // which books this character may pick content from
@@ -275,6 +276,12 @@ export class CharacterModel extends BaseComponent {
 		if (cur.some(it => it.grantKey === grantKey && it.name === name && it.source === source)) return false;
 		this._state.grantedSpellChoices = [...cur, {id: CryptUtil.uid(), grantKey, name, source, level: Number(level) || 0, className}];
 		return true;
+	}
+
+	/** Which of an entity's alternative spell groups the character took (`key` from `getSpellGroupKey`). */
+	setSpellGroup (key, index) {
+		if (!key) return;
+		this._state.spellGroups = [...(this._state.spellGroups || []).filter(it => it.key !== key), {key, index: Number(index) || 0}];
 	}
 
 	removeGrantedSpellChoice (id) {

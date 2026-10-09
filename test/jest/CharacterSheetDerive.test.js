@@ -1,5 +1,5 @@
 import "../../js/parser.js";
-import {deriveArmorClass, deriveCharacterSheet, formatBreakdown, getAbilityScore, getAbilityScoreParts, getConcentrationSaveDc, getEquippedMagicBonuses, getItemAbilityEffects, getProfBonus, getTotalLevel, getUnarmedStrike, getWeaponAttack, hasSpellcasting} from "../../js/charactersheet/charactersheet-derive.js";
+import {deriveArmorClass, deriveCharacterSheet, formatBreakdown, getMartialArtsDie, getUnarmoredDefenseMode, getAbilityScore, getAbilityScoreParts, getConcentrationSaveDc, getEquippedMagicBonuses, getItemAbilityEffects, getProfBonus, getTotalLevel, getUnarmedStrike, getWeaponAttack, hasSpellcasting} from "../../js/charactersheet/charactersheet-derive.js";
 
 const getBaseState = (overrides = {}) => ({
 	level: 1,
@@ -611,5 +611,36 @@ describe("Character sheet derivation: Initiative from features", () => {
 	it("Should leave Initiative alone for a character with neither", () => {
 		const state = getBaseState({abil_dex: 14});
 		expect(deriveCharacterSheet(state, {featureNames: ["Extra Attack"]}).initiative).toBe(2);
+	});
+});
+
+describe("Unarmored fighting", () => {
+	const dagger = {name: "Dagger", type: "M", weaponCategory: "simple", properties: ["F", "L", "T"], dmg1: "1d4", dmgType: "P", equipped: true};
+	const spear = {name: "Spear", type: "M", weaponCategory: "simple", properties: ["T", "V"], dmg1: "1d6", dmgType: "P", equipped: true};
+	const leather = {name: "Leather Armor", type: "LA", isArmor: true, baseAc: 11, equipped: true};
+
+	it("Uses a Barbarian's or a Monk's Unarmored Defense without being asked", () => {
+		const barbarian = {abil_dex: 12, abil_con: 14, classes: [{name: "Barbarian", source: "XPHB", level: 3}], inventory: []};
+		expect(deriveArmorClass(barbarian).ac).toBe(13);
+		const monk = {abil_dex: 14, abil_wis: 14, classes: [{name: "Monk", source: "XPHB", level: 1}], inventory: []};
+		expect(deriveArmorClass(monk).ac).toBe(14);
+		// Armour, or a Monk's shield, is the end of it; so is a Constitution that would lower it
+		expect(deriveArmorClass({...barbarian, inventory: [leather]}).ac).toBe(12);
+		expect(getUnarmoredDefenseMode({...monk, inventory: [{type: "S", equipped: true}]})).toBe("auto");
+		expect(getUnarmoredDefenseMode({...barbarian, abil_con: 8})).toBe("auto");
+	});
+
+	it("Gives a Monk the Martial Arts die and Dexterity, for unarmed strikes and Monk weapons", () => {
+		const monk = {abil_str: 10, abil_dex: 16, classes: [{name: "Monk", source: "XPHB", level: 5}], inventory: [spear]};
+		expect(getMartialArtsDie(monk)).toBe(8);
+		expect(getMartialArtsDie({...monk, classes: [{name: "Monk", source: "PHB", level: 5}]})).toBe(6);
+		expect(getUnarmedStrike(monk).damage).toBe("1d8+3 bludgeoning");
+		expect(getUnarmedStrike(monk).atkBonus).toBe(6);
+		const attack = getWeaponAttack(monk, spear);
+		expect(attack.atkBonus).toBe(6);
+		expect(attack.damage).toMatch(/^1d8\+3/);
+		// A dagger's d4 is smaller, so the die grows; armour ends Martial Arts altogether
+		expect(getWeaponAttack(monk, dagger).damage).toMatch(/^1d8\+3/);
+		expect(getUnarmedStrike({...monk, inventory: [leather]}).damage).toBe("1 bludgeoning");
 	});
 });

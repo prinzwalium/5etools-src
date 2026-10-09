@@ -241,6 +241,9 @@ export async function pResolveEntitySpellGrants (comp, feat, {grantKeyPrefix}) {
 		});
 		if (picked == null) return;
 		groupIndex = picked.index;
+		// Remembered, because the fixed spells of the group are granted from it later — a Tiefling's
+		// legacy decides which spells the panel lists
+		comp.setSpellGroup?.(grantKeyPrefix, groupIndex);
 	}
 
 	const grants = getDynamicSpellGrants(feat, 20)

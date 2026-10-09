@@ -1,5 +1,5 @@
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
-import {getCantripsKnown, getDynamicSpellGrants, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getInnateSpellGrants, getPreparedSpellCount, getSpellbookSize, getSpellcastingMeta, getSpellsKnown, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
+import {getCantripsKnown, getDynamicSpellGrants, getFixedSpellsKnownGrants, getGrantedSpellUids, getInnateSpellCastingNote, getWithChosenSpellGroup, getInnateSpellGrants, getPreparedSpellCount, getSpellbookSize, getSpellcastingMeta, getSpellsKnown, isSpellMatchingFilter} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, getAbilityModifier, hasSpellcasting} from "./charactersheet-derive.js";
 import {getSpellSummary, normaliseCastTime} from "./charactersheet-actions.js";
 
@@ -119,6 +119,7 @@ export class CharacterSpellsPanel {
 		const loaded = await this._pGetLoadedClasses();
 		const species = await this._pGetSpecies();
 		const byKey = await this._pEnsureSpellData();
+		const st = this._comp._state;
 		const out = [];
 		const seen = new Set();
 		const add = (uid, {className = null, sourceName = null, castingNote = null}) => {
@@ -149,10 +150,11 @@ export class CharacterSpellsPanel {
 		};
 
 		loaded.forEach(({entry, cls, sc}) => {
-			[cls, sc].forEach(ent => addFrom(ent, entry.level, {className: cls?.name || null, sourceName: ent?.name || null}));
+			// Only the spell group the character took: a Circle of the Land druid has one terrain's spells
+			[cls, getWithChosenSpellGroup(st, "subclass", sc)].forEach(ent => addFrom(ent, entry.level, {className: cls?.name || null, sourceName: ent?.name || null}));
 		});
 
-		addFrom(species, this._comp.getLevelNumber(), {sourceName: species?.name || null});
+		addFrom(getWithChosenSpellGroup(st, "race", species), this._comp.getLevelNumber(), {sourceName: species?.name || null});
 
 		return out;
 	}
@@ -166,7 +168,7 @@ export class CharacterSpellsPanel {
 		const loaded = await this._pGetLoadedClasses();
 		const out = [];
 		loaded.forEach(({entry, cls, sc}) => {
-			[[cls, cls?.name], [sc, sc?.name]].forEach(([ent, entName]) => {
+			[[cls, cls?.name], [getWithChosenSpellGroup(this._comp._state, "subclass", sc), sc?.name]].forEach(([ent, entName]) => {
 				if (!ent) return;
 				// Mystic Arcanum and its like are picks at a fixed spell level, expressed in the same
 				// shape so this one chooser resolves both
@@ -198,7 +200,7 @@ export class CharacterSpellsPanel {
 		// unlocks them. Nothing read a background's `additionalSpells` at all
 		const background = await this._pGetBackground();
 
-		const grants = [cls, sc, background]
+		const grants = [cls, getWithChosenSpellGroup(this._comp._state, "subclass", sc), background]
 			.filter(Boolean)
 			.flatMap(ent => getDynamicSpellGrants(ent, entry.level, {slotSource: cls}))
 			.filter(grant => grant.type === "expanded");

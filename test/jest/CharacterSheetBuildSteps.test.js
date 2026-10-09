@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import {describe, expect, it} from "@jest/globals";
 // The language step reads `Parser.LANGUAGES_STANDARD`, as every module that names a language does
 import "../../js/parser.js";
@@ -15,6 +16,7 @@ import {
 	STEP_SPELLS,
 	STEP_SUBCLASS,
 	STEP_SIZE,
+	STEP_SPELL_GROUP,
 	STEP_TRAIT_CHOICE,
 	getOutstandingDecisions,
 } from "../../js/charactersheet/charactersheet-buildsteps.js";
@@ -338,5 +340,30 @@ describe("Outstanding decisions: a spell known at a fixed level", () => {
 		const picks = getOutstandingDecisions({state: {...state(), classes: [high]}, loaded: [{entry: high, cls: WARLOCK}]})
 			.filter(it => it.kind === STEP_FIXED_SPELL);
 		expect(picks).toHaveLength(2);
+	});
+});
+
+describe("Outstanding decisions: alternative spell lists", () => {
+	const FIGHTER = {name: "Fighter", source: "XGE", classFeatures: [[], [], [{name: "Martial Archetype", gainSubclassFeature: true}]]};
+	const ARCHER = {name: "Arcane Archer", source: "XGE", additionalSpells: [{known: {3: ["prestidigitation#c"]}}, {known: {3: ["druidcraft#c"]}}]};
+
+	it("Asks a subclass which of its spell lists, once", () => {
+		const entry = {id: "a", name: "Fighter", level: 3};
+		const owed = getOutstandingDecisions({state: baseState({classes: [entry]}), loaded: [{entry, cls: FIGHTER, sc: ARCHER}]});
+		expect(owed.find(it => it.kind === STEP_SPELL_GROUP)?.detail).toBe("Prestidigitation or Druidcraft");
+
+		const spellGroups = [{key: "subclass:Arcane Archer|XGE", index: 1}];
+		const after = getOutstandingDecisions({state: baseState({classes: [entry], spellGroups}), loaded: [{entry, cls: FIGHTER, sc: ARCHER}]});
+		expect(after.find(it => it.kind === STEP_SPELL_GROUP)).toBeUndefined();
+	});
+
+	it("Leaves a species' list to the lineage trait that already asks it", () => {
+		const elf = JSON.parse(fs.readFileSync("./data/races.json", "utf8")).race.find(it => it.name === "Elf" && it.source === "XPHB");
+		const owed = getOutstandingDecisions({state: baseState({}), speciesEnt: elf});
+		expect(owed.find(it => it.kind === STEP_SPELL_GROUP)).toBeUndefined();
+
+		const astral = {name: "Astral Elf", source: "AAG", additionalSpells: [{known: {1: ["light#c"]}}, {known: {1: ["sacred flame#c"]}}], entries: []};
+		expect(getOutstandingDecisions({state: baseState({}), speciesEnt: astral}).find(it => it.kind === STEP_SPELL_GROUP)?.detail)
+			.toBe("Light or Sacred Flame");
 	});
 });

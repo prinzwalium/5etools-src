@@ -6,6 +6,8 @@ import {
 	getFixedSpellsKnownGrants,
 	getOptionalFeatureCounts,
 	getPreparedSpellCount,
+	getSpellGrantGroups,
+	getSpellGroupIndex,
 	getSpellsKnown,
 	getWeaponMasteryCount,
 } from "./charactersheet-levelengine.js";
@@ -50,6 +52,22 @@ export const STEP_CLASS_PROFICIENCY = "classProficiency";
 export const STEP_LANGUAGE = "language";
 /** A feature that offers a choice of features: Divine Order, Primal Order. */
 export const STEP_FEATURE_OPTION = "featureOption";
+/** Which of an entity's alternative spell lists it was taken with: a Circle of the Land's terrain, a Genie's kind. */
+export const STEP_SPELL_GROUP = "spellGroup";
+
+/** The decision a species or subclass with alternative spell groups owes until one is picked. */
+function _getSpellGroupDecision (st, kind, ent, ctx = {}) {
+	const groups = getSpellGrantGroups(ent);
+	if (!groups.length || getSpellGroupIndex(st, kind, ent) != null) return null;
+	return {
+		key: `${STEP_SPELL_GROUP}:${kind}:${ent.name}|${ent.source}`,
+		kind: STEP_SPELL_GROUP,
+		label: `${ent.name}: spell list`,
+		detail: groups.map(g => g.name).join(" or "),
+		count: 1,
+		ctx: {...ctx, kind, ent, groups},
+	};
+}
 
 /**
  * @param state the character state.
@@ -155,6 +173,16 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 				count: 1,
 				ctx: {ent, choice},
 			}));
+
+		// An Astral Elf's cantrip is a spell-list choice with no trait to ask it; an Elf's lineage is
+		// both, and answering the trait answers the list, so it is not asked twice
+		if (kind === "species") {
+			const groupNames = getSpellGrantGroups(ent).map(g => g.name.toLowerCase());
+			const isAskedByTrait = out.some(it => it.kind === STEP_TRAIT_CHOICE && it.ctx.ent === ent
+				&& (it.ctx.choice.options || []).some(opt => groupNames.includes(String(opt?.name ?? opt).toLowerCase())));
+			const decision = isAskedByTrait ? null : _getSpellGroupDecision(st, "race", ent);
+			if (decision) out.push(decision);
+		}
 	});
 
 	/* ---------- what each class still asks ---------- */
@@ -259,6 +287,9 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 				ctx: {entry, group},
 			});
 		});
+
+		const groupDecision = sc && _getSpellGroupDecision(st, "subclass", sc, {entry});
+		if (groupDecision) out.push(groupDecision);
 
 		const cantripsBase = getCantripsKnown(sc, entry.level) ?? getCantripsKnown(cls, entry.level);
 		// Thaumaturge and Magician each know one more

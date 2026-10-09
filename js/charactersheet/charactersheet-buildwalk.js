@@ -1,9 +1,9 @@
 import {getChoiceSignature} from "./charactersheet-choices.js";
-import {getOutstandingDecisions, STEP_ASI, STEP_CLASS_FEAT, STEP_CLASS_PROFICIENCY, STEP_EXPERTISE, STEP_FEATURE_OPTION, STEP_FIXED_SPELL, STEP_HP, STEP_LANGUAGE, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SIZE, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
+import {getOutstandingDecisions, STEP_ASI, STEP_CLASS_FEAT, STEP_CLASS_PROFICIENCY, STEP_EXPERTISE, STEP_FEATURE_OPTION, STEP_FIXED_SPELL, STEP_HP, STEP_LANGUAGE, STEP_MASTERY, STEP_OPTIONAL_FEATURE, STEP_ORIGIN_CHOICE, STEP_ORIGIN_FEAT, STEP_SIZE, STEP_SPELL_GROUP, STEP_SPELLS, STEP_SUBCLASS, STEP_TRAIT_CHOICE} from "./charactersheet-buildsteps.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE, PROF_STATE_PROFICIENT} from "./charactersheet-consts.js";
 import {pPickList} from "./charactersheet-featgrant.js";
-import {getLevelUpHp} from "./charactersheet-levelengine.js";
+import {getLevelUpHp, getSpellGroupKey} from "./charactersheet-levelengine.js";
 import {getFeatureOptionProficiencies, getHpBonusPerLevel} from "./charactersheet-features.js";
 
 /**
@@ -113,6 +113,9 @@ export class CharacterBuildWalk {
 			case STEP_FEATURE_OPTION:
 				return this._pResolveFeatureOption(decision);
 
+			case STEP_SPELL_GROUP:
+				return this._pResolveSpellGroup(decision);
+
 			default:
 				return null;
 		}
@@ -125,6 +128,19 @@ export class CharacterBuildWalk {
 		const comp = this._page._comp;
 		comp.setFeatureOptionForClass(entry.id, {feature: group.feature, option, source: group.source, level: group.level});
 		comp.setProficienciesFromSource(`${group.feature} (${entry.name})`, getFeatureOptionProficiencies(option));
+	}
+
+	/** A Circle of the Land's terrain, a Genie's kind, an Arcane Archer's cantrip: which spell list. */
+	async _pResolveSpellGroup ({ctx: {kind, ent, groups}}) {
+		const picked = await InputUiUtil.pGetUserEnum({
+			values: groups,
+			isResolveItem: true,
+			fnDisplay: g => g.name,
+			title: `${ent.name}: which spell list?`,
+			placeholder: "Select...",
+		});
+		if (picked == null) return;
+		this._page._comp.setSpellGroup(getSpellGroupKey(kind, ent), picked.index);
 	}
 
 	/**

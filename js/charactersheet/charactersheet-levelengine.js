@@ -717,12 +717,58 @@ export function getDynamicSpellGrants (clsOrSc, level, {slotSource = null} = {})
 	return out;
 }
 
-/** The distinct named alternative groups in an `additionalSpells` array (empty when there is no choice). */
+/**
+ * The alternative groups in an `additionalSpells` array (empty when there is no choice).
+ *
+ * More than one group is always a choice of one: a Circle of the Land's terrain, a Genie's kind, an
+ * Arcane Archer's Prestidigitation *or* Druidcraft. Some groups carry no name — the Arcane Archer's,
+ * an Astral Elf's three cantrips — and are labelled by the spells they hold.
+ */
 export function getSpellGrantGroups (ent) {
-	const groups = (ent?.additionalSpells || [])
-		.map((grp, ix) => ({index: ix, name: grp.name || null}))
-		.filter(it => it.name);
-	return groups.length > 1 ? groups : [];
+	const groups = ent?.additionalSpells || [];
+	if (groups.length < 2) return [];
+	return groups.map((grp, ix) => ({index: ix, name: grp.name || _getSpellGroupLabel(grp) || `Option ${ix + 1}`}));
+}
+
+function _getSpellGroupLabel (grp) {
+	const names = ["prepared", "known", "innate"]
+		.flatMap(bucket => Object.values(grp[bucket] || {}))
+		.flatMap(_flattenSpellEntries)
+		.filter(sp => typeof sp === "string")
+		.map(sp => sp.split("#")[0].split("|")[0].replace(/\b\w/g, c => c.toUpperCase()));
+	return [...new Set(names)].join(", ");
+}
+
+/** Where a character's pick of an entity's spell group is stored: `"subclass:Genie|TCE"`. */
+export function getSpellGroupKey (kind, ent) {
+	return ent ? `${kind}:${ent.name}|${ent.source}` : null;
+}
+
+/**
+ * Which of an entity's alternative spell groups the character took, or null if not yet chosen.
+ *
+ * A species' group is usually the same decision as one of its "choose one" traits — an Elf's
+ * lineage, a Tiefling's legacy — so a trait pick of the same name answers it when nothing was stored.
+ */
+export function getSpellGroupIndex (state, kind, ent) {
+	const groups = getSpellGrantGroups(ent);
+	if (!groups.length) return 0;
+	const key = getSpellGroupKey(kind, ent);
+	const stored = (state?.spellGroups || []).find(it => it.key === key);
+	if (stored && groups[stored.index]) return stored.index;
+	const picks = (state?.traitChoices || []).map(it => String(it.option || "").toLowerCase()).filter(Boolean);
+	const byTrait = groups.find(g => picks.includes(g.name.toLowerCase()));
+	return byTrait ? byTrait.index : null;
+}
+
+/**
+ * The entity as the character has it: only the spell group they took, or none while it is unchosen.
+ * Reading every group granted all of them — a Circle of the Land druid had all eight terrains' spells.
+ */
+export function getWithChosenSpellGroup (state, kind, ent) {
+	if (!ent || !getSpellGrantGroups(ent).length) return ent;
+	const grp = ent.additionalSpells[getSpellGroupIndex(state, kind, ent) ?? -1];
+	return {...ent, additionalSpells: grp ? [grp] : []};
 }
 
 /** Flatten an `additionalSpells` level value, unwrapping the `_`/frequency wrappers around lists. */
