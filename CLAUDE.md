@@ -139,16 +139,15 @@ them for free.
 
 ### Homebrew authoring lives in the account system
 
-`makebrew.html` and `js/makebrew.js` are **upstream's, untouched**. Upstream's builders cover
-creatures, spells and legendary groups; the seven a table actually asks for — feat, class, subclass,
-species, background, item, language — are in **`PrinzWalium/5etools-online`**, at
-`src/web/makebrew*`, and are served from there. They reach upstream's framework
-(`makebrew-builder-base.js`, `makebrew-builderui.js`, `utils-ui-sourcebuilder.js`, `consts.js`,
-`converterutils-tags.js`) across the path, on the one origin a deployment already serves both on —
-the same seam the character sheet's rules modules use, and the reason the fork carries no homebrew
-builder code and no sixth merge point. That repository's `src/web/makebrew/fork.js` names everything
-that crosses the seam; if an upstream release moves or renames one of those five, that file is what
-breaks, and its browser suite says so.
+`makebrew.html` and `js/makebrew.js` are **upstream's, untouched**, and nothing outside upstream uses
+them any more. Homebrew is written in **`PrinzWalium/5etools-online`**'s own forms, on its Homebrew
+page (`src/web/brewbuilder.js`, with the kinds and their form ⇄ entity rules in `brewkinds.js`) — feat,
+species, background, item, spell, creature, subclass, class, language — saved to the account, and
+installed into this repository's `BrewUtil2` on the sheet, builder and sidekick pages by that
+repository's `brewsync.js` (`BrewUtil2.pGetBrew` / `_getBrewDoc` / `pSetBrew`, documents named
+`online-brew-<id>-v<n>.json`). The fork carries no homebrew builder code and no merge point for it;
+what that repository reads from here is the renderer (to draw a preview), the data loader (to copy an
+entry from the books) and `BrewUtil2`.
 
 Two things about the shape of the data are worth knowing here, because they are about *this*
 repository's loader rather than about the builders. **A brew class or subclass carries its features
