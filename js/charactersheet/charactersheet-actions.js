@@ -66,11 +66,12 @@ export function getSpellSummary (ent, derivedSpell = null) {
 	if (rng) parts.push(rng);
 
 	if (ent.spellAttack?.length) {
-		const bonus = derivedSpell ? ` ${_fmtBonus(derivedSpell.atkMod)}` : "";
+		// A character with no spellcasting ability has no bonus to show — a feat's cantrip on a Fighter
+		const bonus = derivedSpell?.atkMod != null ? ` ${_fmtBonus(derivedSpell.atkMod)}` : "";
 		parts.push(`${ent.spellAttack[0] === "M" ? "Melee" : "Ranged"} atk${bonus}`);
 	} else if (ent.savingThrow?.length) {
 		const abv = String(ent.savingThrow[0]).slice(0, 3).toUpperCase();
-		parts.push(`${abv} save${derivedSpell ? ` DC ${derivedSpell.dc}` : ""}`);
+		parts.push(`${abv} save${derivedSpell?.dc != null ? ` DC ${derivedSpell.dc}` : ""}`);
 	}
 
 	if (ent.damageInflict?.length) parts.push(ent.damageInflict.map(d => d[0].toUpperCase() + d.slice(1)).join("/"));

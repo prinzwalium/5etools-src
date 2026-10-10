@@ -63,6 +63,8 @@ describe("Spell summary line", () => {
 	it("Should summarise a save spell with the character's DC and concentration", () => {
 		const hold = {time: [{number: 1, unit: "action"}], range: {distance: {type: "feet", amount: 60}}, savingThrow: ["wisdom"], duration: [{concentration: true}]};
 		expect(getSpellSummary(hold, {dc: 14, atkMod: 6})).toBe("Action · 60 ft. · WIS save DC 14 · Conc.");
+		// No spellcasting ability, so no DC: never "DC undefined"
+		expect(getSpellSummary(hold, {dc: undefined, atkMod: undefined})).toBe("Action · 60 ft. · WIS save · Conc.");
 	});
 
 	it("Should handle self/touch ranges and bonus-action timing, and empty for no entity", () => {
