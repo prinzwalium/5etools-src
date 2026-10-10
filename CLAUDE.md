@@ -374,6 +374,11 @@ template, run `node node/generate-pages.js` and commit both.
 - **The Build Check reports an ability past its cap** (`getAbilityCapFindings` in `audit`): 20, raised
   only by an Epic Boon's own increase (`max: 30` on the feat, per ability), and a background whose
   +2/+1 landed on one ability. The online builder allows both and warns; this is where it stays said.
+- **A species' natural armor is read off its trait** (`getNaturalArmor` in `appearance`, stored as
+  `naturalArmor` when the species is applied): a Tortle's fixed 17, a Lizardfolk's or Autognome's
+  13 + Dex, a Loxodon's 12 + Con. `deriveArmorClass` takes it when it beats the rest — over worn armor
+  only where the trait says so (a Tortle wears none; a Lizardfolk may use it "if the armor you wear
+  would leave you with a lower AC").
 - **Unarmored Defense and Martial Arts are derived** (`getUnarmoredDefenseMode`,
   `getMartialArtsDie`, `isMonkWeapon` in `derive`): a Barbarian or Monk with no armor gets its own
   AC formula without picking a mode, and a Monk's weapons and Unarmed Strike use the better of

@@ -117,6 +117,33 @@ export function getSpeciesTraitNames (race) {
 	return (race?.entries || []).filter(it => it && typeof it === "object" && it.name).map(it => String(it.name).trim());
 }
 
+const _ABILITY_BY_WORD = {strength: "str", dexterity: "dex", constitution: "con", intelligence: "int", wisdom: "wis", charisma: "cha"};
+const _textOf = ent => (typeof ent === "string" ? ent : [ent?.entries, ent?.entry, ent?.items].flat().filter(Boolean).map(_textOf).join(" "));
+
+/**
+ * A species' own Armor Class formula, read off its trait: a Tortle's shell ("a base AC of 17 (your
+ * Dexterity modifier doesn't affect this number)"), a Lizardfolk's or an Autognome's "13 + your
+ * Dexterity modifier", a Loxodon's "12 + your Constitution modifier". Prose in the data, but written
+ * the same few ways in every book, so it is read rather than curated.
+ *
+ * `isOverArmor` is whether it still counts with armor on: a Tortle cannot wear armor at all, and a
+ * Lizardfolk "can use your natural armor … if the armor you wear would leave you with a lower AC";
+ * an Autognome's casing counts only while it wears none.
+ * @return {{name: string, base: number, ability: string|null, isOverArmor: boolean}|null}
+ */
+export function getNaturalArmor (race) {
+	for (const ent of race?.entries || []) {
+		if (!ent || typeof ent !== "object" || !ent.name) continue;
+		const text = _textOf(ent).replace(/\{@\w+ ([^|}]*)[^}]*\}/g, "$1");
+		const isOverArmor = /armor you wear would leave you with a lower AC|can't wear light, medium, or heavy armor|ill-suited to wearing armor/i.test(text);
+		const fixed = /base (?:AC|Armor Class) of (\d+)\s*\(your Dexterity modifier doesn't affect/i.exec(text);
+		if (fixed) return {name: String(ent.name), base: Number(fixed[1]), ability: null, isOverArmor};
+		const formula = /(?:AC|Armor Class) (?:is|equals|is equal to|of) (\d+) \+ (?:your )?(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) modifier/i.exec(text);
+		if (formula) return {name: String(ent.name), base: Number(formula[1]), ability: _ABILITY_BY_WORD[formula[2].toLowerCase()], isOverArmor};
+	}
+	return null;
+}
+
 /** The species' `traitTags`, cleaned up. */
 export function getTraitTags (race) {
 	return [race?.traitTags].flat().filter(Boolean).map(it => String(it).trim()).filter(Boolean);

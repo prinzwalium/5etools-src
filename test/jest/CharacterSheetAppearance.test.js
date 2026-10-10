@@ -10,6 +10,7 @@ import {
 	getDiceExpressionRange,
 	getHeightAndWeightRange,
 	getHeightAndWeightTable,
+	getNaturalArmor,
 	getSpeeds,
 	getSpeciesTraitNames,
 	getTraitTags,
@@ -126,6 +127,17 @@ describe("Trait names", () => {
 	it("Lists a species' named traits, which is where Dwarven Toughness lives", () => {
 		expect(getSpeciesTraitNames(getRace("Dwarf", "XPHB"))).toContain("Dwarven Toughness");
 		expect(getSpeciesTraitNames(null)).toEqual([]);
+	});
+});
+
+describe("Natural armor", () => {
+	it("Reads a species' own AC formula off its trait, in each way the books write it", () => {
+		expect(getNaturalArmor(getRace("Tortle", "MPMM"))).toEqual({name: "Natural Armor", base: 17, ability: null, isOverArmor: true});
+		expect(getNaturalArmor(getRace("Lizardfolk", "MPMM"))).toEqual({name: "Natural Armor", base: 13, ability: "dex", isOverArmor: true});
+		expect(getNaturalArmor(getRace("Loxodon", "GGR"))).toEqual({name: "Natural Armor", base: 12, ability: "con", isOverArmor: true});
+		// Only while it wears none
+		expect(getNaturalArmor(getRace("Autognome", "AAG"))).toEqual({name: "Armored Casing", base: 13, ability: "dex", isOverArmor: false});
+		expect(getNaturalArmor(getRace("Dwarf", "XPHB"))).toBe(null);
 	});
 });
 

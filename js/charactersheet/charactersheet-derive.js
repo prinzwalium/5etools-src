@@ -329,6 +329,8 @@ export function deriveCharacterSheet (state, {featureNames = []} = {}) {
 	};
 }
 
+const _ABILITY_LABEL = {str: "Strength", dex: "Dexterity", con: "Constitution", int: "Intelligence", wis: "Wisdom", cha: "Charisma"};
+
 /**
  * Armor Class from equipped gear and the chosen mode.
  *  - "manual": the character's typed AC value, unchanged.
@@ -387,6 +389,21 @@ export function deriveArmorClass (state) {
 		baseParts.push({label: "Unarmored", value: 10, isRaw: true, cite: "armorClass"},
 			{label: "Dexterity", value: dexMod, isKeep: true, cite: "abilityModifier"});
 		note = "Unarmored";
+	}
+
+	// A species' own armor — a Tortle's shell, a Lizardfolk's scales — when it beats what was worked out:
+	// without armor always, over armor only where the trait says so (a Tortle wears none at all)
+	const natural = state.naturalArmor;
+	if (natural && chosenMode === "auto" && (!armor || natural.isOverArmor)) {
+		const abilMod = natural.ability ? getAbilityModifier(state, natural.ability) : 0;
+		const naturalAc = (Number(natural.base) || 10) + abilMod;
+		if (naturalAc > base) {
+			base = naturalAc;
+			baseParts.length = 0;
+			baseParts.push({label: natural.name, value: Number(natural.base) || 10, isRaw: true, cite: "armorClass"});
+			if (natural.ability) baseParts.push({label: _ABILITY_LABEL[natural.ability] || natural.ability, value: abilMod, isKeep: true, cite: "abilityModifier"});
+			note = natural.name;
+		}
 	}
 
 	const shield = equipped

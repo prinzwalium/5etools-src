@@ -145,6 +145,22 @@ describe("Character sheet derivation", () => {
 			expect(deriveArmorClass(getBaseState({inventory: inv})).ac).toBe(21); // 16+1 +3 +1
 		});
 
+		it("Should use a species' natural armor when it beats the rest, over armor only where the trait allows", () => {
+			const tortle = {name: "Natural Armor", base: 17, ability: null, isOverArmor: true};
+			const studded = {id: "a", type: "LA", isArmor: true, baseAc: 12, equipped: true};
+			expect(deriveArmorClass(getBaseState({abil_dex: 14, naturalArmor: tortle})).ac).toBe(17);
+			expect(deriveArmorClass(getBaseState({abil_dex: 14, naturalArmor: tortle, inventory: [studded]})).ac).toBe(17, "a Tortle wears no armor");
+			const shield = {id: "s", type: "S", baseAc: 2, equipped: true};
+			expect(deriveArmorClass(getBaseState({abil_dex: 14, naturalArmor: tortle, inventory: [shield]})).ac).toBe(19, "a shield still counts");
+			const casing = {name: "Armored Casing", base: 13, ability: "dex", isOverArmor: false};
+			expect(deriveArmorClass(getBaseState({abil_dex: 14, naturalArmor: casing})).ac).toBe(15);
+			expect(deriveArmorClass(getBaseState({abil_dex: 14, naturalArmor: casing, inventory: [studded]})).ac).toBe(14, "armor on, the casing does not count");
+			const d = deriveArmorClass(getBaseState({abil_dex: 14, naturalArmor: casing}));
+			expect(d.parts.map(p => p.label)).toEqual(expect.arrayContaining(["Armored Casing", "Dexterity"]));
+			// A Monk with better Unarmored Defense keeps it
+			expect(deriveArmorClass(getBaseState({abil_dex: 16, abil_wis: 18, naturalArmor: casing, classes: [{name: "Monk", source: "XPHB", level: 3}]})).ac).toBe(17);
+		});
+
 		it("Should apply Barbarian/Monk unarmored formulas, and honour manual mode", () => {
 			const s = getBaseState({abil_dex: 14, abil_con: 16, abil_wis: 12});
 			expect(deriveArmorClass({...s, acMode: "barbarian"}).ac).toBe(15); // 10 +2 +3
