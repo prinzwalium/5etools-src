@@ -190,6 +190,14 @@ describe("Outstanding decisions: the pools and the rest", () => {
 		expect(decisions.filter(it => it.kind === STEP_ORIGIN_FEAT).map(it => it.detail)).toEqual(["Human"]);
 	});
 
+	it("Owes the Variant Human its feat, which may be any feat", () => {
+		const speciesEnt = {name: "Variant Human", feats: [{any: 1}]};
+		const owed = getOutstandingDecisions({state: baseState({hpMax: 10}), speciesEnt}).find(it => it.kind === STEP_ORIGIN_FEAT);
+		expect(owed?.label).toBe("Feat of your choice");
+		const taken = baseState({hpMax: 10, originFeats: [{name: "Alert", source: "PHB", from: "Variant Human"}]});
+		expect(getOutstandingDecisions({state: taken, speciesEnt}).find(it => it.kind === STEP_ORIGIN_FEAT)).toBeUndefined();
+	});
+
 	// Except the languages, which under the 2024 rules no species or background grants — they are a
 	// rule of character creation, so every character is owed them from the first moment
 	it("Has nothing to say about a character with nothing picked, beyond its languages", () => {

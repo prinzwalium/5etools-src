@@ -1,5 +1,5 @@
 import "../../js/parser.js";
-import {deriveArmorClass, deriveCharacterSheet, formatBreakdown, getMartialArtsDie, getUnarmoredDefenseMode, getAbilityScore, getAbilityScoreParts, getConcentrationSaveDc, getEquippedMagicBonuses, getItemAbilityEffects, getProfBonus, getTotalLevel, getUnarmedStrike, getWeaponAttack, hasSpellcasting} from "../../js/charactersheet/charactersheet-derive.js";
+import {deriveArmorClass, deriveCharacterSheet, formatBreakdown, getDerivedSpeed, getMartialArtsDie, getUnarmoredDefenseMode, getAbilityScore, getAbilityScoreParts, getConcentrationSaveDc, getEquippedMagicBonuses, getItemAbilityEffects, getProfBonus, getTotalLevel, getUnarmedStrike, getWeaponAttack, hasSpellcasting} from "../../js/charactersheet/charactersheet-derive.js";
 
 const getBaseState = (overrides = {}) => ({
 	level: 1,
@@ -642,5 +642,23 @@ describe("Unarmored fighting", () => {
 		// A dagger's d4 is smaller, so the die grows; armour ends Martial Arts altogether
 		expect(getWeaponAttack(monk, dagger).damage).toMatch(/^1d8\+3/);
 		expect(getUnarmedStrike({...monk, inventory: [leather]}).damage).toBe("1 bludgeoning");
+	});
+});
+
+describe("Speed a class adds", () => {
+	const MONK = {speed: "35 ft.", classes: [{name: "Monk", level: 5}], inventory: []};
+
+	it("Adds a Monk's Unarmored Movement while unarmored and without a shield", () => {
+		const resources = [{label: "Unarmored Movement", value: "+10 ft."}];
+		expect(getDerivedSpeed(MONK, {resources})).toBe("45 ft.");
+		const shielded = {...MONK, inventory: [{equipped: true, type: "S"}]};
+		expect(getDerivedSpeed(shielded, {resources})).toBe("35 ft.");
+	});
+
+	it("Adds a Barbarian's Fast Movement unless the armor is heavy, and only to walking", () => {
+		const barb = {speed: "30 ft., swim 30 ft.", classes: [{name: "Barbarian", level: 5}], inventory: []};
+		expect(getDerivedSpeed(barb, {featureNames: ["Fast Movement"]})).toBe("40 ft., swim 30 ft.");
+		const heavy = {...barb, inventory: [{equipped: true, isArmor: true, type: "HA"}]};
+		expect(getDerivedSpeed(heavy, {featureNames: ["Fast Movement"]})).toBe("30 ft., swim 30 ft.");
 	});
 });

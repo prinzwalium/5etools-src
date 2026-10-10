@@ -142,7 +142,12 @@ export function getPreparedSpellCount (cls, level, abilityMod = 0) {
 		.replace(/<\$level_half_round_down\$>/g, `${Math.floor(level / 2)}`)
 		.replace(/<\$level\$>/g, `${level}`)
 		.replace(/<\$\w{3}_mod\$>/g, `${abilityMod}`);
-	const parts = expr.split("+").map(s => Number(s.trim()));
+	// "<$level$> / 2" is the Artificer's and the 2014 Paladin's half level, rounded down by the rules;
+	// read as a plain number it was NaN, and both classes had no limit at all
+	const parts = expr.split("+").map(term => {
+		const [num, ...divs] = term.split("/").map(it => Number(it.trim()));
+		return divs.reduce((acc, d) => Math.floor(acc / d), num);
+	});
 	if (parts.some(n => isNaN(n))) return null;
 	return Math.max(1, parts.reduce((a, b) => a + b, 0));
 }

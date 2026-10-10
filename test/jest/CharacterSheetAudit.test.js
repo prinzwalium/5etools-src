@@ -49,6 +49,21 @@ describe("Audit: what breaks a rule", () => {
 		expect(found.message).toMatch(/Attuned to 4 items; the limit is 3/);
 	});
 
+	it("Catches a score past 20, unless an Epic Boon raised it", () => {
+		expect(keysOf(auditCharacter(getCleanState({abil_dex: 22})))).toContain("ability-cap:dex");
+		expect(keysOf(auditCharacter(getCleanState({abil_dex: 20})))).not.toContain("ability-cap:dex");
+
+		const abilityBonusLog = [{source: "Boon of Speed (feat)", bonuses: {dex: 1, max: 30}}];
+		expect(keysOf(auditCharacter(getCleanState({abil_dex: 21, abilityBonusLog})))).not.toContain("ability-cap:dex");
+		expect(keysOf(auditCharacter(getCleanState({abil_dex: 22, abilityBonusLog})))).toContain("ability-cap:dex");
+	});
+
+	it("Catches a background's +2 and +1 piled on one ability", () => {
+		const abilityBonusLog = [{source: "Soldier", bonuses: {str: 3}}];
+		expect(keysOf(auditCharacter(getCleanState({abilityBonusLog})))).toContain("background-increase:str");
+		expect(keysOf(auditCharacter(getCleanState({abilityBonusLog: [{source: "Soldier", bonuses: {str: 2, con: 1}}]})))).not.toContain("background-increase:str");
+	});
+
 	it("Allows exactly three", () => {
 		const inventory = [1, 2, 3].map(n => ({id: `${n}`, attuned: true, name: `Item ${n}`}));
 		expect(keysOf(auditCharacter(getCleanState({inventory})))).not.toContain("attunement");

@@ -5,7 +5,7 @@ import {getLevelUpHp} from "./charactersheet-levelengine.js";
 import {deriveCharacterSheet, formatBreakdown, getConcentrationSaveDc} from "./charactersheet-derive.js";
 import {CharacterSheetClassData} from "./charactersheet-classdata.js";
 import {CharacterWizard} from "./charactersheet-wizard.js";
-import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_SKILL_TOOL_LANGUAGE, CHOICE_TYPE_TOOL, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getChoiceWithoutHeld, getFixedAbilityBonuses, getFixedProficiencyNames, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getResistChoices, mergeHeldProficiencyNames} from "./charactersheet-choices.js";
+import {CHOICE_TYPE_ABILITY, CHOICE_TYPE_LANGUAGE, CHOICE_TYPE_SKILL, CHOICE_TYPE_SKILL_TOOL_LANGUAGE, CHOICE_TYPE_TOOL, FEAT_CATEGORY_ANY, getAbilityChoices, getAbilityPackageDisplay, getChoiceSignature, getChoiceWithoutHeld, getFixedAbilityBonuses, getFixedProficiencyNames, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getResistChoices, isFeatInGrantCategory, mergeHeldProficiencyNames} from "./charactersheet-choices.js";
 import {pPickAbilities, pPickList, pResolveEntitySpellGrants, pResolveFeat} from "./charactersheet-featgrant.js";
 import {PROF_KIND_LANGUAGE, PROF_KIND_TOOL, PROF_KINDS, groupProficienciesByKind} from "./charactersheet-proficiencies.js";
 import {DEFENSE_KINDS, DEFENSE_KIND_RESIST, DEFENSE_KIND_SENSE, getAllDefenses, groupDefensesByKind} from "./charactersheet-defenses.js";
@@ -2293,7 +2293,7 @@ export class CharacterPageBase {
 	async _pPickOriginFeatFromCategory (ent, grant) {
 		const taken = new Set((this._comp._state.originFeats || []).map(it => `${it.name}|${it.source}`.toLowerCase()));
 		const pool = (await CharacterSheetClassData.pGetAllFeats())
-			.filter(f => String(f.category || "").toUpperCase().split(":")[0] === grant.category)
+			.filter(f => isFeatInGrantCategory(f, grant.category))
 			// A feat the book marks `repeatable` may legitimately be taken again — Skilled and Magic
 			// Initiate both are, and filtering them out blocked a legal second take
 			.filter(f => f.repeatable || !taken.has(`${f.name}|${f.source}`.toLowerCase()));
@@ -2307,7 +2307,7 @@ export class CharacterPageBase {
 			values: pool,
 			isResolveItem: true,
 			fnDisplay: f => `${f.name} (${Parser.sourceJsonToAbv(f.source)})`,
-			title: `${ent.name}: choose an Origin feat`,
+			title: grant.category === FEAT_CATEGORY_ANY ? `${ent.name}: choose a feat` : `${ent.name}: choose an Origin feat`,
 			placeholder: "Select...",
 		});
 		if (feat == null) return;

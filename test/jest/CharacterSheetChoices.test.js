@@ -1,5 +1,8 @@
 import "../../js/parser.js";
 import {
+	FEAT_CATEGORY_ANY,
+	getGrantedFeatCategories,
+	isFeatInGrantCategory,
 	getGrantedFeatChoice,
 	getResistChoices,
 	getWeaponChoices,
@@ -451,5 +454,16 @@ describe("a feature that offers a choice of feats", () => {
 	it("Keeps the old behaviour when nothing says otherwise", () => {
 		expect(getGrantedFeats(REWARDED).map(it => it.name)).toEqual(["lucky", "magic initiate", "skilled"]);
 		expect(getGrantedFeatChoice(REWARDED)).toBeNull();
+	});
+});
+
+describe("Feats granted by category, or of any kind", () => {
+	it("Reads a Variant Human's any-feat grant, which excludes what only a class gives", () => {
+		expect(getGrantedFeatCategories([{any: 1}])).toEqual([{category: FEAT_CATEGORY_ANY, count: 1}]);
+		expect(isFeatInGrantCategory({name: "Alert", category: "O"}, FEAT_CATEGORY_ANY)).toBe(true);
+		expect(isFeatInGrantCategory({name: "Grappler"}, FEAT_CATEGORY_ANY)).toBe(true);
+		expect(isFeatInGrantCategory({name: "Archery", category: "FS"}, FEAT_CATEGORY_ANY)).toBe(false);
+		expect(isFeatInGrantCategory({name: "Alert", category: "O"}, "O")).toBe(true);
+		expect(isFeatInGrantCategory({name: "Grappler", category: "G"}, "O")).toBe(false);
 	});
 });

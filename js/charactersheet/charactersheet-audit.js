@@ -25,6 +25,44 @@ const _ABILITY_NAMES = {str: "Strength", dex: "Dexterity", con: "Constitution", 
 
 const _mkFinding = (severity, key, message, hint = null) => ({severity, key, message, hint});
 
+/** The ordinary maximum for an ability score. */
+export const ABILITY_SCORE_CAP = 20;
+
+/**
+ * Scores over the cap, and a background's increase piled onto one ability.
+ *
+ * `abilityBonusLog` says where every increase came from, which is what tells a boon's +1 (allowed past
+ * 20, written `max: 30` on the feat) from an Ability Score Improvement's (not). The builder lets a
+ * table put a background's +2 and +1 on the same ability and warns once; this is where it stays said.
+ */
+export function getAbilityCapFindings (state) {
+	const out = [];
+	const log = state?.abilityBonusLog || [];
+	Object.entries(_ABILITY_NAMES).forEach(([abv, name]) => {
+		const score = Number(state?.[`abil_${abv}`]) || 0;
+		const pastCap = log
+			.filter(it => Number(it?.bonuses?.max) > ABILITY_SCORE_CAP)
+			.reduce((acc, it) => acc + Math.max(0, Number(it.bonuses[abv]) || 0), 0);
+		const cap = Math.min(30, ABILITY_SCORE_CAP + pastCap);
+		if (score > cap) {
+			out.push(_mkFinding(AUDIT_BROKEN, `ability-cap:${abv}`,
+				`${name} is ${score}; the most it can be is ${cap}.`,
+				pastCap ? "Only an Epic Boon's increase may pass 20." : "An increase past 20 is lost, unless an Epic Boon grants it."));
+		}
+	});
+
+	const bgName = state?.refBackground?.name;
+	log.filter(it => bgName && it?.source === bgName).forEach(it => {
+		const piled = Object.entries(it.bonuses || {}).find(([abv, n]) => abv in _ABILITY_NAMES && Number(n) > 2);
+		if (piled) {
+			out.push(_mkFinding(AUDIT_BROKEN, `background-increase:${piled[0]}`,
+				`${bgName} raises ${_ABILITY_NAMES[piled[0]]} by ${piled[1]}.`,
+				"A background's increases go to different abilities: +2 and +1, or +1 to three."));
+		}
+	});
+	return out;
+}
+
 /**
  * Whether ability scores meet a class's `multiclassing.requirements`.
  *
@@ -114,6 +152,9 @@ export function auditCharacter (state, {encumbrance = null, classInfos = [], cou
 			`Multiclassing into ${info.name} needs ${text}.`,
 			"A DM can waive this; the rules do not."));
 	});
+
+	// An ability score tops out at 20; an Epic Boon's increase may go past it, to 30, and only its own
+	getAbilityCapFindings(state).forEach(it => out.push(it));
 
 	if (counts.preparedLimit != null && counts.preparedCount > counts.preparedLimit) {
 		out.push(_mkFinding(AUDIT_BROKEN, "prepared",

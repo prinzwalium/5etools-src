@@ -12,7 +12,7 @@ import {
 	getWeaponMasteryCount,
 } from "./charactersheet-levelengine.js";
 import {CHAR_SHEET_SKILLS, PROF_STATE_EXPERTISE} from "./charactersheet-consts.js";
-import {CHOICE_TYPE_LANGUAGE, getChoiceSignature, getChoiceWithoutHeld, getClassFeatureLanguageChoices, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getRulesLanguageChoice} from "./charactersheet-choices.js";
+import {CHOICE_TYPE_LANGUAGE, FEAT_CATEGORY_ANY, getChoiceSignature, getChoiceWithoutHeld, getClassFeatureLanguageChoices, getGrantedFeatCategories, getGrantedFeatChoice, getGrantedFeats, getHeldProficiencyNames, getPendingChoices, getRulesLanguageChoice} from "./charactersheet-choices.js";
 import {getTraitChoices} from "./charactersheet-traitchoices.js";
 import {getFeatureOptionCantripBonus, getFeatureOptionGroups} from "./charactersheet-features.js";
 
@@ -131,14 +131,15 @@ export function getOutstandingDecisions ({state, loaded = [], speciesEnt = null,
 			});
 		}
 
-		const nChoice = getGrantedFeatCategories(ent.feats).reduce((acc, it) => acc + it.count, 0);
+		const grants = getGrantedFeatCategories(ent.feats);
+		const nChoice = grants.reduce((acc, it) => acc + it.count, 0);
 		const nFromHere = taken.filter(it => it.from === ent.name).length;
 		const owed = nChoice - Math.max(0, nFromHere - named.length);
 		if (owed > 0) {
 			out.push({
 				key: `${STEP_ORIGIN_FEAT}:${ent.name}:choice`,
 				kind: STEP_ORIGIN_FEAT,
-				label: `Origin feat of your choice`,
+				label: grants.every(it => it.category === FEAT_CATEGORY_ANY) ? "Feat of your choice" : "Origin feat of your choice",
 				detail: ent.name,
 				count: owed,
 				ctx: {ent},

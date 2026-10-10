@@ -523,6 +523,46 @@ function _isUnarmoredUnshielded (state) {
 	return !(state?.inventory || []).some(it => it.equipped && ((it.isArmor && ["LA", "MA", "HA"].includes(it.type)) || it.type === "S"));
 }
 
+const _isWearingHeavyArmor = state => (state?.inventory || []).some(it => it.equipped && it.isArmor && it.type === "HA");
+
+/** A class table's speed cell, as `getClassResources` writes it: "+10 ft.". */
+const _RE_SPEED_BONUS = /^\+(\d+) ft\.$/;
+
+/**
+ * What a class adds to walking speed, each part with the reason it counts.
+ *
+ * The stored speed is the species' — an input, kept as text — so nothing a class gave ever reached it:
+ * a level-5 Wood Elf Monk read 35 feet beside a class table saying +10. A Monk's Unarmored Movement is
+ * a table column (counted only without armor or a shield); a Barbarian's Fast Movement is prose, and
+ * counts unless the armor is heavy.
+ *
+ * @param opts.resources the class resources (`{label, value}`) the page already reads off the tables.
+ * @param opts.featureNames the character's feature names.
+ * @return {Array<{label: string, value: number}>}
+ */
+export function getSpeedBonusParts (state, {resources = [], featureNames = []} = {}) {
+	const parts = [];
+	if (_isUnarmoredUnshielded(state)) {
+		(resources || []).forEach(res => {
+			const m = _RE_SPEED_BONUS.exec(String(res?.value || "").trim());
+			if (m) parts.push({label: res.label, value: Number(m[1])});
+		});
+	}
+	if ((featureNames || []).includes("Fast Movement") && !_isWearingHeavyArmor(state)) parts.push({label: "Fast Movement", value: 10});
+	return parts;
+}
+
+/**
+ * The speed to show: the stored text with the class's bonuses added to the walking speed, which comes
+ * first ("35 ft., swim 35 ft."). A text that does not start with a number is left as it was.
+ */
+export function getDerivedSpeed (state, opts = {}) {
+	const text = String(state?.speed || "");
+	const bonus = getSpeedBonusParts(state, opts).reduce((acc, it) => acc + it.value, 0);
+	if (!bonus) return text;
+	return text.replace(/^(\d+)(?= ft\.)/, n => `${Number(n) + bonus}`);
+}
+
 /**
  * Which Unarmored Defense an unarmoured character gets, as an AC mode: a Barbarian's (Con) or a Monk's
  * (Wis, and no shield), whichever is higher, else plain 10 + Dex.

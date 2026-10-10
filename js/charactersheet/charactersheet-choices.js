@@ -524,6 +524,22 @@ export function getGrantedFeatChoice (feats, {fromFeature = null} = {}) {
 	return {count: 1, from: _getNamedFeats(feats)};
 }
 
+/** A grant of "any feat", in {@link getGrantedFeatCategories}' `category`. */
+export const FEAT_CATEGORY_ANY = "*";
+
+/** Feats only a class hands out, at its own levels: a Fighting Style, an Epic Boon. */
+const _CLASS_ONLY_FEAT_CATEGORIES = new Set(["FS", "EB"]);
+
+/**
+ * Whether a feat may answer a category grant. "Any feat" means any a character could simply take —
+ * not a Fighting Style or an Epic Boon, which a class gives at its own levels.
+ */
+export function isFeatInGrantCategory (feat, category) {
+	const own = String(feat?.category || "").toUpperCase().split(":")[0];
+	if (category === FEAT_CATEGORY_ANY) return !_CLASS_ONLY_FEAT_CATEGORIES.has(own);
+	return own === category;
+}
+
 /**
  * Feats an entity grants as a *category* rather than by name — "you gain an Origin feat of your
  * choice", which is how the 2024 Human's Versatile is written and how several backgrounds work.
@@ -537,6 +553,9 @@ export function getGrantedFeatChoice (feats, {fromFeature = null} = {}) {
 export function getGrantedFeatCategories (feats) {
 	const out = [];
 	(feats || []).forEach(grp => {
+		// `{any: 1}`: one feat of any kind — the Variant Human's and the Custom Lineage's, which read
+		// as nothing at all while only `anyFromCategory` was understood
+		if (Number(grp?.any) > 0) return out.push({category: FEAT_CATEGORY_ANY, count: Number(grp.any)});
 		const any = grp?.anyFromCategory;
 		if (!any) return;
 		const categories = [any.category].flat().filter(Boolean);

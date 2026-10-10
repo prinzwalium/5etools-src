@@ -4,6 +4,7 @@ import {
 	CHOICE_TYPE_ABILITY,
 	getChoiceSignature,
 	getFixedAbilityBonuses,
+	FEAT_CATEGORY_ANY,
 	getGrantedFeatCategories,
 	getChoiceWithoutHeld,
 	getGrantedFeatChoice,
@@ -223,7 +224,7 @@ export class CharacterOriginPanel {
 		// disagree, one saying it was taken while the other still asked for it
 		const nFromHere = (this._comp._state.originFeats || []).filter(it => it.from === ent.name).length;
 		getGrantedFeatCategories(ent.feats).forEach((grant, ix) => {
-			rows.push({label: "Origin feat of your choice", isHave: nFromHere > ix + getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature}).length});
+			rows.push({label: grant.category === FEAT_CATEGORY_ANY ? "Feat of your choice" : "Origin feat of your choice", isHave: nFromHere > ix + getGrantedFeats(ent.feats, {fromFeature: ent.fromFeature}).length});
 		});
 
 		if (!rows.length) return;

@@ -253,6 +253,9 @@ template, run `node node/generate-pages.js` and commit both.
 - **Two feat fields beyond the obvious ones.** `savingThrowProficiencies` is Resilient, and nothing
   else in the books; `bonusSenses` is how a feat *raises* a sense it does not grant. Both were
   unread, so both feats did nothing at all.
+- **"A feat of your choice" is `feats: [{any: 1}]`** — the Variant Human's and the Custom Lineage's.
+  `getGrantedFeatCategories` reports it as `FEAT_CATEGORY_ANY`, and `isFeatInGrantCategory` is how every
+  picker matches a category: any feat but a Fighting Style or an Epic Boon, which a class gives.
 - **A `repeatable` feat may be taken twice.** Skilled and Magic Initiate both are. The pickers used
   to filter out anything already held, and `addOriginFeat` deduplicated by name, so a legal second
   take was offered and then dropped.
@@ -365,6 +368,13 @@ template, run `node node/generate-pages.js` and commit both.
   *derived from what is equipped*, never stored; a "choose one" trait's
   resistance is derived from the pick. `getAllDefenses(state)` is the one
   view-level entry point.
+- **Speed a class adds is derived, not stored** (`getSpeedBonusParts` / `getDerivedSpeed` in `derive`):
+  the stored speed is the species' text, so a Monk's Unarmored Movement (a table column, counted
+  without armor or a shield) and a Barbarian's Fast Movement (prose, not in heavy armor) are added to
+  the walking speed at display time.
+- **The Build Check reports an ability past its cap** (`getAbilityCapFindings` in `audit`): 20, raised
+  only by an Epic Boon's own increase (`max: 30` on the feat, per ability), and a background whose
+  +2/+1 landed on one ability. The online builder allows both and warns; this is where it stays said.
 - **Unarmored Defense and Martial Arts are derived** (`getUnarmoredDefenseMode`,
   `getMartialArtsDie`, `isMonkWeapon` in `derive`): a Barbarian or Monk with no armor gets its own
   AC formula without picking a mode, and a Monk's weapons and Unarmed Strike use the better of
@@ -469,6 +479,9 @@ Key fields (all read by `charactersheet-levelengine.js` unless noted):
   Boon** at 19 (`getFeatProgressionCounts`). The class panel also offers these
   from the feature card that names them, so the guide and the Build Check count
   what was taken **by category**, not by which chooser recorded it.
+- **`preparedSpells`** is a formula, and two of them halve the level: `<$level$> / 2 + <$int_mod$>`
+  (Artificer) and the 2014 Paladin's. `getPreparedSpellCount` rounds the half down; reading the term as a
+  plain number left both classes with no limit at all.
 - **`preparedSpellsProgression`** — the 2024 prepared casters replaced the
   `preparedSpells` formula with an exact by-level table that no longer uses the
   ability modifier. `getPreparedSpellCount` reads whichever the class has;

@@ -154,6 +154,13 @@ describe("Leveling engine: prepared spells, both editions", () => {
 		expect(getPreparedSpellCount(getClass("cleric"), 5, 3)).toBe(8);
 	});
 
+	it("Reads a half-level formula, rounded down (Artificer, 2014 Paladin)", () => {
+		const artificer = loadClassFile("artificer").class[0];
+		expect(getPreparedSpellCount(artificer, 5, 2)).toBe(4);
+		expect(getPreparedSpellCount(getClass("paladin"), 3, 2)).toBe(3);
+		expect(getPreparedSpellCount(artificer, 1, -1)).toBe(1);
+	});
+
 	it("Reads the 2024 table, which does not depend on the ability modifier", () => {
 		const cleric = getClass("cleric", "XPHB");
 		expect(getPreparedSpellCount(cleric, 1, 0)).toBe(4);
