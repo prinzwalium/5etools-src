@@ -14,7 +14,7 @@
 
 # The build runs once, on the builder's own platform: its output is plain files, the same for every
 # platform the image is published for
-FROM --platform=$BUILDPLATFORM node:22-slim AS build
+FROM --platform=$BUILDPLATFORM node:lts-slim AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -24,10 +24,14 @@ COPY . .
 RUN bash .github/set-deployed-flag.sh "v$(node -p 'require("./package.json").version')" \
 	&& bash .github/set-img-root.sh 5etools-mirror-3 \
 	&& npm run build:sw:prod
-# What the site serves, by upstream's own `.dockerignore` list, and nothing else
+# What the site serves: exactly what upstream's own `.dockerignore` lets into upstream's image (its
+# `!` lines), read at build time, so an upstream sync that changes the list changes this image with it.
+# `docker` is on that list for upstream's sake; here it is this file's own directory
 RUN mkdir /out \
-	&& cp -a *.html *.png *.svg *.xml manifest.webmanifest sw.js sw-injector.js /out/ \
-	&& for dir in audio css data fonts homebrew icon js lib prerelease search; do cp -a "$dir" /out/; done
+	&& sed -n 's/^!//p' .dockerignore | while read -r pattern; do \
+		for path in $pattern; do if [ -e "$path" ]; then cp -a "$path" /out/; fi; done; \
+	done \
+	&& rm -rf /out/docker
 
 FROM joseluisq/static-web-server:2.44.1
 COPY --from=build /out /public
