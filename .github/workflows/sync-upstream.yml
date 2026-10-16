@@ -1,0 +1,92 @@
+name: Sync from Upstream
+
+# Keeps the fork on upstream 5etools by itself: every night it merges upstream's `main` into this
+# repository's `main` and `beta`, and when anything came in, builds the small image for each
+# (`docker-image.yml`). The fork's own files (`docker/`, this workflow and the image's) are paths
+# upstream does not have, so the merge never conflicts on them.
+#
+# By merging, never by resetting: the fork's three files live on top of upstream's history, and
+# GitHub's "Sync fork → Discard commits" would throw them away.
+#
+# Tags are never fetched or pushed. Upstream's own release workflows (`main.yml`, `pages.yml`) start
+# on a `v*` tag, and `main.yml` would publish upstream's multi-gigabyte image under this fork's name.
+#
+# Two ways a night can end red, both by e-mail to the repository owner:
+#  - a conflict: only possible if upstream adds a file at one of the fork's paths. Nothing is pushed;
+#    merge by hand.
+#  - upstream changed one of its own workflow files: GitHub refuses that push from the workflow's own
+#    token. Add a secret `SYNC_TOKEN` (a fine-grained token on this repository with Contents and
+#    Workflows: read and write) and it is used instead; or press *Sync fork* that once.
+
+on:
+   schedule:
+      # Daily, 04:17 UTC: off the hour, so it does not queue behind everyone else's jobs
+      -  cron: '17 4 * * *'
+   workflow_dispatch:
+      inputs:
+         build:
+            description: 'Build the images even if upstream has not moved'
+            type: boolean
+            default: false
+
+env:
+   UPSTREAM_REPO: https://github.com/5etools-mirror-3/5etools-src.git
+   UPSTREAM_BRANCH: main
+
+concurrency:
+   group: "sync-upstream"
+   cancel-in-progress: false
+
+jobs:
+   sync:
+      runs-on: ubuntu-latest
+      permissions:
+         contents: write
+         actions: write
+      env:
+         # Readable in a step's `if`, which the secret itself is not
+         HAS_SYNC_TOKEN: ${{ secrets.SYNC_TOKEN != '' }}
+      strategy:
+         fail-fast: false
+         matrix:
+            branch: [main, beta]
+      steps:
+         -  uses: actions/checkout@v4
+            with:
+               ref: ${{ matrix.branch }}
+               # Full history, so the merge base with upstream can be found
+               fetch-depth: 0
+               token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+         -  name: Merge Upstream
+            id: merge
+            run: |
+               git config user.name "github-actions[bot]"
+               git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+               git remote add upstream "$UPSTREAM_REPO"
+               git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+
+               if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
+                  echo "${{ matrix.branch }} is up to date with upstream." | tee -a "$GITHUB_STEP_SUMMARY"
+                  echo "merged=false" >> "$GITHUB_OUTPUT"
+                  exit 0
+               fi
+
+               if ! git merge --no-edit "upstream/$UPSTREAM_BRANCH"; then
+                  echo "::error::Merging upstream into ${{ matrix.branch }} conflicts in: $(git diff --name-only --diff-filter=U | tr '\n' ' '). Nothing was pushed; merge by hand."
+                  git merge --abort
+                  exit 1
+               fi
+
+               git push origin "HEAD:${{ matrix.branch }}"
+               echo "Merged upstream $(git rev-parse --short "upstream/$UPSTREAM_BRANCH") into ${{ matrix.branch }} (5etools $(node -p 'require("./package.json").version'))." | tee -a "$GITHUB_STEP_SUMMARY"
+               echo "merged=true" >> "$GITHUB_OUTPUT"
+
+         # A push made with the workflow's own token starts no other workflow, so the image build is
+         # started here. One made with SYNC_TOKEN starts it by itself, and is not started twice
+         -  name: Build the Image
+            if: (steps.merge.outputs.merged == 'true' && env.HAS_SYNC_TOKEN != 'true') || inputs.build
+            env:
+               GH_TOKEN: ${{ github.token }}
+               GH_REPO: ${{ github.repository }}
+            run: gh workflow run docker-image.yml --ref "${{ matrix.branch }}"
