@@ -648,8 +648,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 
 		const scUnknownHashSources = {};
 
-		// Track any incoming sources we need to filter to enable in order to display the desired subclasses
-		const requiredSources = new Set();
+		const scHashesRequired = new Set();
 
 		const seenKeys = new Set();
 		subs.forEach(sub => {
@@ -663,7 +662,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 				if (k.startsWith("sub")) { // subclass selection state keys
 					if (validScLookup[k]) {
 						if (target[k] !== v) target[k] = v;
-						requiredSources.add(validScLookup[k].source);
+						if (v) scHashesRequired.add(k);
 						seenKeys.add(k);
 						return;
 					}
@@ -719,19 +718,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 			if (!seenKeys.has(k) && v !== target[k]) target[k] = v;
 		});
 
-		if (requiredSources.size) {
-			const sourceFilterValues = this._pageFilter.sourceFilter.getValues().Source;
-			if (sourceFilterValues._isActive) {
-				// If the filter includes "blue" values, set our sources to be included
-				if (sourceFilterValues._totals.yes > 0) {
-					requiredSources.forEach(source => this._pageFilter.sourceFilter.setValue(source, 1));
-				} else { // if there are only "red"s active, disable them for our sources
-					requiredSources.forEach(source => {
-						if (sourceFilterValues[source] !== 0) this._pageFilter.sourceFilter.setValue(source, 0);
-					});
-				}
-			}
-		}
+		this._pageFilter.doSetSubclassesVisible([...scHashesRequired].map(hash => validScLookup[hash]));
 
 		Object.keys(validScLookup).forEach(k => {
 			if (!seenKeys.has(k) && target[k]) target[k] = false;
@@ -1584,7 +1571,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 		this._listSubclass.on("updated", () => {
 			dispCount.vee.off("click");
 
-			if (this._listSubclass.visibleItems.length) {
+			if (this._listSubclass.visibleItems.some(it => !it.values.isAlwaysVisible)) {
 				const cntNotShown = this._listSubclass.items.length - this._listSubclass.visibleItems.length;
 				dispCount
 					.vee.html(cntNotShown ? `<i class="ve-clickable" title="Adjust your filters to see more.">(${cntNotShown} more not shown)</i>` : "")
@@ -1712,6 +1699,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 		const filterSets = [
 			{name: "View Default", subHashes: [], isClearSources: false},
 			{name: "View Standard Plus Partnered", subHashes: [], isClearSources: false, sourceCategories: [SourceUtil.FILTER_GROUP_STANDARD, SourceUtil.FILTER_GROUP_PARTNERED]},
+			{name: "View Standard Plus Universes Beyond", subHashes: [], isClearSources: false, sourceCategories: [SourceUtil.FILTER_GROUP_STANDARD, SourceUtil.FILTER_GROUP_UNIVERSES_BEYOND]},
 			{name: "View Standard Plus Homebrew", subHashes: [], isClearSources: false, sourceCategories: [SourceUtil.FILTER_GROUP_STANDARD, SourceUtil.FILTER_GROUP_HOMEBREW]},
 			{name: "View Most Recent", subHashes: [], isClearSources: true},
 			{name: "View All", subHashes: ["flstmiscellaneous:reprinted=0"], isClearSources: true},
@@ -1728,6 +1716,7 @@ class ClassesPage extends MixinComponentGlobalState(MixinBaseComponent(MixinProx
 				const toExclude = [
 					SourceUtil.FILTER_GROUP_STANDARD,
 					SourceUtil.FILTER_GROUP_PARTNERED,
+					SourceUtil.FILTER_GROUP_UNIVERSES_BEYOND,
 					SourceUtil.FILTER_GROUP_NON_STANDARD,
 					SourceUtil.FILTER_GROUP_PRERELEASE,
 					SourceUtil.FILTER_GROUP_HOMEBREW,
